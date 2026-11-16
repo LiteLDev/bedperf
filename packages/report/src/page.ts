@@ -100,6 +100,15 @@ details.repeats table { margin-top: 6px; }
 .banner b { color: var(--bad-ink); }
 .foot { color: var(--ink-2); font-size: 0.85rem; }
 .foot ul { padding-left: 18px; }
+.threats { border-left: 4px solid var(--warn); }
+.threats.unpub { border-left-color: var(--bad); }
+.threats h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.threats ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 6px; }
+.threats li { overflow-wrap: anywhere; }
+.threats .lvl { display: inline-block; min-width: 9.5em; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+.threats li.bad .lvl { color: var(--bad-ink); } .threats li.warn .lvl { color: var(--warn-ink); } .threats li.info .lvl { color: var(--muted); }
+h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
+.cmp-warn { border: 2px solid var(--warn); background: var(--band-invalid); border-radius: 12px; padding: 12px 18px; margin: 0 0 18px; overflow-wrap: anywhere; }
 .vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; align-items: end; }
 @media (max-width: 520px) {
   main { padding: 16px 16px 32px; }

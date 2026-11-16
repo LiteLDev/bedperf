@@ -6,7 +6,7 @@ export interface ParsedArgs {
 }
 
 /** Flags that never take a value. */
-const BOOLEAN_FLAGS = new Set(['accept-eula', 'keep-instances', 'no-report', 'no-lock', 'help', 'h', 'dry-run', 'preview'])
+const BOOLEAN_FLAGS = new Set(['accept-eula', 'keep-instances', 'no-report', 'no-lock', 'help', 'h', 'dry-run', 'preview', 'force'])
 
 export function parseArgs (argv: readonly string[]): ParsedArgs {
   const positionals: string[] = []

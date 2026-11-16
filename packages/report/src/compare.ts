@@ -3,6 +3,7 @@ import { DASH, esc, firstAt, fmt, fmtBytes, fmtPct, fmtRate, fmtTick, MiB } from
 import { flagsHtml, methodologyHtml, repeatsDetail } from './html.ts'
 import { binomial, dominance, interp, median, niceTicks, separationChance } from './math.ts'
 import { page } from './page.ts'
+import { MIN_PUBLISH_REPEATS } from './provenance.ts'
 import { legend, lineChart } from './svg.ts'
 import type { Series } from './svg.ts'
 import { COMPARABILITY_FIELDS } from './types.ts'
@@ -68,6 +69,18 @@ export interface ComparabilityCheck {
   status: 'match' | 'mismatch' | 'unverified'
 }
 
+/**
+ * Something that does not refuse the comparison but weakens it: a vcpu placement, a dirty
+ * harness, a different harness commit, a run that is not publishable on its own.
+ */
+export interface ComparabilityWarning {
+  key: string
+  label: string
+  a: string | undefined
+  b: string | undefined
+  text: string
+}
+
 export interface CompareOptions {
   /** Compare even when comparability fields mismatch; the page then carries a warning banner. */
   force?: boolean
@@ -84,6 +97,8 @@ export interface Comparison {
   comparability: ComparabilityCheck[]
   /** The mismatching checks; non-empty only when the comparison was forced. */
   mismatches: ComparabilityCheck[]
+  /** Setup differences and weaknesses that do not refuse the comparison. */
+  warnings: ComparabilityWarning[]
   forced: boolean
 }
 
@@ -107,14 +122,18 @@ export const CURVE_DEFS: Array<MetricDef & { key: CurveMetric }> = [
   { key: 'rss', label: 'RSS', better: 'lower', format: (v) => fmtBytes(v) },
   { key: 'rssPerPlayer', label: 'RSS per player', better: 'lower', format: (v) => v === undefined ? DASH : `${fmt(v / MiB, 1)} MiB` },
   { key: 'rttP95', label: 'RTT p95 (ms)', better: 'lower', format: (v) => fmt(v, 1) },
-  { key: 'netTx', label: 'net tx', better: 'lower', format: (v) => fmtRate(v) }
+  { key: 'netTx', label: 'net tx', better: 'lower', format: (v) => fmtRate(v) },
+  { key: 'counterTps', label: 'tick-counter TPS', better: 'higher', format: (v) => fmt(v, 2) },
+  { key: 'tickCpuMsPerTick', label: 'tick CPU per tick (ms)', better: 'lower', format: (v) => fmt(v, 2) },
+  { key: 'viewT90', label: 'view load t90, median bot (s)', better: 'lower', format: (v) => v === undefined ? DASH : fmt(v / 1000, 2) }
 ]
 
 const DERIVED_DEFS: Array<MetricDef & { pick: (d: Derived) => number | undefined }> = [
   { key: 'memPerPlayer', label: 'memory per player', better: 'lower', format: (v) => fmtBytes(v), pick: (d) => d.memPerPlayer?.slope },
   { key: 'netTxPerPlayer', label: 'net tx per player', better: 'lower', format: (v) => fmtRate(v), pick: (d) => d.netTxPerPlayer?.slope },
   { key: 'utilPerPlayer', label: 'main-thread util per player', better: 'lower', format: (v) => fmtPct(v, 2), deltaFormat: (v) => v === undefined ? DASH : `${fmt(v * 100, 2)} pp`, pick: (d) => d.utilPerPlayer?.slope },
-  { key: 'playersAtUtil1', label: 'players at util 1.0 (extrapolated)', better: 'higher', format: (v) => fmt(v, 0), pick: (d) => d.playersAtUtil1 }
+  { key: 'playersAtUtil1', label: 'players at util 1.0 (extrapolated)', better: 'higher', format: (v) => fmt(v, 0), pick: (d) => d.playersAtUtil1 },
+  { key: 'tickCpuPerPlayer', label: 'tick CPU per player (ms/tick)', better: 'lower', format: (v) => fmt(v, 3), pick: (d) => d.tickCpuPerPlayer?.slope }
 ]
 
 function range (xs: readonly number[]): [number, number] | undefined {
@@ -166,6 +185,55 @@ export function comparability (a: Analysis, b: Analysis): ComparabilityCheck[] {
     const status = va === undefined || vb === undefined ? 'unverified' : va === vb ? 'match' : 'mismatch'
     return { key, label, a: va, b: vb, status }
   })
+}
+
+/** Warnings that do not refuse a comparison: placement kind, harness state, publishability. */
+export function comparabilityWarnings (a: Analysis, b: Analysis): ComparabilityWarning[] {
+  const out: ComparabilityWarning[] = []
+  const pa = a.provenance
+  const pb = b.provenance
+  const side = (an: Analysis): string => an === a ? 'A' : 'B'
+  const kindA = pa?.placement?.kind
+  const kindB = pb?.placement?.kind
+  if (kindA === 'vcpu' || kindB === 'vcpu' || (kindA !== undefined && kindB !== undefined && kindA !== kindB)) {
+    const who = [kindA === 'vcpu' ? 'A' : '', kindB === 'vcpu' ? 'B' : ''].filter((x) => x !== '').join(' and ')
+    out.push({
+      key: 'placementKind',
+      label: 'placement kind',
+      a: kindA,
+      b: kindB,
+      text: kindA !== undefined && kindB !== undefined && kindA !== kindB
+        ? 'One run used physical CPUs and the other virtual CPUs: differences may come from virtualization.'
+        : `${who} ran on virtual CPUs (VM or WSL2): hypervisor noise widens the spread.`
+    })
+  }
+  const harness = (an: Analysis): string | undefined => {
+    const h = an.provenance?.harness
+    if (h === undefined) return undefined
+    return `${h.git?.slice(0, 12) ?? h.version ?? '?'}${h.dirty === true ? ' (dirty)' : ''}`
+  }
+  const dirty = [a, b].filter((an) => an.provenance?.harness?.dirty === true).map(side)
+  if (dirty.length > 0) {
+    out.push({ key: 'harnessDirty', label: 'harness', a: harness(a), b: harness(b), text: `${dirty.join(' and ')} ran from a dirty harness (uncommitted changes): unofficial, not reproducible from a commit.` })
+  }
+  if (pa?.harness?.git !== undefined && pb?.harness?.git !== undefined && pa.harness.git !== pb.harness.git) {
+    out.push({ key: 'harnessGit', label: 'harness commit', a: harness(a), b: harness(b), text: 'The runs were measured by different harness commits.' })
+  }
+  for (const [key, label, va, vb] of [
+    ['probePackSha256', 'probe pack hash', pa?.probePackSha256, pb?.probePackSha256],
+    ['bedbooCommit', 'bedboo commit', pa?.bedbooCommit, pb?.bedbooCommit]
+  ] as const) {
+    if (va !== undefined && vb !== undefined && va !== vb) out.push({ key, label, a: va, b: vb, text: `The ${label} differs: the measuring side changed between the runs.` })
+  }
+  const unverified = [a, b].filter((an) => an.provenance?.placement?.verified === false).map(side)
+  if (unverified.length > 0) out.push({ key: 'placementVerified', label: 'placement verified', a: String(pa?.placement?.verified ?? DASH), b: String(pb?.placement?.verified ?? DASH), text: `CPU placement did not verify in ${unverified.join(' and ')}.` })
+  // Same rule as each run's own report (threatsOf): any `bad` threat blocks publishing.
+  const unpub = [a, b].filter((an) => an.publishable === false || (an.publishable === undefined && an.headline.kOk < MIN_PUBLISH_REPEATS))
+  if (unpub.length > 0) {
+    const why = (an: Analysis): string => (an.threats ?? []).filter((t) => t.level === 'bad').map((t) => t.id).join(', ') || `fewer than ${MIN_PUBLISH_REPEATS} ok repeats`
+    out.push({ key: 'publishable', label: 'publishable', a: a.publishable === false ? 'no' : 'yes', b: b.publishable === false ? 'no' : 'yes', text: `Not publishable: ${unpub.map((an) => `${side(an)} (${why(an)})`).join(', ')}. ${a.headline.kOk} v ${b.headline.kOk} ok repeats.` })
+  }
+  return out
 }
 
 // --- comparison ------------------------------------------------------------------------------
@@ -253,6 +321,7 @@ export function compareRuns (a: Analysis, b: Analysis, opts: CompareOptions = {}
     rows,
     comparability: checks,
     mismatches,
+    warnings: comparabilityWarnings(a, b),
     forced: mismatches.length > 0
   }
 }
@@ -323,6 +392,10 @@ function comparabilitySection (c: Comparison): string {
   const label = { match: 'match', mismatch: 'MISMATCH', unverified: 'cannot verify' }
   const cls = { match: 'pass', mismatch: 'fail', unverified: 'invalid' }
   const rows = c.comparability.map((k) => `<tr><td class="l">${esc(k.label)}</td><td class="l"><code>${esc(k.a ?? DASH)}</code></td><td class="l"><code>${esc(k.b ?? DASH)}</code></td><td class="l"><span class="st ${cls[k.status]}">${label[k.status]}</span></td></tr>`).join('\n')
+  const warnRows = (c.warnings ?? []).map((w) => `<tr><td class="l">${esc(w.label)}</td><td class="l"><code>${esc(w.a ?? DASH)}</code></td><td class="l"><code>${esc(w.b ?? DASH)}</code></td><td class="l"><span class="st invalid">warning</span></td></tr>`).join('\n')
+  const warnBox = (c.warnings ?? []).length > 0
+    ? `<div class="cmp-warn" role="note"><b>Comparison warnings.</b><ul>${c.warnings.map((w) => `<li data-warning="${esc(w.key)}">${esc(w.text)}</li>`).join('')}</ul></div>`
+    : ''
   const unverified = c.comparability.filter((k) => k.status === 'unverified')
   const note = unverified.length > 0
     ? `<p class="foot">Cannot verify ${unverified.map((k) => esc(k.label)).join(', ')}: at least one run does not record ${unverified.length === 1 ? 'it' : 'them'} (older run). The comparison assumes they match.</p>`
@@ -331,10 +404,15 @@ function comparabilitySection (c: Comparison): string {
 <h2>Comparability</h2>
 <div class="scroll"><table>
 <thead><tr><th class="l">field</th><th class="l">A</th><th class="l">B</th><th class="l">status</th></tr></thead>
-<tbody>${rows}</tbody>
+<tbody>${rows}${warnRows !== '' ? `\n${warnRows}` : ''}</tbody>
 </table></div>
 ${note}
+${warnBox}
 </section>`
+}
+
+function hasCurve (c: Comparison, m: CurveMetric): boolean {
+  return curveValues(c.a.meanCurve, m).length > 0 || curveValues(c.b.meanCurve, m).length > 0
 }
 
 /** Renders a self-contained HTML comparison of run B against baseline A. */
@@ -386,6 +464,8 @@ ${comparabilitySection(c)}
 <div class="charts">
 <figure><h3>TPS</h3>${overlay('tps', 1, 'TPS', { value: 20, label: '20 TPS' }, [16, 20])}</figure>
 <figure><h3>Main-thread utilisation</h3>${overlay('util', 100, 'util %', { value: 100, label: 'util 1.0' }, [0, 100])}</figure>
+${hasCurve(c, 'tickCpuMsPerTick') ? `<figure><h3>Tick CPU per tick</h3>${overlay('tickCpuMsPerTick', 1, 'ms / tick', undefined, [0])}</figure>` : ''}
+${hasCurve(c, 'counterTps') ? `<figure><h3>Tick-counter TPS</h3>${overlay('counterTps', 1, 'TPS', { value: 20, label: '20 TPS' }, [16, 20])}</figure>` : ''}
 </div>
 </section>
 <section id="metrics" aria-label="Metric deltas">

@@ -6,7 +6,7 @@ import type { BenchmarkConfig } from '@bedperf/core'
 import { ensureBds, hostPlatform, resolveVersion } from '@bedperf/bds-install'
 import { loadConfig, parseConfig, PRESET_NAMES, preset, type PresetName } from '@bedperf/orchestrator'
 import { SCENARIOS } from '@bedperf/scenarios'
-import { writeCompare, writeReport } from '@bedperf/report'
+import { IncomparableRunsError, writeCompare, writeReport } from '@bedperf/report'
 import { applySets, bool, flag, intFlag, parseArgs, type ParsedArgs } from './args.ts'
 import { runCommand } from './run.ts'
 
@@ -29,6 +29,8 @@ commands:
               --dry-run                          print the resolved config and exit
   report    <runDir>                             (re)write <runDir>/report.html
   compare   <runDirA> <runDirB> [-o out.html]    write a comparison report
+              --force                            compare even when config, machine, BDS build, ... differ
+                                                 (otherwise exits 2 listing the mismatches)
   install   [latest|preview|x.y.z.w] --accept-eula   download BDS into the cache
   scenarios                                      list built-in scenarios
 `
@@ -108,7 +110,15 @@ async function main (argv: string[]): Promise<number> {
       const [a, b] = rest
       if (a === undefined || b === undefined) throw new Error('compare needs two run directories')
       const out = flag(args, 'o') ?? flag(args, 'out') ?? 'compare.html'
-      console.log(await writeCompare(resolve(a), resolve(b), resolve(out)))
+      try {
+        console.log(await writeCompare(resolve(a), resolve(b), resolve(out), { force: bool(args, 'force') }))
+      } catch (err) {
+        if (!(err instanceof IncomparableRunsError)) throw err
+        console.error('bedperf: runs are not comparable:')
+        for (const m of err.mismatches) console.error(`  ${m.label}: A ${m.a ?? '-'}, B ${m.b ?? '-'}`)
+        console.error('pass --force to compare anyway (the page then carries a warning banner)')
+        return 2
+      }
       return 0
     }
     case 'install': {
