@@ -147,7 +147,8 @@ test('probe and counter TPS disagreeing invalidates steps; the repeat is invalid
     assert.match(out.steps[0]!.invalidReasons![0]!, /^tps_sources_disagree: probe 20\.\d+ vs counter 2\d\.\d+/)
     assert.deepEqual(out.result.repeats!.map(r => [r.index, r.status, r.rerunOf]), [[0, 'invalid', undefined], [1, 'invalid', 0]])
     assert.match(out.result.repeats![0]!.statusReasons[0]!, /invalid twice in a row at 10 players: tps_sources_disagree/)
-    assert.equal(out.result.invalidLimited, true)
+    assert.equal(out.result.invalidLimited, false, 'only ok repeats count')
+    assert.ok(out.repeats.every(r => r.invalidLimited))
     assert.equal(out.result.loadgenLimited, false)
     assert.equal(out.result.kOk, 0)
     assert.equal(out.result.maxPlayersMedian, 0)
@@ -178,6 +179,10 @@ test('a busy machine before a later repeat makes it invalid; it is rerun with a 
   await withTmp(async dir => {
     const { out, world } = await run({ capacity: 15, idleForeign: n => n === 1 ? 1 : 0.02 }, cfg({ repeats: 2, ramp: { start: 10, step: 10, max: 20, holdSec: 10, resolution: 0 } }), dir)
     assert.deepEqual(out.result.repeats!.map(r => [r.index, r.status, r.rerunOf]), [[0, 'ok', undefined], [1, 'invalid', undefined], [2, 'ok', 1]])
+    const ends = (await envelopes(out.dir)).filter(e => e.kind === 'orch.repeat.end').map(e => (e.data as { outcome: { rerunOf?: number } }).outcome.rerunOf)
+    assert.deepEqual(ends, [undefined, undefined, 1])
+    const meta = JSON.parse(await readFile(path.join(out.dir, RUN_FILES.meta), 'utf8')) as RunMeta
+    assert.equal(meta.placement?.verified, true)
     assert.match(out.result.repeats![1]!.statusReasons[0]!, /^idle_gate: foreign load 1\.00/)
     assert.deepEqual(out.result.maxPlayers, [10, 0, 10])
     assert.equal(out.result.maxPlayersMedian, 10)
@@ -215,6 +220,41 @@ test('placement violation at ready makes the repeat invalid', async () => {
     assert.equal(out.result.repeats![0]!.status, 'invalid')
     assert.match(out.result.repeats![0]!.statusReasons[0]!, /^placement_mismatch: at ready/)
     assert.equal(out.result.repeats![1]!.status, 'ok')
+  })
+})
+
+test('placement never verified is not reported as verified', async () => {
+  await withTmp(async dir => {
+    const { out } = await run({ capacity: 35, gametimeDead: true }, cfg(), dir)
+    const meta = JSON.parse(await readFile(path.join(out.dir, RUN_FILES.meta), 'utf8')) as RunMeta
+    assert.equal(meta.placement?.verified, true, 'verified at ready of both repeats')
+  })
+  await withTmp(async dir => {
+    const { deps } = createSimDeps({ capacity: 35, idleForeign: n => n === 0 ? 0 : 5 }, dir)
+    const out = await runBenchmark(cfg(), { ...deps, createServer: async r => { const sv = await deps.createServer(r); sv.start = async () => { throw Object.assign(new Error('BDS exited before it was ready'), { reason: 'exit' }) }; return sv } })
+    assert.equal(out.result.repeats![0]!.status, 'server_failed')
+    assert.match(out.result.repeats![0]!.statusReasons[0]!, /server did not start/)
+    const meta = JSON.parse(await readFile(path.join(out.dir, RUN_FILES.meta), 'utf8')) as RunMeta
+    assert.equal(meta.placement?.verified, false)
+    assert.equal(meta.placement?.verifications, 0)
+  })
+})
+
+test('a disconnect at the first step fails the step but is not server_failed', async () => {
+  await withTmp(async dir => {
+    const { deps } = createSimDeps({ capacity: 35 }, dir)
+    const createLoadGen: typeof deps.createLoadGen = r => {
+      const lg = deps.createLoadGen(r)
+      let n = 0
+      return {
+        start: o => lg.start(o),
+        scaleTo: (k, t) => lg.scaleTo(k, t),
+        stop: () => lg.stop(),
+        onStats: l => { lg.onStats(s => { n++; l({ ...s, unexpectedDisconnects: n > 20 && n < 60 ? 1 : 0 }) }) }
+      }
+    }
+    const out = await runBenchmark(cfg(), { ...deps, createLoadGen })
+    assert.equal(out.result.repeats![0]!.status, 'ok')
   })
 })
 

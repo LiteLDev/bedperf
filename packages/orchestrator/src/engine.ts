@@ -1,6 +1,6 @@
 import {
   DEFAULT_COOLDOWN_SEC, DEFAULT_GATES, DEFAULT_SAMPLING, DEFAULT_TPS_DIVERGENCE, Kinds, percentile,
-  type BdsServer, type BdsServerEvents, type BenchmarkConfig, type BotFleetStats, type ForeignProcess, type GametimeSample, type GatesConfig,
+  type BdsServer, type BdsServerEvents, type BenchmarkConfig, type BotFleetStats, type Envelope, type ForeignProcess, type GametimeSample, type GatesConfig,
   type InterferenceSample, type InterferenceSummary, type InterferenceThresholds, type LoadGenerator, type LoadGenOptions, type PlacementPlan,
   type PlacementVerification, type ProbeRecord, type ProcessGroupName, type RepeatStatus, type RepeatSummary, type RunMeta,
   type RunPlacementMeta, type RunResult, type Sampler, type StepResult, type SysSample
@@ -163,7 +163,7 @@ export function aggregateRepeats (runId: string, configName: string, repeats: re
     maxPlayersMedian: ok.length > 0 ? percentile(ok.map(r => r.maxPlayers), 50) : 0,
     capped: ok.some(r => r.capped),
     loadgenLimited: repeats.some(r => r.loadgenLimited) || steps.some(s => s.loadgenSaturated),
-    invalidLimited: repeats.some(r => r.invalidLimited),
+    invalidLimited: ok.some(r => r.invalidLimited),
     repeats: summaries,
     kOk: ok.length,
     n: byIndex.length
@@ -299,7 +299,7 @@ export class BenchmarkRun {
         const cd = this.config.cooldownSec ?? DEFAULT_COOLDOWN_SEC
         if (cd > 0) {
           this.log.info(`cooldown ${cd}s`)
-          await this.sleep(cd * 1000)
+          await this.sleepAbortable(cd * 1000)
         }
         this.opts.signal?.throwIfAborted()
       }
@@ -310,11 +310,10 @@ export class BenchmarkRun {
       if (gate !== undefined && !gate.ok) {
         this.log.warn(`repeat ${index}: machine is not idle: ${gate.reasons.join('; ')}`)
         for (const p of gate.top.slice(0, 5)) this.log.warn(`  ${p.name} (pid ${p.pid}): ${p.cores.toFixed(2)} cores`)
-        out = this.skippedRepeat(index, [`idle_gate: ${gate.reasons.join('; ')}`], gate)
+        out = this.skippedRepeat(index, [`idle_gate: ${gate.reasons.join('; ')}`], gate, rerunOf)
       } else {
         out = await this.runRepeat(index, rerunOf)
       }
-      if (rerunOf !== undefined) out.rerunOf = rerunOf
       this.repeats.push(out)
       outs.push(out)
       this.log.info(`repeat ${index}: ${out.status} maxPlayers=${out.maxPlayers}${out.capped ? ' (capped)' : ''}${out.loadgenLimited ? ' (loadgen limited)' : ''}${out.statusReasons.length > 0 ? ` [${out.statusReasons.join('; ')}]` : ''}`)
@@ -328,6 +327,7 @@ export class BenchmarkRun {
   /** Write result.json, `orch.run.end` and close the run dir. */
   async finish (): Promise<BenchmarkOutcome> {
     const result = aggregateRepeats(this.rec.runId, this.config.name, this.repeats, this.steps)
+    this.sealPlacement()
     await this.rec.writeResult(result)
     this.rec.record('orch', Kinds.runEnd, { ok: true, result })
     await this.rec.close()
@@ -337,17 +337,44 @@ export class BenchmarkRun {
 
   /** Finalise the run dir after an error (`orch.run.end` with `ok: false`). Never throws. */
   async fail (err: unknown): Promise<void> {
+    this.sealPlacement()
     this.rec.record('orch', Kinds.runEnd, { ok: false, error: String((err as Error)?.stack ?? err) })
     await this.rec.writeSteps(this.steps).catch(() => {})
     await this.rec.close().catch(() => {})
   }
 
+  /** Placement counts as verified only when at least one verification ran and none failed. */
+  private sealPlacement (): void {
+    const pm = this.rec.meta.placement
+    if (pm !== undefined && (pm.verifications ?? 0) === 0) pm.verified = false
+  }
+
+  /** `sleep` that rejects as soon as `opts.signal` aborts. */
+  private async sleepAbortable (ms: number): Promise<void> {
+    const signal = this.opts.signal
+    if (signal === undefined) return await this.sleep(ms)
+    signal.throwIfAborted()
+    let onAbort: (() => void) | undefined
+    try {
+      await Promise.race([
+        this.sleep(ms),
+        new Promise<never>((_resolve, reject) => {
+          onAbort = () => { reject(signal.reason) }
+          signal.addEventListener('abort', onAbort, { once: true })
+        })
+      ])
+    } finally {
+      if (onAbort !== undefined) signal.removeEventListener('abort', onAbort)
+    }
+  }
+
   /** A repeat that never started a server (e.g. the idle gate failed). */
-  private skippedRepeat (r: number, reasons: string[], gate?: IdleGateResult): RepeatOutcome {
+  private skippedRepeat (r: number, reasons: string[], gate: IdleGateResult | undefined, rerunOf: number | undefined): RepeatOutcome {
     this.rec.retain()
-    this.rec.record('orch', REPEAT_START_KIND, { repeat: r })
+    this.rec.record('orch', REPEAT_START_KIND, { repeat: r, ...(rerunOf !== undefined ? { rerunOf } : {}) })
     if (gate !== undefined) this.rec.record('orch', 'orch.idle', { repeat: r, ok: gate.ok, reasons: gate.reasons, summary: gate.summary, top: gate.top.slice(0, 10) })
     const out: RepeatOutcome = { done: true, repeat: r, maxPlayers: 0, capped: false, loadgenLimited: false, invalidLimited: false, status: 'invalid', statusReasons: reasons }
+    if (rerunOf !== undefined) out.rerunOf = rerunOf
     this.rec.record('orch', REPEAT_END_KIND, { repeat: r, outcome: out })
     return out
   }
@@ -402,6 +429,7 @@ export class BenchmarkRun {
     let outcome: RepeatOutcome | undefined
     try {
       outcome = await this.repeatBody(r, res, ctx, onProbe, onExit)
+      if (rerunOf !== undefined) outcome.rerunOf = rerunOf
     } finally {
       this.setHold(false)
       const warn = (what: string) => (err: unknown) => { this.log.warn(`${what} stop failed: ${String(err)}`) }
@@ -540,12 +568,18 @@ export class BenchmarkRun {
       const plan = planNext({ ramp: config.ramp, history })
       if (plan.done) return this.searchOutcome(r, plan, history)
       const { players, phase } = plan
+      const prior = rec.retained
+      let baselineEnv: Envelope | undefined
+      for (let i = prior.length - 1; i >= 0; i--) if (prior[i]!.kind === Kinds.botStats) { baselineEnv = prior[i]; break }
       rec.record('orch', Kinds.stepStart, { repeat: r, index, players, phase, retry: plan.retry })
+      // A step only reads envelopes from its own orch.step.start on, plus the last fleet stats before it.
+      rec.retainFrom([...(baselineEnv !== undefined ? [baselineEnv] : []), rec.retained.at(-1)!])
 
       const added = Math.max(0, players - prevPlayers)
       await loadgen.scaleTo(players, opts.scaleTimeoutMs ?? 60_000 + added * config.loadgen.joinIntervalMs)
       prevPlayers = players
-      const st = await settle(config.ramp, { now, sleep, stats: () => botStats, ...(opts.signal !== undefined ? { signal: opts.signal } : {}) })
+      const st = await settle(config.ramp, { now, sleep, stats: () => botStats, stop: () => ctx.crashed !== undefined, ...(opts.signal !== undefined ? { signal: opts.signal } : {}) })
+      if (ctx.crashed !== undefined) return serverFailed(ctx.crashed, players)
       const views = viewsIncomplete(botStats.at(-1))
       rec.record('orch', 'orch.settle', { repeat: r, index, ...st, ...(views !== undefined ? { viewsIncomplete: views } : {}) })
       if (st.settleCapped) log.warn(`repeat ${r} step ${index}: settle capped at ${st.settleSec.toFixed(0)}s (views still loading)`)
@@ -587,8 +621,9 @@ export class BenchmarkRun {
 
       if (ctx.crashed !== undefined) return serverFailed(ctx.crashed, players)
       // Not all bots could join the very first measured load level: the server cannot take any load.
+      // (Disconnects after a successful join only fail the step.)
       if (outcome === 'fail' && history.filter(h => h.outcome !== 'invalid').length === 1) {
-        const joins = step.failReasons.filter(x => /bots spawned|bot failures/.test(x))
+        const joins = step.failReasons.filter(x => /bots spawned/.test(x))
         if (joins.length > 0) return serverFailed(`not all bots could join at the first step: ${joins.join('; ')}`, players)
       }
     }

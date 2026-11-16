@@ -186,6 +186,11 @@ export class RunRecorder {
     this.kept = []
   }
 
+  /** Continue retaining, but drop everything kept so far except `keep` (in order). */
+  retainFrom (keep: readonly Envelope[]): void {
+    this.kept = [...keep]
+  }
+
   /** Envelopes written since `retain()`, in order (empty if `retain` was never called). */
   get retained (): readonly Envelope[] {
     return this.kept ?? []

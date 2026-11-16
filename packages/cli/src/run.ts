@@ -330,7 +330,12 @@ export async function runSessionCommand (inputs: readonly BenchmarkConfig[], ord
     const plans: Array<PlacementPlan | undefined> = []
     for (const p of prepared) plans.push(await planRunPlacement(p.config, log))
     const first = plans.find(x => x !== undefined)
-    if (first !== undefined) await applyHarness(first, log)
+    if (first !== undefined) {
+      if (plans.some(x => x !== undefined && x.harnessCpus.join(',') !== first.harnessCpus.join(','))) {
+        log.warn('placement: the configs of this session plan different harness CPU sets; the harness uses the first one')
+      }
+      await applyHarness(first, log)
+    }
     const runsDir = resolve(opts.runsDir ?? join(REPO_ROOT, 'runs'))
     const sessionId = freshId(runsDir, 'session')
     lock?.setRunId(sessionId)

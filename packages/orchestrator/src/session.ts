@@ -132,7 +132,19 @@ export async function runSession (entries: readonly SessionEntry[], sopts: Sessi
     throw err
   }
   const outcomes: BenchmarkOutcome[] = []
-  for (const r of runs) outcomes.push(await r.finish())
+  let finishErr: unknown
+  for (const r of runs) {
+    try {
+      outcomes.push(await r.finish())
+    } catch (err) {
+      finishErr ??= err
+      await r.fail(err)
+    }
+  }
+  if (finishErr !== undefined) {
+    await writeSession({ finishedAt: new Date(now()).toISOString(), error: String((finishErr as Error)?.message ?? finishErr) }).catch(() => {})
+    throw finishErr
+  }
   const codes = outcomes.map(o => exitCodeOf(o.result))
   const exitCode = codes.every(c => c === ExitCodes.ok)
     ? ExitCodes.ok

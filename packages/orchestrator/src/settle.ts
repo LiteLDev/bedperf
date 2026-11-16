@@ -70,7 +70,7 @@ export function settleRules (ramp: Pick<RampConfig, 'settleSec' | 'settle'>): Se
  */
 export async function settle (
   ramp: Pick<RampConfig, 'settleSec' | 'settle'>,
-  io: { now: () => number, sleep: (ms: number) => Promise<void>, stats: () => readonly BotFleetStats[], signal?: AbortSignal }
+  io: { now: () => number, sleep: (ms: number) => Promise<void>, stats: () => readonly BotFleetStats[], signal?: AbortSignal, stop?: () => boolean }
 ): Promise<SettleOutcome> {
   const rules = settleRules(ramp)
   const start = io.now()
@@ -84,6 +84,8 @@ export async function settle (
   for (;;) {
     io.signal?.throwIfAborted()
     const elapsed = io.now() - start
+    // Pointless to wait for views of a dead server: the caller checks why.
+    if (io.stop?.() === true) return { mode: 'converge', settleSec: elapsed / 1000, settleCapped: false }
     if (elapsed >= minMs) {
       const chk = settleCheck(io.stats(), io.now(), rules)
       rate = chk.ratePerBot

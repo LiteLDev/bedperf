@@ -87,7 +87,10 @@ export interface RampConfig {
   max: number
   /** Seconds to settle after scaling before measuring, in `settle.mode = 'fixed'`. */
   settleSec: number
-  /** Settle rule; filled by the config parser. Absent (old configs): fixed `settleSec`. */
+  /**
+   * Settle rule; the config parser fills it (default: `converge`, so `settleSec` matters only with
+   * `settle.mode = 'fixed'`). Absent (a config built without the parser): fixed `settleSec`.
+   */
   settle?: SettleConfig
   /** Seconds measured per step. */
   holdSec: number
