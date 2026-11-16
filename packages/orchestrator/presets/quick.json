@@ -1,0 +1,25 @@
+{
+  "name": "quick",
+  "bdsVersion": "latest",
+  "serverProperties": {
+    "view-distance": 10,
+    "tick-distance": 4,
+    "max-players": 1000,
+    "default-player-permission-level": "operator",
+    "difficulty": "peaceful"
+  },
+  "world": { "seed": "bedperf", "levelType": "FLAT" },
+  "scenario": { "module": "@bedperf/scenarios/idle", "params": {} },
+  "loadgen": { "botsPerWorker": 50, "joinIntervalMs": 100 },
+  "ramp": { "start": 5, "step": 5, "max": 50, "settleSec": 5, "holdSec": 15, "resolution": 2 },
+  "criteria": {
+    "minAvgTps": 19.8,
+    "minWorstWindowTps": 19.0,
+    "worstWindowDiscardPct": 1,
+    "maxTickIntervalP99Ms": 60,
+    "maxBotFailures": 0
+  },
+  "repeats": 1,
+  "warmupSec": 10,
+  "seed": 1
+}
