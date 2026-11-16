@@ -11,7 +11,15 @@
   "world": { "seed": "bedperf", "levelType": "DEFAULT" },
   "scenario": { "module": "@bedperf/scenarios/walk", "params": { "radius": 32 } },
   "loadgen": { "botsPerWorker": 50, "joinIntervalMs": 250 },
-  "ramp": { "start": 10, "step": 10, "max": 500, "settleSec": 30, "holdSec": 120, "resolution": 1 },
+  "ramp": {
+    "start": 10,
+    "step": 10,
+    "max": 500,
+    "settleSec": 30,
+    "holdSec": 120,
+    "resolution": 1,
+    "settle": { "mode": "converge", "minSec": 60, "maxSec": 900, "windowSec": 60, "ratePerBot": 0.1, "maxDataAgeSec": 5, "evalSec": 5 }
+  },
   "criteria": {
     "minAvgTps": 19.8,
     "minWorstWindowTps": 19.0,
@@ -21,5 +29,8 @@
   },
   "repeats": 5,
   "warmupSec": 120,
-  "seed": 1
+  "seed": 1,
+  "cooldownSec": 120,
+  "placement": { "enabled": true, "serverCpus": "auto", "botCpus": "auto", "harnessCpus": "bot", "priority": "normal" },
+  "sampling": { "gametimeIntervalSec": 5 }
 }

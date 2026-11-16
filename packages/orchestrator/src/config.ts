@@ -1,5 +1,8 @@
 import { readFile } from 'node:fs/promises'
-import { DEFAULT_CRITERIA, type BenchmarkConfig, type PassCriteria, type RampConfig } from '@bedperf/core'
+import {
+  DEFAULT_COOLDOWN_SEC, DEFAULT_CRITERIA, DEFAULT_GATES, DEFAULT_PLACEMENT, DEFAULT_SAMPLING, DEFAULT_SETTLE, DEFAULT_TPS_DIVERGENCE,
+  type BenchmarkConfig, type CpuSpec, type GatesConfig, type PassCriteria, type PlacementConfig, type RampConfig, type SettleConfig
+} from '@bedperf/core'
 
 /** Defaults applied to `ramp` fields that are omitted. */
 export const DEFAULT_RAMP: RampConfig = {
@@ -104,9 +107,34 @@ class Validator {
   }
 }
 
-const TOP_KEYS = ['$schema', 'name', 'bdsVersion', 'botVersion', 'serverProperties', 'world', 'scenario', 'loadgen', 'ramp', 'criteria', 'repeats', 'warmupSec', 'seed'] as const
-const RAMP_KEYS = ['start', 'step', 'max', 'settleSec', 'holdSec', 'resolution'] as const
-const CRITERIA_KEYS = ['minAvgTps', 'minWorstWindowTps', 'worstWindowDiscardPct', 'maxTickIntervalP99Ms', 'maxMainThreadUtil', 'maxBotFailures'] as const
+const TOP_KEYS = [
+  '$schema', 'name', 'bdsVersion', 'botVersion', 'serverProperties', 'world', 'scenario', 'loadgen', 'ramp', 'criteria', 'repeats', 'warmupSec', 'seed',
+  'placement', 'gates', 'sampling', 'cooldownSec'
+] as const
+const RAMP_KEYS = ['start', 'step', 'max', 'settleSec', 'holdSec', 'resolution', 'settle'] as const
+const SETTLE_KEYS = ['mode', 'minSec', 'maxSec', 'windowSec', 'ratePerBot', 'maxDataAgeSec', 'evalSec'] as const
+const CRITERIA_KEYS = [
+  'minAvgTps', 'minWorstWindowTps', 'worstWindowDiscardPct', 'maxTickIntervalP99Ms', 'maxMainThreadUtil', 'maxBotFailures',
+  'minCounterTps', 'maxProbeCounterTpsDivergence'
+] as const
+const PLACEMENT_KEYS = ['enabled', 'label', 'serverCpus', 'botCpus', 'harnessCpus', 'priority'] as const
+export const GATES_KEYS = Object.keys(DEFAULT_GATES) as ReadonlyArray<keyof GatesConfig>
+const SAMPLING_KEYS = ['gametimeIntervalSec'] as const
+
+/** `auto` (or `bot` where allowed), a kernel-style CPU list such as `"0-7,16"`, or an array of CPU indices. */
+function cpuSpec (v: Validator, o: Obj, key: string, path: string, def: CpuSpec, keyword: string): CpuSpec {
+  const val = o[key]
+  if (val === undefined) return def
+  const p = `${path}.${key}`
+  if (typeof val === 'string') {
+    if (val === keyword || /^\s*\d+(\s*-\s*\d+)?(\s*,\s*\d+(\s*-\s*\d+)?)*\s*$/.test(val)) return val
+    v.fail(p, `expected "${keyword}" or a CPU list like "0-7,16"`, val)
+    return def
+  }
+  if (Array.isArray(val) && val.length > 0 && val.every(x => Number.isInteger(x) && (x as number) >= 0)) return [...val] as number[]
+  v.fail(p, `expected "${keyword}", a CPU list string or a non-empty array of CPU indices`, val)
+  return def
+}
 const WORLD_KEYS = ['snapshot', 'seed', 'levelType'] as const
 const SCENARIO_KEYS = ['module', 'params'] as const
 const LOADGEN_KEYS = ['botsPerWorker', 'joinIntervalMs'] as const
@@ -191,6 +219,22 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
     holdSec: v.num(r, 'holdSec', RP, { def: DEFAULT_RAMP.holdSec, min: 0, minExclusive: true })!,
     resolution: v.num(r, 'resolution', RP, { def: DEFAULT_RAMP.resolution, int: true, min: 0 })!
   }
+  const st = v.obj(r, 'settle', RP) ?? {}
+  const SP = `${RP}.settle`
+  v.unknownKeys(st, SP, SETTLE_KEYS)
+  const mode = st['mode']
+  if (mode !== undefined && mode !== 'converge' && mode !== 'fixed') v.fail(`${SP}.mode`, 'expected "converge" or "fixed"', mode)
+  const settle: SettleConfig = {
+    mode: mode === 'fixed' ? 'fixed' : 'converge',
+    minSec: v.num(st, 'minSec', SP, { def: DEFAULT_SETTLE.minSec, min: 0 })!,
+    maxSec: v.num(st, 'maxSec', SP, { def: DEFAULT_SETTLE.maxSec, min: 0 })!,
+    windowSec: v.num(st, 'windowSec', SP, { def: DEFAULT_SETTLE.windowSec, min: 0, minExclusive: true })!,
+    ratePerBot: v.num(st, 'ratePerBot', SP, { def: DEFAULT_SETTLE.ratePerBot, min: 0 })!,
+    maxDataAgeSec: v.num(st, 'maxDataAgeSec', SP, { def: DEFAULT_SETTLE.maxDataAgeSec, min: 0, minExclusive: true })!,
+    evalSec: v.num(st, 'evalSec', SP, { def: DEFAULT_SETTLE.evalSec, min: 0, minExclusive: true })!
+  }
+  if (settle.maxSec < settle.minSec) v.fail(`${SP}.maxSec`, `must be >= settle.minSec (${settle.minSec})`, settle.maxSec)
+  ramp.settle = settle
   const startOk = r['start'] === undefined || ramp.start === r['start']
   const maxOk = r['max'] === undefined || ramp.max === r['max']
   if (startOk && maxOk && ramp.start > ramp.max) v.fail(`${RP}.start`, `must be <= ramp.max (${ramp.max})`, ramp.start)
@@ -206,6 +250,9 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
     maxTickIntervalP99Ms: v.num(c, 'maxTickIntervalP99Ms', CP, { def: DEFAULT_CRITERIA.maxTickIntervalP99Ms, min: 0, minExclusive: true })!,
     maxBotFailures: v.num(c, 'maxBotFailures', CP, { def: DEFAULT_CRITERIA.maxBotFailures, int: true, min: 0 })!
   }
+  const mct = v.num(c, 'minCounterTps', CP, { min: 0, max: 20 })
+  if (mct !== undefined) criteria.minCounterTps = mct
+  criteria.maxProbeCounterTpsDivergence = v.num(c, 'maxProbeCounterTpsDivergence', CP, { def: DEFAULT_TPS_DIVERGENCE, min: 0, minExclusive: true })!
   const mtu = v.num(c, 'maxMainThreadUtil', CP, { min: 0, minExclusive: true, max: 1 })
   const defMtu = c['maxMainThreadUtil'] === undefined ? DEFAULT_CRITERIA.maxMainThreadUtil : undefined
   if ((mtu ?? defMtu) !== undefined) criteria.maxMainThreadUtil = mtu ?? defMtu
@@ -213,10 +260,45 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
   const repeats = v.num(raw, 'repeats', P, { def: DEFAULT_REPEATS, int: true, min: 1 })!
   const warmupSec = v.num(raw, 'warmupSec', P, { def: DEFAULT_WARMUP_SEC, min: 0 })!
   const seed = v.num(raw, 'seed', P, { def: 1, int: true })!
+  const cooldownSec = v.num(raw, 'cooldownSec', P, { def: DEFAULT_COOLDOWN_SEC, min: 0 })!
+
+  // placement
+  const pl = v.obj(raw, 'placement', P) ?? {}
+  const PP = `${P}.placement`
+  v.unknownKeys(pl, PP, PLACEMENT_KEYS)
+  const enabled = pl['enabled']
+  if (enabled !== undefined && typeof enabled !== 'boolean') v.fail(`${PP}.enabled`, 'expected a boolean', enabled)
+  const priority = pl['priority']
+  if (priority !== undefined && priority !== 'normal' && priority !== 'above_normal') v.fail(`${PP}.priority`, 'expected "normal" or "above_normal"', priority)
+  const placement: PlacementConfig = {
+    enabled: typeof enabled === 'boolean' ? enabled : DEFAULT_PLACEMENT.enabled,
+    serverCpus: cpuSpec(v, pl, 'serverCpus', PP, DEFAULT_PLACEMENT.serverCpus, 'auto'),
+    botCpus: cpuSpec(v, pl, 'botCpus', PP, DEFAULT_PLACEMENT.botCpus, 'auto'),
+    harnessCpus: cpuSpec(v, pl, 'harnessCpus', PP, DEFAULT_PLACEMENT.harnessCpus, 'bot') as PlacementConfig['harnessCpus'],
+    priority: priority === 'above_normal' ? 'above_normal' : 'normal'
+  }
+  const label = v.str(pl, 'label', PP)
+  if (label !== undefined) placement.label = label
+
+  // gates
+  const g = v.obj(raw, 'gates', P) ?? {}
+  const GP = `${P}.gates`
+  v.unknownKeys(g, GP, GATES_KEYS)
+  const gates = { ...DEFAULT_GATES }
+  for (const k of GATES_KEYS) gates[k] = v.num(g, k, GP, { def: DEFAULT_GATES[k], min: 0 })!
+
+  // sampling
+  const sm = v.obj(raw, 'sampling', P) ?? {}
+  v.unknownKeys(sm, `${P}.sampling`, SAMPLING_KEYS)
+  const sampling = {
+    gametimeIntervalSec: v.num(sm, 'gametimeIntervalSec', `${P}.sampling`, { def: DEFAULT_SAMPLING.gametimeIntervalSec, min: 0, minExclusive: true })!
+  }
 
   if (v.issues.length > 0) throw new ConfigError(v.issues, source)
 
-  const cfg: BenchmarkConfig = { name, bdsVersion, serverProperties, world, scenario, loadgen, ramp, criteria, repeats, warmupSec, seed }
+  const cfg: BenchmarkConfig = {
+    name, bdsVersion, serverProperties, world, scenario, loadgen, ramp, criteria, repeats, warmupSec, seed, placement, gates, sampling, cooldownSec
+  }
   if (botVersion !== undefined) cfg.botVersion = botVersion
   return cfg
 }

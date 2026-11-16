@@ -75,7 +75,7 @@ test('max reached with pass is capped; last step is clamped to max', () => {
 })
 
 test('start == max', () => {
-  assert.deepEqual(drive({ start: 5, step: 5, max: 5, resolution: 1 }, capacity(9)).done, { done: true, maxPlayers: 5, capped: true, loadgenLimited: false })
+  assert.deepEqual(drive({ start: 5, step: 5, max: 5, resolution: 1 }, capacity(9)).done, { done: true, maxPlayers: 5, capped: true, loadgenLimited: false, invalidLimited: false })
 })
 
 test('fail at the very first step bisects down towards 0', () => {
@@ -101,14 +101,29 @@ test('invalid step is retried once at the same load', () => {
 test('invalid twice in a row stops with loadgenLimited', () => {
   const { done, steps } = drive(R, p => p > 25 ? 'invalid' : 'pass')
   assert.deepEqual(steps.map(s => s.players), [10, 20, 30, 30])
-  assert.deepEqual(done, { done: true, maxPlayers: 20, capped: false, loadgenLimited: true })
+  assert.deepEqual(done, { done: true, maxPlayers: 20, capped: false, loadgenLimited: true, invalidLimited: true, invalidReasons: ['loadgen saturated'] })
 })
 
 test('invalid during bisect is retried in the bisect phase', () => {
   const d = planNext({ ramp: R, history: [{ players: 10, outcome: 'pass' }, { players: 20, outcome: 'fail' }, { players: 15, outcome: 'invalid' }] })
   assert.deepEqual(d, { done: false, players: 15, phase: 'bisect', retry: true })
   const stop = planNext({ ramp: R, history: [{ players: 10, outcome: 'pass' }, { players: 20, outcome: 'fail' }, { players: 15, outcome: 'invalid' }, { players: 15, outcome: 'invalid' }] })
-  assert.deepEqual(stop, { done: true, maxPlayers: 10, capped: false, loadgenLimited: true, firstFail: 20 })
+  assert.deepEqual(stop, { done: true, maxPlayers: 10, capped: false, loadgenLimited: true, invalidLimited: true, invalidReasons: ['loadgen saturated'], firstFail: 20 })
+})
+
+test('invalid for other reasons stops invalidLimited without loadgenLimited', () => {
+  const stop = planNext({
+    ramp: R,
+    history: [
+      { players: 10, outcome: 'pass' },
+      { players: 20, outcome: 'invalid', reasons: ['placement_mismatch'] },
+      { players: 20, outcome: 'invalid', reasons: ['loadgen saturated', 'interference: x'] }
+    ]
+  })
+  assert.deepEqual(stop, {
+    done: true, maxPlayers: 10, capped: false, loadgenLimited: false, invalidLimited: true,
+    invalidReasons: ['placement_mismatch', 'loadgen saturated', 'interference: x']
+  })
 })
 
 test('noisy non-monotonic outcomes still converge below the lowest fail', () => {

@@ -197,7 +197,7 @@ test('sys/bot intervals overlapping the settle period are trimmed', async () => 
         }
       }
     }
-    const out = await runBenchmark(cfg({ repeats: 1, ramp: { start: 10, step: 10, max: 30, settleSec: 0, holdSec: 5, resolution: 2 } }), { ...deps, createLoadGen })
+    const out = await runBenchmark(cfg({ repeats: 1, ramp: { start: 10, step: 10, max: 30, settleSec: 0, holdSec: 5, resolution: 2, settle: { mode: 'fixed' } }, sampling: { gametimeIntervalSec: 1 } }), { ...deps, createLoadGen })
     assert.ok(tainted >= 1, 'at least one saturated interval overlapped a hold start')
     assert.ok(out.steps.every(s => !s.loadgenSaturated), out.steps.map(s => s.failReasons.join()).join('|'))
     assert.deepEqual(out.result.maxPlayers, [30])

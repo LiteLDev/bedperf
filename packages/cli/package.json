@@ -20,6 +20,7 @@
     "@bedperf/core": "workspace:*",
     "@bedperf/loadgen": "workspace:*",
     "@bedperf/orchestrator": "workspace:*",
+    "@bedperf/placement": "workspace:*",
     "@bedperf/probe-addon": "workspace:*",
     "@bedperf/report": "workspace:*",
     "@bedperf/scenarios": "workspace:*",
