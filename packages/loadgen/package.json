@@ -1,0 +1,22 @@
+{
+  "name": "@bedperf/loadgen",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Multi-process bedboo bot fleet with scaleTo(n) and bot-side metrics",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@bedperf/core": "workspace:*",
+    "bedboo": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

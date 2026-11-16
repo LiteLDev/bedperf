@@ -1,0 +1,21 @@
+{
+  "name": "@bedperf/report",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Run directory analysis and self-contained HTML report / comparison",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@bedperf/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

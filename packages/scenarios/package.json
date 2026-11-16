@@ -1,0 +1,22 @@
+{
+  "name": "@bedperf/scenarios",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Bot workload scenarios (idle, walk, explore, build, chat, mobs, entity-stress)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@bedperf/core": "workspace:*",
+    "bedboo": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}
