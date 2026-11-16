@@ -1,4 +1,5 @@
 import type { SysSample } from '@bedperf/core'
+import { DEFAULT_TICK_THREAD_RULE, applyTickThreadRule, parseTickThreadRule, type TickThreadRule } from './tickthread.ts'
 import type { RawReading } from './types.ts'
 
 export interface ComputeOptions {
@@ -12,6 +13,12 @@ export interface ComputeOptions {
    * incumbent's by this factor.
    */
   switchFactor?: number
+  /**
+   * How the tick thread is identified (`lowest_tid_name:<N>` | `name:<N>` | `busiest`);
+   * default `lowest_tid_name:MC_SERVER`. When no thread matches, the busiest-thread heuristic
+   * is used and the sample says `source: 'busiest'`.
+   */
+  tickThreadRule?: string
 }
 
 export interface ComputeState {
@@ -19,9 +26,13 @@ export interface ComputeState {
   topThreads: number
   mainThreadWindow: number
   switchFactor: number
+  tickThreadRule: TickThreadRule
   /** Per-sample thread CPU deltas (ms), newest last, at most `mainThreadWindow` entries. */
   window: Array<Map<number, number>>
+  /** Busiest-thread heuristic's (sticky) pick, maintained even while a name rule matches. */
+  busiestTid?: number
   mainTid?: number
+  mainSource?: 'name' | 'busiest'
 }
 
 export function createComputeState (opts: ComputeOptions): ComputeState {
@@ -30,6 +41,7 @@ export function createComputeState (opts: ComputeOptions): ComputeState {
     topThreads: Math.max(0, opts.topThreads ?? 5),
     mainThreadWindow: Math.max(1, opts.mainThreadWindow ?? 10),
     switchFactor: opts.switchFactor ?? 1.25,
+    tickThreadRule: parseTickThreadRule(opts.tickThreadRule ?? DEFAULT_TICK_THREAD_RULE),
     window: []
   }
 }
@@ -77,6 +89,22 @@ export function computeSample (prev: RawReading, cur: RawReading, state: Compute
     state.window.push(deltas)
     while (state.window.length > state.mainThreadWindow) state.window.shift()
     pickMainThread(state, deltas)
+    let named = applyTickThreadRule(state.tickThreadRule, cur.threads)
+    // A thread once found by name stays the tick thread while it is alive, even if one reading
+    // lacks its name (a failed name lookup), so the util/cpuMs series do not flip threads.
+    if (named === undefined && state.mainSource === 'name' && state.mainTid !== undefined && deltas.has(state.mainTid)) {
+      named = state.mainTid
+    }
+    if (named !== undefined) {
+      state.mainTid = named
+      state.mainSource = 'name'
+    } else if (state.busiestTid !== undefined) {
+      state.mainTid = state.busiestTid
+      state.mainSource = 'busiest'
+    } else {
+      delete state.mainTid
+      delete state.mainSource
+    }
 
     const pct = (tid: number): number => round2((deltas.get(tid) ?? 0) / dt * 100)
     const withName = <T extends { tid: number }>(o: T): T & { name?: string } => {
@@ -91,8 +119,13 @@ export function computeSample (prev: RawReading, cur: RawReading, state: Compute
         .map(tid => withName({ tid, cpuPct: pct(tid) }))
     }
     if (state.mainTid !== undefined) {
-      const cpuPct = pct(state.mainTid)
-      sample.mainThread = withName({ tid: state.mainTid, cpuPct, util: clamp(Math.round(cpuPct * 100) / 10000, 0, 1) })
+      const tid = state.mainTid
+      const cpuPct = pct(tid)
+      const mt: NonNullable<SysSample['mainThread']> = withName({ tid, cpuPct, util: clamp(Math.round(cpuPct * 100) / 10000, 0, 1) })
+      if (state.mainSource) mt.source = state.mainSource
+      const cpuMs = cur.threads.find(th => th.tid === tid)?.cpuMs
+      if (cpuMs !== undefined) mt.cpuMs = Math.round(cpuMs * 1000) / 1000
+      sample.mainThread = mt
     }
   }
 
@@ -121,7 +154,10 @@ export function computeSample (prev: RawReading, cur: RawReading, state: Compute
   return sample
 }
 
-/** Busiest thread over the window, sticky unless a challenger clearly dominates. */
+/**
+ * Busiest thread over the window, sticky unless a challenger clearly dominates. Updates
+ * `state.busiestTid`; the name rule (if it matches) takes precedence over it.
+ */
 function pickMainThread (state: ComputeState, latest: Map<number, number>): void {
   const sums = new Map<number, number>()
   for (const m of state.window) {
@@ -135,9 +171,9 @@ function pickMainThread (state: ComputeState, latest: Map<number, number>): void
   for (const [tid, s] of sums) {
     if (s > bestSum || (s === bestSum && best !== undefined && tid < best)) { best = tid; bestSum = s }
   }
-  if (best === undefined) { delete state.mainTid; return }
-  const inc = state.mainTid
-  if (inc === undefined || !latest.has(inc)) { state.mainTid = best; return }
+  if (best === undefined) { delete state.busiestTid; return }
+  const inc = state.busiestTid
+  if (inc === undefined || !latest.has(inc)) { state.busiestTid = best; return }
   const incSum = sums.get(inc) ?? 0
-  if (best !== inc && bestSum > incSum * state.switchFactor) state.mainTid = best
+  if (best !== inc && bestSum > incSum * state.switchFactor) state.busiestTid = best
 }

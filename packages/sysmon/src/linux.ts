@@ -72,6 +72,15 @@ export function parseNetDev (text: string): NetCounter[] {
   return out
 }
 
+/**
+ * First field of `/proc/<pid>/task/<tid>/schedstat`: time spent on a CPU, ns. Unlike
+ * utime+stime it is not quantized to clock ticks. Returns undefined if malformed.
+ */
+export function parseSchedstat (text: string): number | undefined {
+  const v = Number(text.trim().split(/\s+/)[0])
+  return text.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : undefined
+}
+
 export interface LinuxBackendOptions {
   pid: number
   /** Clock ticks per second (`getconf CLK_TCK`). */
@@ -79,6 +88,12 @@ export interface LinuxBackendOptions {
   pageSize?: number
   net?: boolean
   procRoot?: string
+  /**
+   * Per-thread CPU from `task/<tid>/schedstat` (ns resolution) instead of utime+stime (clock
+   * ticks), when the kernel provides it (default true). Decided once, at the first read, so a
+   * thread's cumulative CPU never switches source mid-run.
+   */
+  schedstat?: boolean
 }
 
 function isGone (err: unknown): boolean {
@@ -93,12 +108,35 @@ export function createLinuxBackend (opts: LinuxBackendOptions): Backend {
   const pageSize = opts.pageSize ?? 4096
   const wantNet = opts.net ?? true
 
+  // undefined until the first thread read decides whether schedstat is usable.
+  let useSchedstat: boolean | undefined = opts.schedstat === false ? false : undefined
+
+  async function readThreadSchedNs (t: string): Promise<number | undefined> {
+    try { return parseSchedstat(await readFile(`${base}/task/${t}/schedstat`, 'utf8')) } catch { return undefined }
+  }
+
   async function readThreads (): Promise<RawThread[]> {
     const tids = await readdir(`${base}/task`)
+    if (useSchedstat === undefined) {
+      // Probe on the main task (tid == pid), falling back to any listed task.
+      const probe = tids.includes(String(opts.pid)) ? String(opts.pid) : tids[0]
+      // A running process has nonzero on-CPU time; 0 means a placeholder ("0 0 0" when the
+      // kernel's sched_info accounting is off), so fall back to utime+stime.
+      const ns = probe === undefined ? undefined : await readThreadSchedNs(probe)
+      useSchedstat = ns !== undefined && ns > 0
+    }
+    const sched = useSchedstat
     const out = await Promise.all(tids.map(async (t): Promise<RawThread | null> => {
       try {
-        const st = parseProcStat(await readFile(`${base}/task/${t}/stat`, 'utf8'))
-        return { tid: Number(t), name: st.comm, cpuMs: st.cpuTicks * msPerTick }
+        const [statText, ns] = await Promise.all([
+          readFile(`${base}/task/${t}/stat`, 'utf8'),
+          sched ? readThreadSchedNs(t) : undefined
+        ])
+        const st = parseProcStat(statText)
+        // With schedstat in use, a thread whose schedstat vanished has exited: skip it rather
+        // than mix units for its tid.
+        if (sched && ns === undefined) return null
+        return { tid: Number(t), name: st.comm, cpuMs: sched ? ns! / 1e6 : st.cpuTicks * msPerTick }
       } catch { return null } // thread exited between readdir and read
     }))
     return out.filter((x): x is RawThread => x !== null)
