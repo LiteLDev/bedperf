@@ -308,3 +308,28 @@ test('scaleTo resolves on timeout when bots never spawn', async () => {
   assert.equal(fleet.snapshot().joining, 3)
   await fleet.stop()
 })
+
+test('pids() lists live workers and onWorkerSpawn sees every fork; forceFullChunks reaches the worker init', async () => {
+  const workers: FakeWorker[] = []
+  const fleet = new BotFleet({
+    spawnWorker: id => {
+      const w = new FakeWorker(id, happy)
+      ;(w as { pid?: number }).pid = 1000 + workers.length
+      workers.push(w)
+      return w
+    }
+  })
+  const spawned: number[] = []
+  fleet.onWorkerSpawn(pid => spawned.push(pid))
+  const base = setup().opts
+  await fleet.start({ ...base, scenarioParams: { forceFullChunks: true } })
+  await fleet.scaleTo(15, 5000)
+  assert.deepEqual(fleet.pids().sort(), [1000, 1001])
+  assert.deepEqual(spawned, [1000, 1001])
+  const init = workers[0]!.sent[0]!.msg
+  assert.ok(init.type === 'init' && init.init.forceFullChunks === true)
+  workers[1]!.exit(1)
+  assert.deepEqual(fleet.pids(), [1000])
+  await fleet.stop()
+  assert.deepEqual(fleet.pids(), [])
+})

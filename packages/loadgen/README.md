@@ -32,13 +32,17 @@ await fleet.stop()
   and `joinFailures`. Failed or disconnected indices are retried only by the next `scaleTo` call. Workers
   that scale-down leaves without bots are stopped.
 - `onStats(listener)` gets a `FleetStats` (a `BotFleetStats` superset) every `statsIntervalMs`.
+- `pids()` returns the OS pids of the live worker processes. `onWorkerSpawn(cb)` calls `cb(pid)` for every
+  worker process forked after it is registered, re-forks included. Both are optional in the core contract
+  and are meant for CPU placement and process-group accounting.
 - `stop()` ends every bot. Each worker gets `stopGraceMs` (default 10 s) and is killed if it is still alive
   after that. Workers also exit by themselves when their IPC channel to the controller closes, so a
   controller crash does not leave orphans behind.
 
 Extra options (`BotFleetOptions extends LoadGenOptions`): `joinTimeoutMs` (60 s), `leaveTimeoutMs` (5 s),
 `readyTimeoutMs` (60 s), `stopGraceMs`, `rtt: { sampleRatio, intervalMs, timeoutMs }`,
-`saturation: { eventLoopP99Ms, cpuPct }`, `workerExecArgv`, `onLog`.
+`saturation: { eventLoopP99Ms, cpuPct }`, `forceFullChunks` (see below; also scenarioParams `forceFullChunks`),
+`workerExecArgv`, `onLog`.
 Tests can inject fake workers with `new BotFleet({ spawnWorker })` (see `src/fleet.test.ts`).
 
 Builtin scenario: `IDLE_SCENARIO`. Bots spawn with bedboo's defaults (all plugins, physics on) and stand
@@ -59,7 +63,38 @@ scenario's `botOptions(params)`. `ctx.random` is mulberry32 seeded by a hash of 
 | `loadgen.eventLoopLagP99Ms` | max over workers of `monitorEventLoopDelay` p99 minus its 10 ms resolution. On Windows the floor is about 5-10 ms of timer jitter. |
 | `loadgen.maxWorkerCpuPct` | max over workers of the **event-loop thread's** CPU (`process.threadCpuUsage()`), % of one core |
 | `loadgen.saturated` | lag p99 > 50 ms, **or** JS-thread CPU > 85 %, **or** a worker that has not reported for 3 intervals plus 2 s |
-| extras | `loadgen.bots`, `maxWorkerProcessCpuPct` and `totalCpuPct` (whole-process CPU including GC threads), `rssBytes`, `staleWorkers` |
+| `chunksPerSec` | bedboo `chunkColumnLoad` events of all bots per second, re-loads included. In sub-chunk request mode a column loads once all its sub-chunks have arrived. |
+| `uniqChunks` | sum over spawned bots of the distinct `(dimension, x, z)` columns each bot has ever received |
+| `inView {min, median, max}` | per bot: loaded columns within (server view radius + 1) chunks (Euclidean) of the bot's current chunk. The radius comes from `chunk_radius_update` (`bot.game.serverViewDistance`), or else from the `network_chunk_publisher_update` radius. Columns bedboo unloads (outside the publisher radius, or on a dimension change) leave the view. |
+| `viewT90Ms {p50, p90, max, n}` | per bot: time from the view origin to the k-th in-view arrival, k = ceil(0.9·U), U = the bot's `inView` now. Nearest-rank percentiles over bots with U > 0. |
+| `viewTNMs {medianCensored, censored, n}` | per bot: time from the view origin to the 80th in-view arrival. Bots with fewer than 80 in view are right-censored at the time observed so far. `medianCensored` is null when the median lands on a censored bot. |
+| `packets` | packets received by the fleet in the interval, by name (bedrock-protocol `packet` event) |
+| `chunkCacheSeen` | some bot saw `cache_enabled` or blob hashes on `level_chunk` / `subchunk`. False means every chunk came with its full payload. |
+| extras | `loadgen.totalCores` (= `totalCpuPct / 100`), `loadgen.blobMissReplies`, `loadgen.bots`, `maxWorkerProcessCpuPct` and `totalCpuPct` (whole-process CPU including GC threads), `rssBytes`, `staleWorkers` |
+
+### View load
+
+The **view origin** of a bot is its latest server teleport after spawn (`move_player` with mode `teleport` for
+the bot's own runtime id, such as a `/tp`). Without one, it is the `start_game` packet. Spawn is not used,
+because on BDS every column of the join view arrives before bedboo emits `spawn` (measured on 1.26.63.1:
+153 columns had arrived when `spawn` fired). Columns that were already loaded at the origin count as 0 ms. Every
+stats interval re-evaluates each spawned bot at its current position. As a result, `viewT90Ms` follows the
+bot's current view, and after a teleport it measures how fast the new area loads.
+
+Measured on BDS 1.26.63.1 with 5 idle bots and `viewDistance: 'tiny'`: the server grants radius 6, each bot
+holds about 153 columns with 141 in view, `viewT90Ms` is about 2.1-2.6 s from `start_game`, and `viewTNMs`
+is about 1.5-1.8 s.
+
+### Full chunks (`forceFullChunks`)
+
+bedrock-protocol sends `client_cache_status { enabled: false }` at join. BDS honors it: on 1.26.63.1 every
+`level_chunk` and `subchunk` arrives with `cache_enabled: false` and no blob hashes (`chunkCacheSeen: false`).
+**Full chunk payloads are therefore already the default.** The client blob cache cannot be turned on from the
+worker without patching bedboo, because bedboo decodes chunk payloads inline and does not handle
+`client_cache_miss_response`. `forceFullChunks` therefore keeps the cache disabled: it rewrites any outgoing
+`client_cache_status` to `enabled: false`. If a server still sends blob hashes, the bot answers with
+`client_cache_blob_status { missing: <all hashes>, have: [] }` (counted in `loadgen.blobMissReplies`), so the
+server has to send full blobs. Watch `chunkCacheSeen` to confirm.
 
 ## Sizing (measured)
 
@@ -86,3 +121,7 @@ Steady state starts about 20 s after the last spawn.
 - Scenario modules are imported inside workers. A bare package name resolves relative to this package, so pass file URLs for anything that is not a dependency of `@bedperf/loadgen`.
 - An exception thrown by one bot (a plugin listener or a rejected promise) is logged and does not stop the worker. A worker crash is counted as bot failures, and the worker is re-forked for later joins. If it dies before it becomes ready, joins in its group fail fast for 10 s.
 - The e2e test (`BEDPERF_E2E=1 node --test src/e2e.test.ts`) imports `@bedperf/testkit` by relative path, because testkit is not a dependency of this package.
+- bedrock-protocol's `disconnect()` writes the `disconnect` packet and closes the RakNet connection right away,
+  so the packet is sometimes lost. When that happens, BDS logs "Player disconnected" only after its timeout of
+  about 10 s. The 3 s wait in the 30-bot e2e scale-down check is therefore flaky; this was also seen before the
+  view-load change.
