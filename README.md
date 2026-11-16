@@ -19,7 +19,7 @@ The headline metric is **the largest number of players the server can hold while
 | `packages/scenarios` | workloads: idle, walk, explore, build, chat, mobs, entity-stress |
 | `packages/orchestrator` | benchmark config, step ramp and bisection, pass criteria, run recorder |
 | `packages/report` | run analysis and a self-contained HTML report and comparison |
-| `packages/cli` | the `bedperf` command (`run`, `report`, `compare`, `install`, `scenarios`) that wires everything together |
+| `packages/cli` | the `bedperf` command (`run`, `report`, `analyze`, `compare`, `install`, `scenarios`) that wires everything together |
 | `vendor/bedboo` | git submodule. bedboo only works inside a pnpm workspace that carries its overrides and patches, so `scripts/sync-bedboo.mjs` generates our `pnpm-workspace.yaml` from its own |
 
 ## Setup
@@ -60,6 +60,12 @@ corepack pnpm bedperf run --scenario walk --set ramp.max=200 --set loadgen.botsP
 This writes `runs/<id>/` (config, meta, samples.jsonl, steps.json, result.json, bds.log) and `report.html`. See [packages/cli/README.md](packages/cli/README.md) for every option.
 
 Bots are expensive: about 0.16 cores and 60 MB each for `walk`. When the bots share a host with BDS, they saturate before a fast server does, and the result is then flagged `loadgenLimited`. To measure real capacity, run the bots on a separate machine.
+
+## Rigor
+
+A number is only reported when the measurement behind it can be trusted. bedperf follows numbered rules R1–R12 ([docs/methodology.md](docs/methodology.md#rules)): one config, bot source and CPU placement per comparison; one measured run per machine, with an idle gate before each repeat and interference sampling during every measured window; a fresh instance per repeat; no console commands inside measured windows except the probes; TPS from two independent per-tick sources (the BDS tick counter and the in-tick probe) that must agree; failures counted as results; capacity found by search; and comparisons that claim a difference only on complete separation across repeats.
+
+Each repeat ends `ok`, `invalid` (the machine or harness failed; rerun once) or `server_failed` (a result; never rerun), and the headline is the median [min, max] over ok repeats with k/n. `bedperf analyze runs/<id>` recomputes the analysis from the raw files byte for byte, and `bedperf compare` refuses runs with a different config, machine, BDS build, analysis version or placement profile unless `--force`. [docs/comparison-bedrock-bench.md](docs/comparison-bedrock-bench.md) credits the [bedrock-bench](https://github.com/EndstoneMC/bedrock-bench) ideas this builds on and compares the two harnesses.
 
 ## Conventions
 
