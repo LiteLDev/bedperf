@@ -6,4 +6,8 @@ export * from './search.ts'
 export * from './recorder.ts'
 export * from './engine.ts'
 export * from './table.ts'
+export * from './settle.ts'
+export * from './recompute.ts'
+export * from './canonical.ts'
+export * from './session.ts'
 // The simulation lives at the '@bedperf/orchestrator/sim' subpath.

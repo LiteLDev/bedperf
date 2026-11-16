@@ -153,9 +153,10 @@ test('server crash aborts the repeat but the run completes', async () => {
     const { out } = await run({ capacity: 100, crashAbove: 25 }, cfg({ repeats: 2 }), dir)
     assert.deepEqual(out.result.maxPlayers, [20, 20])
     assert.match(out.repeats[0]!.aborted ?? '', /server exited unexpectedly/)
-    const last = out.steps.filter(s => s.repeat === 0).at(-1)!
-    assert.equal(last.players, 30)
-    assert.ok(last.failReasons.includes('no probe data in window'))
+    // The crash is noticed while settling at 30 players: that step is never measured.
+    assert.equal(out.steps.filter(s => s.repeat === 0).at(-1)!.players, 20)
+    assert.equal(out.repeats[0]!.firstFail, 30)
+    assert.equal(out.repeats[0]!.status, 'server_failed')
     await checkRunDir(out.dir)
   })
 })
@@ -197,7 +198,7 @@ test('sys/bot intervals overlapping the settle period are trimmed', async () => 
         }
       }
     }
-    const out = await runBenchmark(cfg({ repeats: 1, ramp: { start: 10, step: 10, max: 30, settleSec: 0, holdSec: 5, resolution: 2 } }), { ...deps, createLoadGen })
+    const out = await runBenchmark(cfg({ repeats: 1, ramp: { start: 10, step: 10, max: 30, settleSec: 0, holdSec: 5, resolution: 2, settle: { mode: 'fixed' } }, sampling: { gametimeIntervalSec: 1 } }), { ...deps, createLoadGen })
     assert.ok(tainted >= 1, 'at least one saturated interval overlapped a hold start')
     assert.ok(out.steps.every(s => !s.loadgenSaturated), out.steps.map(s => s.failReasons.join()).join('|'))
     assert.deepEqual(out.result.maxPlayers, [30])

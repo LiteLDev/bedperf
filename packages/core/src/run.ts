@@ -1,3 +1,4 @@
+import type { PlacementCheck, PlacementKind, PlacementPriority } from './placement.ts'
 import type { Summary } from './stats.ts'
 
 /** Files inside `runs/<runId>/`. */
@@ -35,6 +36,12 @@ export interface RunMeta {
   machine?: MachineInfo
   harness?: HarnessInfo
   artifacts?: RunArtifacts
+  /** How bots reach the server. `loopback`: bots connect to a loopback address (no real network). */
+  network?: { loopback: boolean }
+  /** CPU placement of the run (absent when placement was disabled or for old runs). */
+  placement?: RunPlacementMeta
+  /** Resolved environment gates and validity thresholds the run used. */
+  gates?: Record<string, unknown>
   /** Version of the analysis that produced derived numbers; set by the report, not the recorder. */
   analysisVersion?: string
   /**
@@ -42,6 +49,25 @@ export interface RunMeta {
    * report.html.
    */
   files?: Record<string, FileDigest>
+}
+
+/** meta.json `placement`. */
+export interface RunPlacementMeta {
+  /** sha256 of the canonical placement profile (see @bedperf/placement `profileSha256`). */
+  profileSha256?: string
+  label?: string
+  kind: PlacementKind
+  /** How the server set was applied: `preexec` (Linux taskset), `post-spawn` (Windows). */
+  method: string
+  serverCpus: number[]
+  botCpus: number[]
+  harnessCpus: number[]
+  priority: PlacementPriority
+  /** Every server verification of the run passed (false as soon as one failed). */
+  verified: boolean
+  /** Number of server verifications done. */
+  verifications?: number
+  checks: PlacementCheck[]
 }
 
 /** Hardware identity (see `machineInfo` in provenance.ts). */
@@ -106,6 +132,53 @@ export interface StepResult {
   pass: boolean
   /** Human-readable reasons for failure, one per violated criterion. */
   failReasons: string[]
+  /**
+   * Why the measurement says nothing about the server (`<code>` or `<code>: <detail>`), e.g. `loadgen saturated`,
+   * `placement_mismatch`, `interference: ...`, `tps_sources_disagree: ...`. The step is invalid when non-empty.
+   */
+  invalidReasons?: string[]
+  /** Tick-counter (`time query gametime`) TPS over the hold. */
+  counterTps?: number
+  /** Lowest tick-counter TPS over any ~5 s stretch of the hold. */
+  counterTpsLow5?: number
+  /** Longest stretch of the hold without a tick-counter reply, ms. */
+  gametimeMaxGapMs?: number
+  /** Tick-counter reply latency over the hold, ms. */
+  gametimeLatencyMs?: Summary
+  /** Tick-thread CPU time per executed tick, ms (a lower bound on tick cost, not MSPT). */
+  tickCpuMsPerTick?: number
+  /** How the tick thread was identified (`name` / `busiest`), from the OS samples. */
+  tickThreadSource?: string
+  /** Foreign (not server / bots / harness) CPU load during the hold, cores. */
+  interference?: { foreignMean: number, foreignPeak10s: number, serverSetForeignMean?: number }
+  /** Server placement verified at hold start and end. */
+  placementVerified?: boolean
+  /** Seconds actually spent settling before the hold. */
+  settleSec?: number
+  /** Settle stopped at `maxSec` without converging. */
+  settleCapped?: boolean
+  /** At settle end, fewer than 95% of the bots had at least half the median in-view chunk count. */
+  viewsIncomplete?: boolean
+  /** Median per-bot in-view chunk columns at hold end. */
+  inViewMedian?: number
+  /** Median per-bot view-load (90%) latency at hold end, ms. */
+  viewT90MsP50?: number
+  /** Fleet chunk columns received per second, mean over the hold. */
+  chunksPerSec?: number
+  /** Distinct chunk columns per spawned bot at hold end. */
+  uniqChunksPerBot?: number
+}
+
+/** How a repeat ended. `ok`: it measured; `server_failed`: the server crashed or could not take the first step (a result, never rerun); `invalid`: the environment or harness made it meaningless (rerun once). */
+export type RepeatStatus = 'ok' | 'invalid' | 'server_failed'
+
+export interface RepeatSummary {
+  index: number
+  status: RepeatStatus
+  statusReasons: string[]
+  maxPlayers: number
+  /** Index of the invalid repeat this one reran. */
+  rerunOf?: number
 }
 
 export interface RunResult {
@@ -120,4 +193,12 @@ export interface RunResult {
   capped: boolean
   /** Set when any step was invalidated by loadgen saturation. */
   loadgenLimited: boolean
+  /** Set when a repeat's search stopped because a load level was invalid twice in a row (any reason). */
+  invalidLimited?: boolean
+  /** Every repeat, by index (reruns included). `maxPlayers` above is indexed the same way. */
+  repeats?: RepeatSummary[]
+  /** Repeats with status `ok`; `maxPlayersMedian` is their median. */
+  kOk?: number
+  /** Repeats run (reruns included). */
+  n?: number
 }

@@ -32,7 +32,13 @@ export interface BotFleetStats {
    * Per-bot count of loaded chunk columns within (server view radius + 1) chunks of the bot's current chunk,
    * over spawned bots at the end of the interval.
    */
-  inView?: { min: number, median: number, max: number }
+  inView?: {
+    min: number
+    median: number
+    max: number
+    /** Share of spawned bots (0..1) whose in-view count is at least half the median. */
+    halfMedianFrac?: number
+  }
   /**
    * Per-bot view-load latency, ms: from the bot's view origin (its latest server teleport after spawn, else
    * start_game) to the arrival of its ceil(0.9·U)-th in-view column, U = its current in-view count (columns

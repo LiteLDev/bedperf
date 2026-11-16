@@ -1,5 +1,5 @@
 import type { RampConfig } from '@bedperf/core'
-import type { StepOutcome } from './criteria.ts'
+import { LOADGEN_SATURATED_REASON, type StepOutcome } from './criteria.ts'
 
 export type SearchPhase = 'ramp' | 'bisect'
 
@@ -7,6 +7,8 @@ export type SearchPhase = 'ramp' | 'bisect'
 export interface SearchStep {
   players: number
   outcome: StepOutcome
+  /** Why an invalid step was invalid (`StepResult.invalidReasons`). Absent means loadgen saturation. */
+  reasons?: readonly string[]
 }
 
 export interface SearchState {
@@ -29,8 +31,12 @@ export interface SearchDone {
   maxPlayers: number
   /** ramp.max passed: the true capacity is at least `maxPlayers`, possibly higher. */
   capped: boolean
-  /** Stopped because a load level was invalid (loadgen saturated) twice in a row. `maxPlayers` is a lower bound. */
+  /** Stopped because a load level was invalid twice in a row and both times the loadgen was saturated. `maxPlayers` is a lower bound. */
   loadgenLimited: boolean
+  /** Stopped because a load level was invalid twice in a row (any reason). `maxPlayers` is a lower bound. */
+  invalidLimited: boolean
+  /** With `invalidLimited`: the reasons of the two invalid steps, de-duplicated. */
+  invalidReasons?: string[]
   /** Lowest failing player count, when one was found. */
   firstFail?: number
 }
@@ -46,8 +52,9 @@ export type SearchDecision = SearchContinue | SearchDone
  *   `floor((lo + hi) / 2)` until `hi - lo <= resolution`. `resolution = 0` disables bisection.
  * - A fail at the very first step bisects between 0 and `start` (0 = "nothing passes"), so the
  *   result can be anything in `[0, start - 1]`; 0 means even the smallest probed load failed.
- * - An invalid step (loadgen saturated) is retried once at the same player count; a second
- *   consecutive invalid result stops the search with `loadgenLimited` and the highest pass so far.
+ * - An invalid step (loadgen saturated, interference, placement, ...) is retried once at the same
+ *   player count; a second consecutive invalid result stops the search with `invalidLimited` (and
+ *   `loadgenLimited` when both were loadgen saturation) and the highest pass so far.
  * - Result: highest passing player count below the lowest fail.
  */
 /**
@@ -75,12 +82,21 @@ export function planNext (state: SearchState): SearchDecision {
   const { lo, hi } = searchBounds(history)
   const phase: SearchPhase = hi === undefined ? 'ramp' : 'bisect'
 
-  // Invalid (loadgen-saturated) handling: retry once, then stop.
+  // Invalid handling: retry once, then stop.
   const last = history.at(-1)
   if (last !== undefined && last.outcome === 'invalid') {
     const prev = history.at(-2)
     if (prev !== undefined && prev.outcome === 'invalid' && prev.players === last.players) {
-      const d: SearchDone = { done: true, maxPlayers: lo, capped: false, loadgenLimited: true }
+      const rs = (h: SearchStep): readonly string[] => h.reasons ?? [LOADGEN_SATURATED_REASON]
+      const sat = (h: SearchStep): boolean => rs(h).includes(LOADGEN_SATURATED_REASON)
+      const d: SearchDone = {
+        done: true,
+        maxPlayers: lo,
+        capped: false,
+        loadgenLimited: sat(prev) && sat(last),
+        invalidLimited: true,
+        invalidReasons: [...new Set([...rs(prev), ...rs(last)])]
+      }
       if (hi !== undefined) d.firstFail = hi
       return d
     }
@@ -92,12 +108,12 @@ export function planNext (state: SearchState): SearchDecision {
     const passes = history.filter(h => h.outcome === 'pass')
     if (passes.length === 0) return { done: false, players: ramp.start, phase: 'ramp', retry: false }
     const lastPass = passes.at(-1)!.players
-    if (lastPass >= ramp.max) return { done: true, maxPlayers: lo, capped: true, loadgenLimited: false }
+    if (lastPass >= ramp.max) return { done: true, maxPlayers: lo, capped: true, loadgenLimited: false, invalidLimited: false }
     return { done: false, players: Math.min(lastPass + ramp.step, ramp.max), phase: 'ramp', retry: false }
   }
 
   if (ramp.resolution === 0 || hi - lo <= Math.max(ramp.resolution, 1)) {
-    return { done: true, maxPlayers: lo, capped: false, loadgenLimited: false, firstFail: hi }
+    return { done: true, maxPlayers: lo, capped: false, loadgenLimited: false, invalidLimited: false, firstFail: hi }
   }
   return { done: false, players: Math.floor((lo + hi) / 2), phase: 'bisect', retry: false }
 }
