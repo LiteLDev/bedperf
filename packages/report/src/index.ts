@@ -1,3 +1,11 @@
-// @bedperf/report: Run directory analysis and self-contained HTML report / comparison
-// Placeholder created by the step-0 scaffold; implemented in its own work unit.
-export {}
+// @bedperf/report: run directory analysis and self-contained HTML report / comparison.
+export * from './types.ts'
+export { loadRun } from './load.ts'
+export { analyze } from './analyze.ts'
+export { renderHtml } from './html.ts'
+export { compareRuns, renderCompareHtml, delta, CURVE_DEFS } from './compare.ts'
+export type { Comparison, CompareRow, Delta, MetricDef, Verdict } from './compare.ts'
+export { writeReport, writeCompare } from './write.ts'
+export { generateRun } from './fixtures.ts'
+export type { Fixture, FixtureOptions } from './fixtures.ts'
+export { linreg, median, interp } from './math.ts'

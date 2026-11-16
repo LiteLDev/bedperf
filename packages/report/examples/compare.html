@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>bedperf: walk-default vs walk-tuned</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #75736d;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --good: #0ca30c; --good-ink: #006300; --warn: #fab219; --warn-ink: #8a5a00; --bad: #d03b3b; --bad-ink: #b02a2a;
+  --band-pass: rgba(12,163,12,0.09); --band-fail: rgba(208,59,59,0.13); --band-invalid: rgba(250,178,25,0.20); --band-unknown: rgba(137,135,129,0.10);}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #8f8d86;
+  --grid: #2c2c2a; --axis: #4a4a46; --border: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  --good: #0ca30c; --good-ink: #3fc23f; --warn: #fab219; --warn-ink: #fab219; --bad: #d03b3b; --bad-ink: #ef7a7a;
+  --band-pass: rgba(12,163,12,0.14); --band-fail: rgba(208,59,59,0.22); --band-invalid: rgba(250,178,25,0.20); --band-unknown: rgba(137,135,129,0.14);} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #8f8d86;
+  --grid: #2c2c2a; --axis: #4a4a46; --border: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  --good: #0ca30c; --good-ink: #3fc23f; --warn: #fab219; --warn-ink: #fab219; --bad: #d03b3b; --bad-ink: #ef7a7a;
+  --band-pass: rgba(12,163,12,0.14); --band-fail: rgba(208,59,59,0.22); --band-invalid: rgba(250,178,25,0.20); --band-unknown: rgba(137,135,129,0.14);}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1160px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; overflow-wrap: anywhere; }
+h2 { font-size: 1.15rem; margin: 0 0 12px; }
+h3 { font-size: 0.95rem; margin: 0 0 6px; font-weight: 600; }
+.sub { color: var(--ink-2); margin: 0 0 20px; overflow-wrap: anywhere; }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin: 0 0 18px; min-width: 0; }
+.headline { display: flex; flex-wrap: wrap; gap: 18px 32px; align-items: flex-end; }
+.hero .label { color: var(--ink-2); font-size: 0.95rem; }
+.hero .value { font-size: 3.2rem; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.hero .detail { color: var(--ink-2); font-size: 0.9rem; }
+.hero .value.delta { font-size: 2rem; }
+.flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.flag { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 0.82rem; }
+.flag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.flag.ok::before { background: var(--good); } .flag.warn::before { background: var(--warn); } .flag.bad::before { background: var(--bad); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; flex: 1 1 420px; }
+.tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.tile .k { color: var(--ink-2); font-size: 0.8rem; }
+.tile .v { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .n { color: var(--muted); font-size: 0.75rem; }
+dl.meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 20px; margin: 0; }
+dl.meta div { min-width: 0; }
+dl.meta dt { color: var(--ink-2); font-size: 0.8rem; }
+dl.meta dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+details { margin-top: 12px; } summary { cursor: pointer; color: var(--ink-2); }
+code { font: 0.85em ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
+figure { margin: 0; min-width: 0; }
+.chart { display: block; width: 100%; height: auto; }
+.chart text { font-size: 13px; }
+.chart .plot-bg { fill: none; }
+.chart .grid line { stroke: var(--grid); stroke-width: 1; }
+.chart .tick text { fill: var(--muted); }
+.chart .tick-mark, .chart .axis { stroke: var(--axis); stroke-width: 1; }
+.chart .axis-label { fill: var(--ink-2); }
+.chart .empty { fill: var(--muted); }
+.chart .ref { stroke: var(--ink-2); stroke-width: 1.25; stroke-dasharray: 5 4; }
+.chart .ref-label { fill: var(--ink-2); font-size: 12px; }
+.chart path.series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart path.series.dash { stroke-dasharray: 6 4; stroke-width: 1.5; }
+.chart .markers circle { stroke: var(--surface); stroke-width: 2; }
+.chart .band { stroke: none; }
+.band-pass { fill: var(--band-pass); background: var(--band-pass); }
+.band-fail { fill: var(--band-fail); background: var(--band-fail); }
+.band-invalid { fill: var(--band-invalid); background: var(--band-invalid); }
+.band-unknown { fill: var(--band-unknown); background: var(--band-unknown); }
+.s1 { stroke: var(--s1); fill: var(--s1); color: var(--s1); }
+.s2 { stroke: var(--s2); fill: var(--s2); color: var(--s2); }
+.s3 { stroke: var(--s3); fill: var(--s3); color: var(--s3); }
+.s4 { stroke: var(--s4); fill: var(--s4); color: var(--s4); }
+.s5 { stroke: var(--s5); fill: var(--s5); color: var(--s5); }
+.s6 { stroke: var(--s6); fill: var(--s6); color: var(--s6); }
+.s7 { stroke: var(--s7); fill: var(--s7); color: var(--s7); }
+.s8 { stroke: var(--s8); fill: var(--s8); color: var(--s8); }
+.sm { stroke: var(--muted); fill: var(--muted); color: var(--muted); }
+path.sm, path.s1, path.s2, path.s3, path.s4, path.s5, path.s6, path.s7, path.s8 { fill: none; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 6px; padding: 0; font-size: 0.82rem; color: var(--ink-2); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.sw.line { width: 18px; height: 0; border-top: 2px solid currentColor; }
+.sw.line.dash { border-top-style: dashed; }
+.sw.box { width: 14px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }
+.repeat + .repeat { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--grid); }
+.panels { display: grid; gap: 4px; }
+.panels .chart { min-width: 560px; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+td.l, th.l { text-align: left; }
+td.reasons { white-space: normal; min-width: 220px; text-align: left; color: var(--ink-2); }
+.st { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.st::before { content: ""; width: 8px; height: 8px; border-radius: 50%; }
+.st.pass { color: var(--good-ink); } .st.pass::before { background: var(--good); }
+.st.fail { color: var(--bad-ink); } .st.fail::before { background: var(--bad); }
+.st.invalid { color: var(--warn-ink); } .st.invalid::before { background: var(--warn); }
+.better { color: var(--good-ink); font-weight: 600; } .worse { color: var(--bad-ink); font-weight: 600; } .same { color: var(--ink-2); }
+.foot { color: var(--ink-2); font-size: 0.85rem; }
+.foot ul { padding-left: 18px; }
+.vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; align-items: end; }
+@media (max-width: 520px) {
+  main { padding: 16px 16px 32px; }
+  section { padding: 14px 12px; border-radius: 10px; }
+  .hero .value { font-size: 2.6rem; }
+  .chart text { font-size: 15px; }
+  .chart .ref-label { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>bedperf comparison</h1>
+<p class="sub">A (baseline): walk-default · B: walk-tuned. Deltas are B relative to A.</p>
+</header>
+<section id="headline" aria-label="Headline">
+<h2>Max players @ 20 TPS</h2>
+<div class="vs">
+<div class="hero">
+<div class="label"><span class="sw line s1" style="display:inline-block;vertical-align:middle"></span> A: walk-default</div>
+<div class="value">38</div>
+<div class="detail">3 repeats: 43 · 38 · 38 (range 38–43, spread 5)</div>
+<div class="detail">Run 20260101-000000-fixture · BDS 1.26.63.1 · @bedperf/scenarios/walk · AMD Ryzen 9 7950X 16-Core Processor</div>
+<div class="flags"><span class="flag ok">no flags</span></div>
+</div>
+<div class="hero">
+<div class="label"><span class="sw line s2" style="display:inline-block;vertical-align:middle"></span> B: walk-tuned</div>
+<div class="value">45</div>
+<div class="detail">3 repeats: 43 · 45 · 45 (range 43–45, spread 2)</div>
+<div class="detail">Run 20260102-000000-fixture · BDS 1.26.63.1 · @bedperf/scenarios/walk · AMD Ryzen 9 7950X 16-Core Processor</div>
+<div class="flags"><span class="flag ok">no flags</span></div>
+</div>
+<div class="hero"><div class="label">Change (B − A)</div><div class="value delta better">+7 players (+18.4 %)</div><div class="detail">better</div></div>
+</div>
+</section>
+<section id="derived" aria-label="Derived metrics">
+<h2>Per-player costs</h2>
+<div class="scroll"><table>
+<thead><tr><th class="l">metric</th><th>A</th><th>B</th><th>Δ</th><th>Δ %</th></tr></thead>
+<tbody><tr><td class="l">memory per player</td><td>9.0 MiB</td><td>7.5 MiB</td><td>-1.5 MiB</td><td class="better">-16.8 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">net tx per player</td><td>23.5 KiB/s</td><td>23.5 KiB/s</td><td>-3 B/s</td><td class="same">0.0 %</td></tr>
+<tr><td class="l">main-thread util per player</td><td>2.08 %</td><td>1.90 %</td><td>-0.18 pp</td><td class="better">-8.4 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">players at util 1.0 (extrapolated)</td><td>42</td><td>46</td><td>+4</td><td class="better">+10.7 % <span class="vh">(better)</span></td></tr></tbody>
+</table></div>
+</section>
+<section id="scaling" aria-label="Scaling">
+<h2>Scaling, mean over repeats</h2>
+<div class="charts">
+<figure><h3>TPS</h3><ul class="legend"><li><span class="sw line s1"></span>A: walk-default</li><li><span class="sw line s2"></span>B: walk-tuned</li></ul><svg class="chart" viewBox="0 0 480 270" role="img" aria-label="TPS against players, A vs B" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="cmp-tps-clip"><rect x="56" y="12" width="410" height="214"/></clipPath></defs><rect class="plot-bg" x="56" y="12" width="410" height="214"/><g class="grid"><line x1="56" x2="466" y1="226" y2="226"/><line x1="56" x2="466" y1="172.5" y2="172.5"/><line x1="56" x2="466" y1="119" y2="119"/><line x1="56" x2="466" y1="65.5" y2="65.5"/><line x1="56" x2="466" y1="12" y2="12"/></g><g class="tick"><text x="50" y="230" text-anchor="end">16</text><text x="50" y="176.5" text-anchor="end">17</text><text x="50" y="123" text-anchor="end">18</text><text x="50" y="69.5" text-anchor="end">19</text><text x="50" y="16" text-anchor="end">20</text><line class="tick-mark" x1="56" x2="56" y1="226" y2="230"/><text x="56" y="244" text-anchor="middle">0</text><line class="tick-mark" x1="138" x2="138" y1="226" y2="230"/><text x="138" y="244" text-anchor="middle">10</text><line class="tick-mark" x1="220" x2="220" y1="226" y2="230"/><text x="220" y="244" text-anchor="middle">20</text><line class="tick-mark" x1="302" x2="302" y1="226" y2="230"/><text x="302" y="244" text-anchor="middle">30</text><line class="tick-mark" x1="384" x2="384" y1="226" y2="230"/><text x="384" y="244" text-anchor="middle">40</text><line class="tick-mark" x1="466" x2="466" y1="226" y2="230"/><text x="466" y="244" text-anchor="middle">50</text></g><line class="axis" x1="56" x2="466" y1="226" y2="226"/><text class="axis-label" x="261" y="264" text-anchor="middle">players</text><text class="axis-label" transform="translate(14 119) rotate(-90)" text-anchor="middle">TPS</text><line class="ref" x1="56" x2="466" y1="12" y2="12"/><text class="ref-label" x="462" y="8" text-anchor="end">20 TPS</text><g clip-path="url(#cmp-tps-clip)"><path class="series s1" d="M138 13.28L220 13.36L302 13.41L343 13.57L359.4 13.61L367.6 14.38L384 30.72L400.4 13.1L408.6 13.59L425 27.3L466 116.12"/><g class="series s1 markers"><circle cx="138" cy="13.28" r="4"></circle><circle cx="220" cy="13.36" r="4"></circle><circle cx="302" cy="13.41" r="4"></circle><circle cx="343" cy="13.57" r="4"></circle><circle cx="359.4" cy="13.61" r="4"></circle><circle cx="367.6" cy="14.38" r="4"></circle><circle cx="384" cy="30.72" r="4"></circle><circle cx="400.4" cy="13.1" r="4"></circle><circle cx="408.6" cy="13.59" r="4"></circle><circle cx="425" cy="27.3" r="4"></circle><circle cx="466" cy="116.12" r="4"></circle></g><path class="series s2" d="M138 13.11L220 13.39L302 13.32L384 13.33L400.4 13.15L408.6 13.16L425 21.76L441.4 37.88L466 101.24"/><g class="series s2 markers"><circle cx="138" cy="13.11" r="4"></circle><circle cx="220" cy="13.39" r="4"></circle><circle cx="302" cy="13.32" r="4"></circle><circle cx="384" cy="13.33" r="4"></circle><circle cx="400.4" cy="13.15" r="4"></circle><circle cx="408.6" cy="13.16" r="4"></circle><circle cx="425" cy="21.76" r="4"></circle><circle cx="441.4" cy="37.88" r="4"></circle><circle cx="466" cy="101.24" r="4"></circle></g></g></svg></figure>
+<figure><h3>Main-thread utilisation</h3><ul class="legend"><li><span class="sw line s1"></span>A: walk-default</li><li><span class="sw line s2"></span>B: walk-tuned</li></ul><svg class="chart" viewBox="0 0 480 270" role="img" aria-label="util % against players, A vs B" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="cmp-util-clip"><rect x="56" y="12" width="410" height="214"/></clipPath></defs><rect class="plot-bg" x="56" y="12" width="410" height="214"/><g class="grid"><line x1="56" x2="466" y1="226" y2="226"/><line x1="56" x2="466" y1="183.2" y2="183.2"/><line x1="56" x2="466" y1="140.4" y2="140.4"/><line x1="56" x2="466" y1="97.6" y2="97.6"/><line x1="56" x2="466" y1="54.8" y2="54.8"/><line x1="56" x2="466" y1="12" y2="12"/></g><g class="tick"><text x="50" y="230" text-anchor="end">0</text><text x="50" y="187.2" text-anchor="end">20</text><text x="50" y="144.4" text-anchor="end">40</text><text x="50" y="101.6" text-anchor="end">60</text><text x="50" y="58.8" text-anchor="end">80</text><text x="50" y="16" text-anchor="end">100</text><line class="tick-mark" x1="56" x2="56" y1="226" y2="230"/><text x="56" y="244" text-anchor="middle">0</text><line class="tick-mark" x1="138" x2="138" y1="226" y2="230"/><text x="138" y="244" text-anchor="middle">10</text><line class="tick-mark" x1="220" x2="220" y1="226" y2="230"/><text x="220" y="244" text-anchor="middle">20</text><line class="tick-mark" x1="302" x2="302" y1="226" y2="230"/><text x="302" y="244" text-anchor="middle">30</text><line class="tick-mark" x1="384" x2="384" y1="226" y2="230"/><text x="384" y="244" text-anchor="middle">40</text><line class="tick-mark" x1="466" x2="466" y1="226" y2="230"/><text x="466" y="244" text-anchor="middle">50</text></g><line class="axis" x1="56" x2="466" y1="226" y2="226"/><text class="axis-label" x="261" y="264" text-anchor="middle">players</text><text class="axis-label" transform="translate(14 119) rotate(-90)" text-anchor="middle">util %</text><line class="ref" x1="56" x2="466" y1="12" y2="12"/><text class="ref-label" x="462" y="8" text-anchor="end">util 1.0</text><g clip-path="url(#cmp-util-clip)"><path class="series s1" d="M138 155.39L220 109.35L302 64.06L343 33.51L359.4 23.1L367.6 18.7L384 20.46L400.4 26.49L408.6 21.8L425 14.75L466 13.07"/><g class="series s1 markers"><circle cx="138" cy="155.39" r="4"></circle><circle cx="220" cy="109.35" r="4"></circle><circle cx="302" cy="64.06" r="4"></circle><circle cx="343" cy="33.51" r="4"></circle><circle cx="359.4" cy="23.1" r="4"></circle><circle cx="367.6" cy="18.7" r="4"></circle><circle cx="384" cy="20.46" r="4"></circle><circle cx="400.4" cy="26.49" r="4"></circle><circle cx="408.6" cy="21.8" r="4"></circle><circle cx="425" cy="14.75" r="4"></circle><circle cx="466" cy="13.07" r="4"></circle></g><path class="series s2" d="M138 159.28L220 118.94L302 77.42L384 37.35L400.4 23.95L408.6 21.54L425 18.15L441.4 13.88L466 13.07"/><g class="series s2 markers"><circle cx="138" cy="159.28" r="4"></circle><circle cx="220" cy="118.94" r="4"></circle><circle cx="302" cy="77.42" r="4"></circle><circle cx="384" cy="37.35" r="4"></circle><circle cx="400.4" cy="23.95" r="4"></circle><circle cx="408.6" cy="21.54" r="4"></circle><circle cx="425" cy="18.15" r="4"></circle><circle cx="441.4" cy="13.88" r="4"></circle><circle cx="466" cy="13.07" r="4"></circle></g></g></svg></figure>
+</div>
+</section>
+<section id="metrics" aria-label="Metric deltas">
+<h2>Metrics at matched player counts</h2>
+<p class="foot">Values are linearly interpolated on each run's mean scaling curve at player counts inside both measured ranges (10, 20, 30, 38, 40, 45, 50). Changes under 1 % count as the same.</p>
+<div class="scroll"><table>
+<thead><tr><th class="l">metric</th><th>players</th><th>A</th><th>B</th><th>Δ</th><th>Δ %</th></tr></thead>
+<tbody><tr><td class="l">TPS mean</td><td>10</td><td>19.98</td><td>19.98</td><td>+0.00</td><td class="same">+0.0 %</td></tr>
+<tr><td class="l">TPS mean</td><td>20</td><td>19.97</td><td>19.97</td><td>0.00</td><td class="same">0.0 %</td></tr>
+<tr><td class="l">TPS mean</td><td>30</td><td>19.97</td><td>19.98</td><td>+0.00</td><td class="same">+0.0 %</td></tr>
+<tr><td class="l">TPS mean</td><td>38</td><td>19.96</td><td>19.98</td><td>+0.02</td><td class="same">+0.1 %</td></tr>
+<tr><td class="l">TPS mean</td><td>40</td><td>19.65</td><td>19.98</td><td>+0.32</td><td class="better">+1.7 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">TPS mean</td><td>45</td><td>19.71</td><td>19.82</td><td>+0.10</td><td class="same">+0.5 %</td></tr>
+<tr><td class="l">TPS mean</td><td>50</td><td>18.05</td><td>18.33</td><td>+0.28</td><td class="better">+1.5 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">tick interval p99 (ms)</td><td>10</td><td>55.4</td><td>55.1</td><td>-0.3</td><td class="same">-0.5 %</td></tr>
+<tr><td class="l">tick interval p99 (ms)</td><td>20</td><td>55.1</td><td>54.9</td><td>-0.2</td><td class="same">-0.4 %</td></tr>
+<tr><td class="l">tick interval p99 (ms)</td><td>30</td><td>55.5</td><td>55.8</td><td>+0.3</td><td class="same">+0.6 %</td></tr>
+<tr><td class="l">tick interval p99 (ms)</td><td>38</td><td>58.2</td><td>55.1</td><td>-3.0</td><td class="better">-5.2 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">tick interval p99 (ms)</td><td>40</td><td>66.2</td><td>55.0</td><td>-11.2</td><td class="better">-17.0 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">tick interval p99 (ms)</td><td>45</td><td>64.8</td><td>61.5</td><td>-3.4</td><td class="better">-5.2 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">tick interval p99 (ms)</td><td>50</td><td>101.6</td><td>92.3</td><td>-9.4</td><td class="better">-9.2 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">main-thread util</td><td>10</td><td>33.0 %</td><td>31.2 %</td><td>-1.8 pp</td><td class="better">-5.5 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">main-thread util</td><td>20</td><td>54.5 %</td><td>50.0 %</td><td>-4.5 pp</td><td class="better">-8.2 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">main-thread util</td><td>30</td><td>75.7 %</td><td>69.4 %</td><td>-6.2 pp</td><td class="better">-8.3 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">main-thread util</td><td>38</td><td>96.9 %</td><td>84.4 %</td><td>-12.5 pp</td><td class="better">-12.9 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">main-thread util</td><td>40</td><td>96.0 %</td><td>88.2 %</td><td>-7.9 pp</td><td class="better">-8.2 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">main-thread util</td><td>45</td><td>98.7 %</td><td>97.1 %</td><td>-1.6 pp</td><td class="better">-1.6 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">main-thread util</td><td>50</td><td>99.5 %</td><td>99.5 %</td><td>0.0 pp</td><td class="same">0.0 %</td></tr>
+<tr><td class="l">process CPU (% of a core)</td><td>10</td><td>57</td><td>56</td><td>-1</td><td class="better">-1.3 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">process CPU (% of a core)</td><td>20</td><td>85</td><td>80</td><td>-5</td><td class="better">-6.1 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">process CPU (% of a core)</td><td>30</td><td>112</td><td>105</td><td>-7</td><td class="better">-5.8 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">process CPU (% of a core)</td><td>38</td><td>138</td><td>125</td><td>-12</td><td class="better">-8.9 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">process CPU (% of a core)</td><td>40</td><td>138</td><td>130</td><td>-7</td><td class="better">-5.3 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">process CPU (% of a core)</td><td>45</td><td>143</td><td>142</td><td>0</td><td class="same">-0.3 %</td></tr>
+<tr><td class="l">process CPU (% of a core)</td><td>50</td><td>148</td><td>148</td><td>0</td><td class="same">-0.3 %</td></tr>
+<tr><td class="l">RSS</td><td>10</td><td>809.7 MiB</td><td>795.2 MiB</td><td>-14.5 MiB</td><td class="better">-1.8 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS</td><td>20</td><td>900.1 MiB</td><td>870.3 MiB</td><td>-29.8 MiB</td><td class="better">-3.3 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS</td><td>30</td><td>989.7 MiB</td><td>945.1 MiB</td><td>-44.6 MiB</td><td class="better">-4.5 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS</td><td>38</td><td>1.0 GiB</td><td>1005.6 MiB</td><td>-56.9 MiB</td><td class="better">-5.4 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS</td><td>40</td><td>1.1 GiB</td><td>1020.7 MiB</td><td>-59.9 MiB</td><td class="better">-5.5 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS</td><td>45</td><td>1.1 GiB</td><td>1.0 GiB</td><td>-66.9 MiB</td><td class="better">-5.9 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS</td><td>50</td><td>1.1 GiB</td><td>1.1 GiB</td><td>-74.9 MiB</td><td class="better">-6.4 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS per player</td><td>10</td><td>81.0 MiB</td><td>79.5 MiB</td><td>-1.4 MiB</td><td class="better">-1.8 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS per player</td><td>20</td><td>45.0 MiB</td><td>43.5 MiB</td><td>-1.5 MiB</td><td class="better">-3.3 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS per player</td><td>30</td><td>33.0 MiB</td><td>31.5 MiB</td><td>-1.5 MiB</td><td class="better">-4.5 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS per player</td><td>38</td><td>28.0 MiB</td><td>26.7 MiB</td><td>-1.2 MiB</td><td class="better">-4.5 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS per player</td><td>40</td><td>27.0 MiB</td><td>25.5 MiB</td><td>-1.5 MiB</td><td class="better">-5.5 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS per player</td><td>45</td><td>25.0 MiB</td><td>23.5 MiB</td><td>-1.5 MiB</td><td class="better">-5.9 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RSS per player</td><td>50</td><td>23.4 MiB</td><td>21.9 MiB</td><td>-1.5 MiB</td><td class="better">-6.4 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RTT p95 (ms)</td><td>10</td><td>9.0</td><td>9.3</td><td>+0.2</td><td class="worse">+2.4 % <span class="vh">(worse)</span></td></tr>
+<tr><td class="l">RTT p95 (ms)</td><td>20</td><td>10.3</td><td>9.9</td><td>-0.5</td><td class="better">-4.4 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RTT p95 (ms)</td><td>30</td><td>11.7</td><td>11.1</td><td>-0.6</td><td class="better">-5.2 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RTT p95 (ms)</td><td>38</td><td>15.7</td><td>11.9</td><td>-3.8</td><td class="better">-24.2 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RTT p95 (ms)</td><td>40</td><td>26.9</td><td>12.1</td><td>-14.8</td><td class="better">-55.0 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RTT p95 (ms)</td><td>45</td><td>23.5</td><td>19.4</td><td>-4.1</td><td class="better">-17.3 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">RTT p95 (ms)</td><td>50</td><td>78.0</td><td>63.4</td><td>-14.6</td><td class="better">-18.7 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">net tx</td><td>10</td><td>233.1 KiB/s</td><td>231.3 KiB/s</td><td>-1.8 KiB/s</td><td class="same">-0.8 %</td></tr>
+<tr><td class="l">net tx</td><td>20</td><td>468.2 KiB/s</td><td>471.5 KiB/s</td><td>+3.3 KiB/s</td><td class="same">+0.7 %</td></tr>
+<tr><td class="l">net tx</td><td>30</td><td>697.3 KiB/s</td><td>694.4 KiB/s</td><td>-2.8 KiB/s</td><td class="same">-0.4 %</td></tr>
+<tr><td class="l">net tx</td><td>38</td><td>892.5 KiB/s</td><td>877.8 KiB/s</td><td>-14.6 KiB/s</td><td class="better">-1.6 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">net tx</td><td>40</td><td>936.6 KiB/s</td><td>923.7 KiB/s</td><td>-13.0 KiB/s</td><td class="better">-1.4 % <span class="vh">(better)</span></td></tr>
+<tr><td class="l">net tx</td><td>45</td><td>1.0 MiB/s</td><td>1.0 MiB/s</td><td>+5.9 KiB/s</td><td class="same">+0.6 %</td></tr>
+<tr><td class="l">net tx</td><td>50</td><td>1.1 MiB/s</td><td>1.1 MiB/s</td><td>+8.0 KiB/s</td><td class="same">+0.7 %</td></tr></tbody>
+</table></div>
+</section>
+<section id="methodology" class="foot" aria-label="Methodology">
+<h2>Methodology</h2>
+<p>The headline is the largest bot count that passed every criterion in a step, taken as the median over independent repeats on fresh instances. Each repeat ramps the bot count until the first failing step, then bisects between the last pass and the first fail. Steps measured while the load generator was saturated are invalid rather than failed.</p>
+<ul>
+<li><b>TPS</b> comes from the Script API probe: ticks per ~1 s window, measured inside the server tick.</li>
+<li><b>Main-thread utilisation</b> is the CPU share of the busiest server thread (OS sampling). Because BDS sleeps out the rest of each 50 ms tick it approximates MSPT / 50 ms. It cannot separate lock waits from sleep and does not include work offloaded to other threads.</li>
+<li><b>Per-player figures</b> are least-squares slopes over the step means of all repeats. Utilisation is fitted on passing steps when possible, because it flattens near 1.0 once the tick thread is saturated. "Players at util 1.0" extrapolates that fit.</li>
+<li><b>RSS per player</b> in the scaling chart is (RSS − fitted zero-player RSS) / players, so the fixed server baseline does not dominate low player counts. It converges on the memory-per-player slope.</li>
+<li><b>RTT</b> is the tick-bound round trip of a scripted ping as seen by the bots, i.e. client-perceived lag.</li>
+<li>The timeline is downsampled for size. TPS shows the minimum of each bucket so dips stay visible.</li>
+</ul>
+
+<p>Generated by bedperf.</p>
+</section>
+</main>
+</body>
+</html>
