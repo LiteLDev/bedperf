@@ -28,7 +28,7 @@ This document defines what bedperf measures, how a run proceeds, when a number i
 | L0 OS | `placement` | CPU topology, the planned CPU sets and priority, per-thread verification | nothing (Linux `above_normal` needs CAP_SYS_NICE) |
 | L0 bots | `loadgen`: bedboo fleet stats | join latency, tick-bound RTT, movement corrections, failures, **view metrics** (in-view columns, view T90 / TN, chunks per second), packet counts, loadgen self-check | nothing |
 | L1 probe | `probe-addon`: Script API pack that logs `BEDPERF|{json}` to stdout | in-tick TPS, tick-interval distribution, ticks over 50/100 ms, players, entity counts | stable `@minecraft/server` only (no experiments) |
-| L1' counter | `bds-process` `GametimeSampler`: `time query gametime` on the console's priority lane, every 5 s | **counter TPS**, a script-free second TPS source, plus its reply latency | nothing |
+| L1' counter | `bds-process` `GametimeSampler`: `time query gametime` on the console's priority lane, every `sampling.gametimeIntervalSec` (5 s; 1 s in `quick`) | **counter TPS**, a script-free second TPS source, plus its reply latency | nothing |
 | L2 (later) | LeviLamina profiler mod | true MSPT, per-phase breakdown | Windows + matching LeviLamina |
 
 ### Why main-thread utilisation
@@ -68,16 +68,16 @@ A pass criterion that is not met **fails** the step: that is a finding about the
 | gate | source | threshold (default) | outcome | config key |
 |---|---|---|---|---|
 | machine lock | CLI lock file | another `bedperf run` holds it | env-gate (exit 3) | `$BEDPERF_LOCK`, `--no-lock` |
-| idle gate | `sysmon` `idleCheck`, 15 s before each repeat, no server or bots running | foreign mean ≤ 0.25 cores, 10 s peak ≤ 1.5 cores, foreign on server CPUs ≤ 0.25 cores | env-gate (exit 3) | engine default |
+| idle gate | `sysmon` `idleCheck`, 15 s before each repeat, no server or bots running | foreign mean ≤ 0.25 cores, 10 s peak ≤ 1.5 cores, foreign on server CPUs ≤ 0.25 cores | env-gate (exit 3) | `gates.idleSec`, `gates.idleForeignMean`, `gates.idleForeignPeak10s`, `gates.idleServerSetForeignMean`; `--skip-idle-check` |
 | placement plan | `placement` `planPlacement` | any `fail` check (`bot_cpus`, `server_cpus`, `too_few_cores`, `unknown_cpus`, `processor_group`) | env-gate (exit 3) | placement profile |
 | placement verify | `verifyPlacement` at ready, hold start and hold end | any violation (`process_affinity`, `thread_outside`, `priority`) | step invalid | placement profile |
-| interference | `sysmon` machine sampler over the hold | foreign mean > 0.25 cores, 10 s peak > 1.5 cores, or server-set foreign mean > 0.25 cores | step invalid | engine default |
+| interference | `sysmon` machine sampler over the hold | foreign mean > 0.25 cores, 10 s peak > 1.5 cores, or server-set foreign mean > 0.25 cores | step invalid | `gates.foreignMean`, `gates.foreignPeak10s`, `gates.serverSetForeignMean` (reason `interference`) |
 | loadgen saturation | fleet stats `loadgen.saturated` | worker event-loop lag p99 > 50 ms, JS-thread CPU > 85 %, or a silent worker | step invalid, run `loadgenLimited` | `loadgen.botsPerWorker` (indirectly) |
-| counter reply gap | `GametimeSampler` | no reply for > 60 s | step invalid | engine default |
-| counter latency | `GametimeSampler` | reply latency p99 > 30 s | step invalid | engine default |
-| counter monotonic | `GametimeSampler` | gametime decreases | step invalid | engine default |
-| counter alive | `GametimeSampler` during warmup | gametime does not advance | invalid | engine default |
-| TPS sources agree | probe TPS vs counter TPS over the hold | \|difference\| > 0.5 TPS | step invalid (`tps_sources_disagree`) | engine default |
+| counter reply gap | `GametimeSampler` | no reply for > 60 s | step invalid | `gates.gametimeMaxGapSec` (reason `gametime_gap`) |
+| counter latency | `GametimeSampler` | reply latency p99 > 30 s | step invalid | `gates.gametimeLatencyP99Sec` (reason `gametime_latency`) |
+| counter monotonic | `GametimeSampler` | gametime decreases | step invalid | — (reason `gametime_non_monotonic`) |
+| counter alive | `GametimeSampler` during warmup | gametime does not advance | invalid | — (repeat reason `gametime_probe_dead`) |
+| TPS sources agree | probe TPS vs counter TPS over the hold | \|difference\| > 0.5 TPS | step invalid (`tps_sources_disagree`) | `criteria.maxProbeCounterTpsDivergence` |
 | unexpected server exit | `bds-process` `exit` with `expected: false` | any | repeat `server_failed` | none |
 
 "Engine default" means the threshold is fixed in this harness version and recorded with the run. Gates never change a step from fail to pass; they only decide whether its result is admissible.
@@ -96,12 +96,12 @@ Two flags are recorded without changing any status: `settleCapped` (the settle p
    5. **Warmup.** Run for `warmupSec`. Start the gametime sampler; the counter must advance.
    6. **Ramp steps**, each:
       - `scaleTo(n)`;
-      - **settle until converged**: at least the minimum and at most the maximum settle time, until over a 60 s window the bots gain ≤ 0.1 new unique chunks per bot per second, with bot data no older than 5 s. Hitting the maximum sets `settleCapped`;
+      - **settle until converged**: at least `ramp.settle.minSec` and at most `ramp.settle.maxSec`, until over a `ramp.settle.windowSec` (60 s) window the bots gain ≤ `ramp.settle.ratePerBot` (0.1) new unique chunks per bot per second, with bot data no older than `ramp.settle.maxDataAgeSec` (5 s). Hitting the maximum sets `settleCapped`; `ramp.settle.mode = "fixed"` restores a fixed `ramp.settleSec`;
       - **hold** for `ramp.holdSec`: verify placement at the start, mark `step-<i>-start`, sample everything, mark `step-<i>-end`, verify placement at the end;
       - evaluate pass criteria, then gates.
    7. **Bisect** between the last pass and the first fail, with the same step procedure.
    8. **Teardown.** Stop the bots, samplers and server; delete the instance unless `--keep-instances`.
-   9. **Cooldown** before the next repeat, so heat and background work from this repeat do not leak into the next.
+   9. **Cooldown** (`cooldownSec`: 60 s; 5 s in `quick`, 120 s in `thorough`) before the next repeat, so heat and background work from this repeat do not leak into the next.
 4. **Rerun policy.** An `invalid` repeat is rerun once on a fresh instance. A `server_failed` repeat is never rerun (R9).
 5. **Finalise.** Write `result.json`, the `files` manifest in `meta.json`, release the lock, and set the exit code.
 
