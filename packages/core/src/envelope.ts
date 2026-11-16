@@ -24,6 +24,7 @@ export const Kinds = {
   probeMark: 'probe.mark',
   probePong: 'probe.pong',
   sysSample: 'sys.sample',
+  sysInterference: 'sys.interference',
   botStats: 'bot.stats',
   bdsLog: 'bds.log',
   bdsEvent: 'bds.event',

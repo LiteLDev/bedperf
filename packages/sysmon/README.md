@@ -77,11 +77,39 @@ The helper costs about 0.3 s of CPU to start. In steady state at 1 Hz it uses ab
 - **Linux thread vs process CPU.** With schedstat, thread CPU has ns resolution while process CPU (`cpuPct`) still comes from tick-quantized utime+stime, so in a single sample a thread's `cpuPct` can slightly exceed the process's.
 - macOS is not supported (`createProcessSampler` throws).
 
+## Machine interference (`createMachineSampler`, `idleCheck`)
+
+A second, machine-wide sampler answers "how much CPU did the rest of the machine take while we measured?". It emits `InterferenceSample` (core type; envelope kind `Kinds.sysInterference` = `sys.interference`) once per `intervalMs` (1 s by default).
+
+```ts
+import { createMachineSampler, summarizeInterference, checkInterference, idleCheck } from '@bedperf/sysmon'
+
+const gate = await idleCheck({ durationSec: 15, serverCpus: [2, 3] }) // { ok, reasons, summary, top, samples }
+
+const m = createMachineSampler({ serverCpus: [2, 3] }) // harness group = process.pid by default
+await m.start(s => write(envelope('sys', Kinds.sysInterference, s)))
+m.setGroup('server', [bds.pid])
+m.setGroup('bots', botPids)
+// ...
+const summary = summarizeInterference(windowSamples) // { samples, foreignMean, foreignPeak10s, serverSetForeignMean? }
+checkInterference(summary)                           // { ok, reasons[] }, defaults 0.25 / 1.5 / 0.25 cores
+```
+
+- **Per-CPU busy** comes from cumulative per-CPU counters. Linux reads `/proc/stat`: busy = total − idle − iowait, so steal counts as busy. Windows uses `os.cpus()`: busy = user + sys. libuv's `sys` there is kernel time minus idle, which already contains interrupt and DPC time, so `irq` is not added again.
+- **Own groups** `server`, `bots` and `harness` each cover their roots and all descendants. A pid belongs to the first group, in that order, that reaches it, and a walk never enters another group's root. A child is only linked to a parent that started no later than it did, so a reused parent pid does not adopt older orphans. `setGroup` replaces a group's roots and forces a rescan at the next sample.
+- **Per sample**: `foreignCores = Σ busy − Σ group cores`, and with `serverCpus` also `serverSetForeignCores = Σ busy over serverCpus − server group`. Values are **not clamped**. Counter granularity can push them slightly below zero, and clamping would bias the mean upwards. Only `idleCheck` floors its summary at 0.
+- **Process table**: each sample reads only the own pids. The full table is scanned every `topIntervalMs` (10 s by default), which picks up new descendants and produces `top`, the 10 busiest foreign processes (≥ 0.01 cores) since the previous scan, attached to that sample. A pid is credited to its group from the second time it is read, so a newly spawned child counts as foreign until the next scan plus one sample. An own process that exits loses its last partial interval, which also shows up as foreign. Call `refresh()` after spawning own processes to shorten that window. `serverCpus` outside the machine's CPU range make `start()` throw.
+  - Windows: one long-lived `powershell.exe` helper compiles a small C# class once (`Add-Type`, about 0.4 s). It calls `NtQuerySystemInformation(SystemProcessInformation)` for pid, parent pid, create time, CPU and name of every process. That takes one syscall, opens no per-process handles and avoids WMI, whose provider host would itself show up as foreign load. A full scan costs about 12 ms and an own-pid read about 14 ms, most of which is PowerShell call overhead. The helper is our child, so its cost lands in the `harness` group.
+  - Linux: `/proc/<pid>/stat` (ppid, utime + stime, starttime, comm).
+- **`summarizeInterference`** is pure: it returns the mean, the highest mean over 10 consecutive samples (`foreignPeak10s`, or the whole window if it is shorter), and the mean server-set foreign load.
+- **`idleCheck`** runs with no server and no bots. It samples for `durationSec`, gates the result against the thresholds, and returns the busiest foreign processes over the whole check. With no server group, server-set foreign load is just the busy time of those CPUs.
+
 ## Tests
 
 ```
 corepack pnpm --filter @bedperf/sysmon test   # unit tests (+ a quick self-sampling test on Windows)
 BEDPERF_E2E=1 node --test src/e2e.test.ts      # real BDS: idle vs 5 bots, tick thread by name + CPU/tick, overhead, helper cleanup, target exit
+BEDPERF_E2E=1 node --test src/machine.e2e.test.ts  # idle check; an orphan busy loop is foreign until registered in bots
 ```
 
 The e2e test imports `@bedperf/testkit` by relative path, because testkit is not a declared dependency of this package.
