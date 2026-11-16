@@ -31,7 +31,7 @@ test('partial ramp / criteria are merged with defaults', () => {
   assert.equal(c.ramp.start, DEFAULT_RAMP.start)
   assert.equal(c.criteria.minAvgTps, 19.5)
   assert.equal(c.criteria.maxMainThreadUtil, 0.8)
-  assert.equal(c.criteria.maxTickIntervalP99Ms, 60)
+  assert.equal(c.criteria.maxTickIntervalP99Ms, 80)
 })
 
 test('input is not mutated and params are cloned', () => {

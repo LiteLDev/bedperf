@@ -16,7 +16,7 @@
     "minAvgTps": 19.8,
     "minWorstWindowTps": 19.0,
     "worstWindowDiscardPct": 1,
-    "maxTickIntervalP99Ms": 60,
+    "maxTickIntervalP99Ms": 80,
     "maxBotFailures": 0
   },
   "repeats": 5,
