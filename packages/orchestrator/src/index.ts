@@ -1,3 +1,9 @@
 // @bedperf/orchestrator: Benchmark config, step-ramp + bisect engine, pass criteria and run recorder
-// Placeholder created by the step-0 scaffold; implemented in its own work unit.
-export {}
+export * from './config.ts'
+export * from './presets.ts'
+export * from './criteria.ts'
+export * from './search.ts'
+export * from './recorder.ts'
+export * from './engine.ts'
+export * from './table.ts'
+// The simulation lives at the '@bedperf/orchestrator/sim' subpath.
