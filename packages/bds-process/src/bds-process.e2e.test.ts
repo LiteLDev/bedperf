@@ -3,9 +3,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { rmSync } from 'node:fs'
-import { REQUIRED_BOT_PROPERTIES, type BdsInstance, type PlayerEvent } from '@bedperf/core'
+import { REQUIRED_BOT_PROPERTIES, counterTps, latencySummary, lowTps, maxGap, monotonic, type BdsInstance, type PlayerEvent } from '@bedperf/core'
 import { makeInstanceDir, writeServerProperties, createTestBot, DEFAULT_BDS_VERSION } from '../../testkit/src/index.ts'
-import { BdsProcess, BdsStartError } from './index.ts'
+import { BdsProcess, BdsStartError, GametimeSampler, hostNow } from './index.ts'
 
 const e2e = process.env.BEDPERF_E2E === '1'
 const PORT = 19220
@@ -97,5 +97,68 @@ test('BdsProcess drives a real BDS', { skip: !e2e, timeout: 600_000 }, async () 
     await other.stop()
     await removeDir(inst.dir)
     await removeDir(second.dir)
+  }
+})
+
+const GT_PORT = 19224
+
+test('time query gametime: sampler TPS, and the counter keeps running with doDaylightCycle off', { skip: !e2e, timeout: 600_000 }, async () => {
+  const dir = makeInstanceDir()
+  writeServerProperties(dir, {
+    ...REQUIRED_BOT_PROPERTIES,
+    'server-port': GT_PORT,
+    'server-portv6': GT_PORT + 1,
+    'level-name': 'bedperf'
+  })
+  const inst: BdsInstance = { dir, version: DEFAULT_BDS_VERSION, platform: process.platform === 'win32' ? 'win' : 'linux', port: GT_PORT, portV6: GT_PORT + 1, levelName: 'bedperf' }
+  const bds = new BdsProcess(inst)
+  const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
+  try {
+    await bds.start()
+    const raw: string[] = []
+    const onLine = (l: string): void => { if (/Gametime is/i.test(l)) raw.push(l) }
+    bds.on('line', onLine)
+    const one = await bds.queryGametime({ priority: true })
+    assert.ok(Number.isSafeInteger(one.gametime) && one.recvAt >= one.sentAt)
+    assert.match(raw[0]!, /^\[\d{4}-\d\d-\d\d [\d:]+ INFO\] Gametime is \d+$/)
+    bds.off('line', onLine)
+
+    // ~30 s at 1 s with normal-lane commands interleaved.
+    const sampler = new GametimeSampler(bds, { intervalMs: 1000 })
+    const t0 = hostNow()
+    sampler.start()
+    for (let i = 0; i < 6; i++) { await sleep(5000); await bds.listPlayers() }
+    const t1 = hostNow()
+    await sampler.stop()
+    const s = sampler.samples
+    assert.equal(sampler.lost, 0)
+    assert.equal(sampler.unmatched, 0)
+    assert.ok(s.length >= 28, `samples ${s.length}`)
+    assert.ok(monotonic(s))
+    const tps = counterTps(s, t0, t1)
+    assert.ok(tps !== undefined && tps >= 19 && tps <= 20.5, `counterTps ${tps}`)
+    const lat = latencySummary(s)
+    assert.ok(maxGap(s, t0, t1) < 3000, `maxGap ${maxGap(s, t0, t1)}`)
+    console.log(`gametime e2e: n=${s.length} tps=${tps.toFixed(3)} low5s=${lowTps(s)?.toFixed(3)} latency p50=${lat.p50.toFixed(1)} p99=${lat.p99.toFixed(1)} max=${lat.max.toFixed(1)} ms`)
+
+    // Finding (BDS 1.26.63.1): with doDaylightCycle false the time of day freezes, but the
+    // gametime counter keeps advancing at the tick rate, so it is a valid TPS source either way.
+    await bds.setGamerule('dodaylightcycle', false)
+    const day = async (): Promise<number> => {
+      const lines = await bds.command('time query daytime', /^Daytime is \d+/i)
+      return Number(/Daytime is (\d+)/i.exec(lines.at(-1)!)![1])
+    }
+    const d0 = await day()
+    const a = await bds.queryGametime()
+    await sleep(5000)
+    const b = await bds.queryGametime()
+    const d1 = await day()
+    assert.equal(d1, d0, 'daytime is frozen')
+    const frozenTps = (b.gametime - a.gametime) / ((b.recvAt - a.recvAt) / 1000)
+    console.log(`doDaylightCycle=false: daytime ${d0} -> ${d1}, gametime ${a.gametime} -> ${b.gametime} (${frozenTps.toFixed(2)} TPS)`)
+    assert.ok(frozenTps >= 18 && frozenTps <= 21, `gametime rate with doDaylightCycle false: ${frozenTps}`)
+  } finally {
+    await bds.stop()
+    await removeDir(dir)
   }
 })
