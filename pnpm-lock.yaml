@@ -261,6 +261,9 @@ importers:
       '@bedperf/orchestrator':
         specifier: workspace:*
         version: link:../orchestrator
+      '@bedperf/placement':
+        specifier: workspace:*
+        version: link:../placement
       '@bedperf/probe-addon':
         specifier: workspace:*
         version: link:../probe-addon
@@ -318,6 +321,9 @@ importers:
       '@bedperf/core':
         specifier: workspace:*
         version: link:../core
+      '@bedperf/sysmon':
+        specifier: workspace:*
+        version: link:../sysmon
     devDependencies:
       '@types/node':
         specifier: 24.19.2

@@ -8,6 +8,7 @@ import {
   type BenchmarkConfig, type Envelope, type FileDigest, type HarnessInfo, type MachineInfo, type RunMeta, type RunResult, type Source, type StepResult
 } from '@bedperf/core'
 import pkg from '../package.json' with { type: 'json' }
+import { canonicalJson } from './canonical.ts'
 
 export interface RunRecorderOptions {
   /** Parent directory; the run lands in `<runsDir>/<runId>/`. */
@@ -117,6 +118,7 @@ export class RunRecorder {
   private closed = false
   private readonly now: () => number
   private readonly scrubber: Scrubber
+  private kept: Envelope[] | undefined
 
   private constructor (runId: string, dir: string, meta: RunMeta, stream: WriteStream, now: () => number, scrubber: Scrubber) {
     this.runId = runId
@@ -170,7 +172,28 @@ export class RunRecorder {
   /** Append one envelope to samples.jsonl. Ignored after `close()`. */
   write (env: Envelope): void {
     if (this.closed) return
-    this.stream.write(JSON.stringify(env) + '\n')
+    const line = JSON.stringify(env)
+    this.stream.write(line + '\n')
+    // Keep exactly what a reader of samples.jsonl will see (NaN becomes null, undefined is dropped).
+    this.kept?.push(JSON.parse(line) as Envelope)
+  }
+
+  /**
+   * From now on keep a parsed copy of every envelope written (until the next call, which starts a new
+   * list). The engine derives step results from these, exactly as `recomputeRun` does from the file.
+   */
+  retain (): void {
+    this.kept = []
+  }
+
+  /** Continue retaining, but drop everything kept so far except `keep` (in order). */
+  retainFrom (keep: readonly Envelope[]): void {
+    this.kept = [...keep]
+  }
+
+  /** Envelopes written since `retain()`, in order (empty if `retain` was never called). */
+  get retained (): readonly Envelope[] {
+    return this.kept ?? []
   }
 
   /** Wrap `data` in an envelope (t defaults to the recorder clock) and append it. */
@@ -178,8 +201,9 @@ export class RunRecorder {
     this.write(envelope(src, kind, data, t))
   }
 
+  /** steps.json in the canonical form (`canonicalJson`: sorted keys, 4-decimal numbers) that `recomputeRun` compares against. */
   async writeSteps (steps: readonly StepResult[]): Promise<void> {
-    await writeFile(path.join(this.dir, RUN_FILES.steps), json(steps))
+    await writeFile(path.join(this.dir, RUN_FILES.steps), canonicalJson(steps))
   }
 
   async writeResult (result: RunResult): Promise<void> {
@@ -196,6 +220,7 @@ export class RunRecorder {
     await new Promise<void>((resolve, reject) => {
       this.stream.end((err?: Error | null) => { err != null ? reject(err) : resolve() })
     })
+    this.kept = undefined
     this.meta.finishedAt = new Date(this.now()).toISOString()
     try {
       this.meta.files = await fileManifest(this.dir)

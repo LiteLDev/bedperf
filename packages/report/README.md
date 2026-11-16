@@ -23,7 +23,17 @@ renderCompareHtml(c)
 
 - `loadRun(dir)` requires `config.json` and `meta.json`. It tolerates a missing `result.json` (aborted run) and a missing `steps.json`, in which case it uses `orch.step.end` envelopes that carry a full `StepResult`. `samples.jsonl` is streamed line by line. Unknown envelope kinds are counted and skipped, and malformed lines are counted.
 - `loadRun` also reads `orch.repeat.start` / `orch.repeat.end` envelopes into `repeatStarts` / `repeatEnds` (see Repeat status).
-- `generateRun(dir, opts)` synthesizes a realistic run dir for tests and demos. It produces 3 repeats of ramp + bisect at ~1 Hz probe, sys and bot envelopes with noise, capacity ~40 by default, and options for an aborted run, no sysmon, loadgen saturation, junk lines, exact per-repeat capacities, per-repeat `orch.repeat.end` outcomes (status, reasons, aborted, never ended, null outcome) and extra meta.json fields.
+- `generateRun(dir, opts)` synthesizes a realistic run dir for tests and demos. It produces 3 repeats of ramp + bisect at ~1 Hz probe, sys and bot envelopes with noise, capacity ~40 by default, and options for an aborted run, no sysmon, loadgen saturation, junk lines, exact per-repeat capacities, per-repeat `orch.repeat.end` outcomes (status, reasons, aborted, never ended, null outcome) and extra meta.json fields. `extended: true` adds the newer measurements (see below) with options for a vcpu placement, a dirty harness, an interference spike that invalidates one step and a tick-CPU scale.
+- `loadRun` also reads `sys.interference` and `bds.gametime` envelopes into `interference` / `gametime`.
+
+## Newer measurements (all optional)
+
+Every field below is read defensively; a run without them renders as before, with the panels, charts and columns left out.
+
+- StepResult: `counterTps`, `counterTpsLow5`, `gametimeMaxGapMs`, `gametimeLatencyMs` (Summary), `tickCpuMsPerTick`, `tickThreadSource`, `interference` (`foreignMean`, `foreignPeak10s`, `serverSetForeignMean`), `placementVerified`, `settleSec`, `settleCapped`, `viewsIncomplete`, `inViewMedian`, `viewT90MsP50`, `chunksPerSec`, `uniqChunksPerBot`, `invalidReasons`. A step is invalid when `invalidReasons` is non-empty (older runs: `loadgenSaturated`); invalid steps stay out of curves and fits.
+- meta.json: `configSha256`, `machine`, `harness` (`git`, `dirty`, ...), `artifacts` (`bdsZipSha256`, `probePackSha256`, `bedbooCommit`), `placement` (`profileSha256`, `kind`, `method`, `serverCpus`, `botCpus`, `priority`, `verified`, `checks`), `gates`. Read into `Analysis.provenance`.
+- result.json: `repeats[]` (`index`, `status`, `statusReasons`, `maxPlayers`) gives repeat statuses when there is no `orch.repeat.end`; `invalidLimited` is flagged.
+- samples.jsonl: tick-counter TPS between consecutive `bds.gametime` replies, foreign load from `sys.interference`, and tick CPU per tick from consecutive `mainThread.cpuMs` of the same thread divided by the TPS at that time.
 
 ## Analysis (`Analysis`)
 
@@ -31,24 +41,27 @@ renderCompareHtml(c)
 |---|---|
 | `analysisVersion` | `ANALYSIS_VERSION` of the code that produced it |
 | `headline` | median max players over the **ok** repeats with min/max/spread, `kOk` / `n`, `statusCounts`, every repeat with status, reasons and value (`repeats`), `capped`, `loadgenLimited`, `aborted`. Per-repeat values come from `orch.repeat.end`, `result.json` or the steps, in that order. |
-| `steps` | per step: players, pass/invalid, fail reasons, TPS mean/min, tick p99, ticks over 50/100 ms, util mean, CPU, RSS, RTT p95, net rx/tx, bot failures |
-| `curves`, `meanCurve` | players → mean of each metric (`tps`, `util`, `cpu`, `rss`, `rssPerPlayer`, `rttP95`, `netTx`, `tickP99`), per repeat (every repeat) and across the ok repeats. Passing and failing steps are both included; invalid ones are not. |
-| `derived` | least-squares slopes over the ok repeats' step means: memory per player (RSS), net tx/rx per player, util per player, and the extrapolated players at util = 1.0 |
+| `steps` | per step: players, pass/invalid, invalid and fail reasons, TPS mean/min, tick p99, ticks over 50/100 ms, util mean, CPU, RSS, RTT p95, net rx/tx, bot failures, and the newer fields above when recorded |
+| `curves`, `meanCurve` | players → mean of each metric (`tps`, `util`, `cpu`, `rss`, `rssPerPlayer`, `rttP95`, `netTx`, `tickP99`, `counterTps`, `tickCpuMsPerTick`, `foreignMean`, `inViewMedian`, `viewT90`, `chunksPerSec`), per repeat (every repeat) and across the ok repeats. Passing and failing steps are both included; invalid ones are not. |
+| `derived` | least-squares slopes over the ok repeats' step means: memory per player (RSS), net tx/rx per player, util per player, the extrapolated players at util = 1.0, and tick CPU ms/tick per player (`tickCpuPerPlayer`, fitted on passing steps: a capacity cost that does not saturate and compares across machines) |
 | `repeatDerived`, `okRepeats` | the same fits per ok repeat, used by the comparison |
-| `timeline` | TPS (bucket minimum), util and players over time, downsampled to ≤ 600 points per repeat, with step bands from `orch.step.*` envelopes |
+| `provenance`, `threats`, `publishable` | provenance read from meta.json; threats to validity (`bad` / `warn` / `info`); `publishable` is false when any threat is `bad`: fewer than 3 ok repeats, a dirty harness, an aborted run or an unverified placement |
+| `timeline` | TPS (bucket minimum), tick-counter TPS, util, players, foreign load and tick CPU per tick over time, downsampled to ≤ 600 points per repeat, with step bands from `orch.step.*` envelopes |
 
 ## Report sections
 
-1. Headline card: max players @ 20 TPS (median of ok repeats), k/n ok, range, per-repeat values with statuses and reasons, flags, and per-player cost tiles
-2. Run metadata: versions, host, scenario, ramp and criteria, comparability fields (config hash, machine fingerprint, BDS build hash, analysis version, placement profile hash), key server properties (all of them under a disclosure)
-3. Scaling charts against players: TPS (with a 20 TPS line), main-thread util (with a util 1.0 line and the linear fit), RSS per player above baseline, RTT p95
-4. Timeline per repeat: TPS, util and players as stacked panels sharing the time axis, with step bands shaded pass/fail/invalid
-5. Steps table
+1. Headline card: max players @ 20 TPS (median of ok repeats), k/n ok, range, per-repeat values with statuses and reasons, flags (including "unofficial" for a dirty harness, vcpu and "not publishable"), and per-player cost tiles (with tick CPU per player)
+2. Threats to validity: colocated loadgen, loopback network, vcpu, dirty harness, unverified placement, invalid steps and their reasons, settle capped, views incomplete, fewer than 3 ok repeats ("not publishable"), incomplete provenance
+3. Provenance and environment: config hash, machine fingerprint, harness version + git (dirty → "unofficial"), BDS zip hash, probe pack hash, bedboo commit, CPU placement plan (kind, method, CPU sets, priority, verified, checks) and gate thresholds
+4. Run metadata: versions, host, scenario, ramp and criteria, key server properties (all of them under a disclosure)
+5. Scaling charts against players: TPS (with a 20 TPS line), main-thread util (with a util 1.0 line and the linear fit), RSS per player above baseline, RTT p95; when recorded, tick CPU per tick (with its fit), tick-counter TPS (with probe TPS), view load t90, chunks per second, in-view columns and foreign load
+6. Timeline per repeat: TPS (probe and tick counter), util and players as stacked panels sharing the time axis, plus tick CPU per tick and foreign load when recorded, with step bands shaded pass/fail/invalid
+7. Steps table, with columns for the newer measurements when recorded, per-step flags (settle capped, views incomplete, placement mismatch, tick thread found as busiest) and invalid reasons
 6. Methodology footnote and data-quality notes
 
 Light and dark themes follow `prefers-color-scheme`. The layout works at 375 px: the long timelines and the table scroll horizontally inside their card, not the page.
 
-The comparison shows both headlines and their delta, a comparability table, per-player costs, overlaid TPS and util curves, a metric table at matched player counts and the decision rule. Matched counts are round numbers inside the range every ok repeat of both runs measured (falling back to the mean curves' common range when the repeats share none); each repeat's curve is linearly interpolated there, and a repeat that did not measure a count is left out of that row.
+The comparison shows both headlines and their delta, a comparability table, per-player costs, overlaid TPS and util curves (and tick CPU per tick / tick-counter TPS when recorded), a metric table at matched player counts and the decision rule. Matched counts are round numbers inside the range every ok repeat of both runs measured (falling back to the mean curves' common range when the repeats share none); each repeat's curve is linearly interpolated there, and a repeat that did not measure a count is left out of that row.
 
 ## Repeat status
 
@@ -71,9 +84,15 @@ For the headline, every curve metric at each matched player count and every per-
 
 `compareRuns(a, b, { force })` checks these meta.json fields: `configSha256`, `machine.fingerprint`, `bdsVersion`, the BDS build hash (`bdsBuildSha256`, `artifacts.bdsBuildSha256` or `artifacts.bds.sha256`), `analysisVersion`, `placement.profileSha256` and `botVersion`. A field present in both runs with different values is a mismatch: `compareRuns` throws `IncomparableRunsError` (with `mismatches`) unless `force: true`, in which case the page carries a prominent warning banner. A field missing from either run is "cannot verify": noted on the page, not a refusal, so older runs still compare.
 
+`Comparison.warnings` lists differences that weaken but do not refuse a comparison: a vcpu placement (or physical vs vcpu), a dirty harness, different harness commits, probe pack or bedboo commit, an unverified placement and fewer than 3 ok repeats. They are shown as `warning` rows in the comparability table and in a warning box.
+
+The metric table includes tick-counter TPS (higher is better), tick CPU per tick (lower) and view load t90 (lower) at matched player counts, and the per-player costs include tick CPU per player (lower).
+
+On the command line, `bedperf compare A B` exits 2 and lists the mismatches when the runs are not comparable; `--force` writes the page anyway.
+
 ## Analysis version
 
-`ANALYSIS_VERSION` (currently 1) is stored in every `Analysis` and printed on both pages. Bump it whenever a change can move a number or a verdict computed from the same raw data (headline aggregation, repeat statuses, curve and fit inputs, the decision rule). Pure presentation changes do not bump it. Runs that record a different `analysisVersion` are not comparable.
+`ANALYSIS_VERSION` (currently 2) is stored in every `Analysis` and printed on both pages. Bump it whenever a change can move a number or a verdict computed from the same raw data (headline aggregation, repeat statuses, curve and fit inputs, the decision rule). Pure presentation changes do not bump it. Runs that record a different `analysisVersion` are not comparable.
 
 ## Caveats
 

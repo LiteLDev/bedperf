@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { DEFAULT_CRITERIA } from '@bedperf/core'
+import { DEFAULT_CRITERIA, DEFAULT_GATES, DEFAULT_PLACEMENT, DEFAULT_SETTLE, DEFAULT_TPS_DIVERGENCE } from '@bedperf/core'
 import { ConfigError, DEFAULT_RAMP, loadConfig, parseConfig } from './config.ts'
 import { PRESET_NAMES, preset, presets } from './presets.ts'
 
@@ -13,8 +13,11 @@ test('minimal config gets all defaults', () => {
   const c = parseConfig(minimal)
   assert.equal(c.name, 'mini')
   assert.equal(c.bdsVersion, 'latest')
-  assert.deepEqual(c.criteria, DEFAULT_CRITERIA)
-  assert.deepEqual(c.ramp, DEFAULT_RAMP)
+  assert.deepEqual(c.criteria, { ...DEFAULT_CRITERIA, maxProbeCounterTpsDivergence: DEFAULT_TPS_DIVERGENCE })
+  assert.deepEqual(c.ramp, { ...DEFAULT_RAMP, settle: DEFAULT_SETTLE })
+  assert.deepEqual(c.placement, DEFAULT_PLACEMENT)
+  assert.deepEqual(c.gates, DEFAULT_GATES)
+  assert.equal(c.cooldownSec, 60)
   assert.equal(c.ramp.settleSec, 20)
   assert.equal(c.ramp.holdSec, 60)
   assert.equal(c.ramp.resolution, 2)

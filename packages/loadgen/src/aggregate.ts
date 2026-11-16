@@ -58,7 +58,12 @@ export function aggregateView (samples: readonly BotViewSample[]): Pick<FleetSta
   const out: Pick<FleetStats, 'uniqChunks' | 'inView' | 'viewT90Ms' | 'viewTNMs'> = {}
   out.uniqChunks = samples.reduce((a, v) => a + v.uniq, 0)
   const iv = summarize(samples.map(v => v.inView))
-  out.inView = { min: iv.min, median: iv.p50, max: iv.max }
+  out.inView = {
+    min: iv.min,
+    median: iv.p50,
+    max: iv.max,
+    halfMedianFrac: samples.filter(v => v.inView >= 0.5 * iv.p50).length / samples.length
+  }
   const t90 = samples.flatMap(v => v.t90Ms !== undefined ? [v.t90Ms] : []).sort((a, b) => a - b)
   if (t90.length > 0) out.viewT90Ms = { p50: nearestRank(t90, 0.5), p90: nearestRank(t90, 0.9), max: t90[t90.length - 1]!, n: t90.length }
   out.viewTNMs = {

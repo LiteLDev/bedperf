@@ -1,5 +1,6 @@
 import type { StepResult } from '@bedperf/core'
 import { downsample, linreg, mean, median, num } from './math.ts'
+import { provenanceOf, threatsOf } from './provenance.ts'
 import { CURVE_METRICS } from './types.ts'
 import type { Analysis, Curve, CurveMetric, CurvePoint, Derived, Headline, RepeatInfo, RepeatStatus, RunData, StepBand, StepMarkData, StepRow, Timeline } from './types.ts'
 
@@ -11,15 +12,24 @@ const TIMELINE_POINTS_PER_REPEAT = 600
  * comparison decision rule). Bump it whenever a change can move a number or a verdict computed
  * from the same raw data, so runs analysed under different rules are flagged as not comparable.
  * Pure presentation changes (layout, wording, colours) do not bump it.
+ *
+ * 2: steps with `invalidReasons` are invalid (left out of curves and fits); tick-counter TPS,
+ *    tick CPU per tick, interference and view-load curves; tick CPU per player fit; repeat
+ *    statuses from result.json `repeats[]`.
  */
-export const ANALYSIS_VERSION = 1
+export const ANALYSIS_VERSION = 2
+
+/** A step the orchestrator marked invalid (`invalidReasons`), or loadgen-saturated (older runs). */
+function invalidStep (s: StepResult): boolean {
+  return s.loadgenSaturated === true || strings((s as StepResult & { invalidReasons?: unknown }).invalidReasons).length > 0
+}
 
 /** Status and per-repeat result of every repeat, from repeat envelopes, result.json and steps. */
 function repeatInfosOf (run: RunData): { infos: RepeatInfo[], incomplete: number[] } {
   const best = (r: number): number | undefined => {
     const mine = run.steps.filter((s) => s.repeat === r)
     if (mine.length === 0) return undefined
-    const passing = mine.filter((s) => s.pass).map((s) => s.players)
+    const passing = mine.filter((s) => s.pass && !invalidStep(s)).map((s) => s.players)
     return passing.length > 0 ? Math.max(...passing) : 0
   }
   const hasMarks = run.repeatStarts.length > 0 || run.repeatEnds.length > 0
@@ -50,6 +60,11 @@ function repeatInfosOf (run: RunData): { infos: RepeatInfo[], incomplete: number
       } else {
         status = 'ok'
       }
+    } else if (resultRepeatOf(run, r) !== undefined) {
+      const rr = resultRepeatOf(run, r)!
+      status = rr.status
+      reasons = rr.statusReasons
+      maxPlayers = rr.maxPlayers ?? maxPlayers
     } else if (hasMarks) {
       // The run records repeat boundaries but this repeat has no end: it was cut off.
       status = 'invalid'
@@ -70,6 +85,20 @@ function repeatInfosOf (run: RunData): { infos: RepeatInfo[], incomplete: number
   return { infos, incomplete }
 }
 
+/** A `result.json` `repeats[]` entry for repeat `r` (matched on `index`), read defensively. */
+function resultRepeatOf (run: RunData, r: number): { status: RepeatStatus, statusReasons: string[], maxPlayers?: number } | undefined {
+  const list = (run.result as { repeats?: unknown } | undefined)?.repeats
+  if (!Array.isArray(list)) return undefined
+  for (const e of list as unknown[]) {
+    if (e === null || typeof e !== 'object') continue
+    const o = e as Record<string, unknown>
+    if (num(o.index) !== r || typeof o.status !== 'string' || !['ok', 'invalid', 'server_failed'].includes(o.status)) continue
+    const maxPlayers = num(o.maxPlayers)
+    return { status: o.status as RepeatStatus, statusReasons: strings(o.statusReasons), ...(maxPlayers !== undefined ? { maxPlayers } : {}) }
+  }
+  return undefined
+}
+
 function headlineOf (run: RunData): Headline {
   const { infos, incomplete } = repeatInfosOf(run)
   const ok = infos.filter((i) => i.status === 'ok')
@@ -84,6 +113,7 @@ function headlineOf (run: RunData): Headline {
     (run.repeatEnds.length === 0 && run.result?.capped === true)
   const loadgenLimited = run.result?.loadgenLimited === true || run.repeatEnds.some((e) => e.loadgenLimited === true) ||
     run.steps.some((s) => s.loadgenSaturated)
+  const invalidLimited = (run.result as { invalidLimited?: unknown } | undefined)?.invalidLimited === true
   return {
     maxPlayersMedian: median(perRepeat),
     perRepeat,
@@ -96,6 +126,7 @@ function headlineOf (run: RunData): Headline {
     spread: perRepeat.length > 0 ? Math.max(...perRepeat) - Math.min(...perRepeat) : undefined,
     capped,
     loadgenLimited,
+    invalidLimited,
     source: run.result !== undefined ? 'result' : 'steps',
     aborted: run.result === undefined,
     incompleteRepeats: incomplete
@@ -110,20 +141,44 @@ function repeatFinished (run: RunData, repeat: number, best: number): boolean {
   if (best >= ramp.max) return true
   // A saturated load generator ends the search.
   if (steps.some((s) => s.loadgenSaturated)) return true
-  const fails = steps.filter((s) => !s.pass && s.players > best).map((s) => s.players)
+  const fails = steps.filter((s) => !s.pass && !invalidStep(s) && s.players > best).map((s) => s.players)
   if (fails.length === 0) return false
   const resolution = ramp.resolution > 0 ? ramp.resolution : ramp.step
   return Math.min(...fails) - best <= resolution
 }
 
+/** A number, or the `mean` of a Summary-like object. */
+function numOrMean (v: unknown): number | undefined {
+  return num(v) ?? (v !== null && typeof v === 'object' ? num((v as { mean?: unknown }).mean) : undefined)
+}
+
+function strings (v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x) => x !== null && x !== undefined && x !== '').map(String) : []
+}
+
+function bool (v: unknown): boolean | undefined {
+  return typeof v === 'boolean' ? v : undefined
+}
+
+function objectOf (v: unknown): Record<string, unknown> {
+  return v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {}
+}
+
 function rowOf (s: StepResult): StepRow {
-  return {
+  // Newer fields are not in older cores' StepResult; read them all defensively.
+  const x = s as StepResult & Record<string, unknown>
+  const invalidReasons = strings(x.invalidReasons)
+  if (invalidReasons.length === 0 && s.loadgenSaturated === true) invalidReasons.push('loadgen saturated')
+  const interference = objectOf(x.interference)
+  const latency = objectOf(x.gametimeLatencyMs)
+  const row: StepRow = {
     repeat: s.repeat,
     index: s.index,
     phase: s.phase,
     players: s.players,
     pass: s.pass,
-    invalid: s.loadgenSaturated,
+    invalid: invalidReasons.length > 0,
+    invalidReasons,
     failReasons: Array.isArray(s.failReasons) ? s.failReasons.map(String) : [],
     startT: s.startT,
     endT: s.endT,
@@ -140,6 +195,27 @@ function rowOf (s: StepResult): StepRow {
     netTxBps: num(s.netTxBytesPerSec),
     botFailures: num(s.botFailures) ?? 0
   }
+  const opt: Partial<StepRow> = {
+    counterTps: numOrMean(x.counterTps),
+    counterTpsLow5: numOrMean(x.counterTpsLow5),
+    gametimeMaxGapMs: num(x.gametimeMaxGapMs),
+    gametimeLatencyP50: num(latency.p50) ?? num(x.gametimeLatencyMs),
+    tickCpuMsPerTick: numOrMean(x.tickCpuMsPerTick),
+    tickThreadSource: x.tickThreadSource === 'name' || x.tickThreadSource === 'busiest' ? x.tickThreadSource : undefined,
+    foreignMean: num(interference.foreignMean),
+    foreignPeak10s: num(interference.foreignPeak10s),
+    serverSetForeignMean: num(interference.serverSetForeignMean),
+    placementVerified: bool(x.placementVerified),
+    settleSec: num(x.settleSec),
+    settleCapped: bool(x.settleCapped),
+    viewsIncomplete: bool(x.viewsIncomplete),
+    inViewMedian: numOrMean(x.inViewMedian),
+    viewT90MsP50: numOrMean(x.viewT90MsP50),
+    chunksPerSec: numOrMean(x.chunksPerSec),
+    uniqChunksPerBot: numOrMean(x.uniqChunksPerBot)
+  }
+  for (const [k, v] of Object.entries(opt)) if (v !== undefined) (row as unknown as Record<string, unknown>)[k] = v
+  return row
 }
 
 function metricOf (r: StepRow, m: CurveMetric): number | undefined {
@@ -152,6 +228,12 @@ function metricOf (r: StepRow, m: CurveMetric): number | undefined {
     case 'rttP95': return r.rttP95
     case 'netTx': return r.netTxBps
     case 'tickP99': return r.tickP99
+    case 'counterTps': return r.counterTps
+    case 'tickCpuMsPerTick': return r.tickCpuMsPerTick
+    case 'foreignMean': return r.foreignMean
+    case 'inViewMedian': return r.inViewMedian
+    case 'viewT90': return r.viewT90MsP50
+    case 'chunksPerSec': return r.chunksPerSec
   }
 }
 
@@ -202,6 +284,9 @@ function derivedOf (rows: readonly StepRow[]): Derived {
       if (Number.isFinite(p) && p >= 0) d.playersAtUtil1 = p
     }
   }
+  // Fitted on passing steps for the same reason: past saturation the tick stretches.
+  const cpu = linreg(pairs((r) => r.tickCpuMsPerTick, passing)) ?? linreg(pairs((r) => r.tickCpuMsPerTick))
+  if (cpu !== undefined) d.tickCpuPerPlayer = cpu
   return d
 }
 
@@ -210,7 +295,7 @@ function key (repeat: number | undefined, index: number | undefined): string {
 }
 
 function timelineOf (run: RunData, rows: readonly StepRow[]): Timeline {
-  const firstTs = [run.runStartT, run.probe[0]?.t, run.sys[0]?.t, run.bot[0]?.t, run.stepMarks[0]?.t, rows[0]?.startT]
+  const firstTs = [run.runStartT, run.probe[0]?.t, run.sys[0]?.t, run.bot[0]?.t, run.interference[0]?.t, run.gametime[0]?.data.t, run.stepMarks[0]?.t, rows[0]?.startT]
     .filter((x): x is number => x !== undefined && Number.isFinite(x))
   const t0 = firstTs.length > 0 ? Math.min(...firstTs) : 0
   const sec = (t: number): number => (t - t0) / 1000
@@ -289,7 +374,43 @@ function timelineOf (run: RunData, rows: readonly StepRow[]): Timeline {
     ? run.probe.flatMap((p): Array<[number, number]> => { const v = num(p.data.players); return v === undefined ? [] : [[sec(p.t), v]] })
     : run.bot.flatMap((b): Array<[number, number]> => { const v = num(b.data.spawned); return v === undefined ? [] : [[sec(b.t), v]] })
 
-  const lastX = Math.max(0, tpsRaw.at(-1)?.[0] ?? 0, utilRaw.at(-1)?.[0] ?? 0, playersRaw.at(-1)?.[0] ?? 0, ...bands.map((b) => b.t1))
+  // Tick-counter TPS between consecutive replies, at the midpoint. Pairs far apart compared with
+  // the sampling period (a gap between repeats, a server restart) are skipped.
+  const gt = run.gametime.map((g) => g.data)
+  const period = median(gt.slice(1).map((g, i) => g.t - gt[i]!.t).filter((d) => d > 0)) ?? 0
+  const counterRaw: Array<[number, number]> = []
+  const counterAbs: Array<[number, number]> = []
+  for (let i = 1; i < gt.length; i++) {
+    const a = gt[i - 1]!
+    const b = gt[i]!
+    const dt = b.t - a.t
+    if (!(dt > 0) || dt > 3 * period || !(b.gametime >= a.gametime)) continue
+    const rate = (b.gametime - a.gametime) / (dt / 1000)
+    counterRaw.push([sec((a.t + b.t) / 2), rate])
+    counterAbs.push([(a.t + b.t) / 2, rate])
+  }
+  const foreignRaw = run.interference.flatMap((s): Array<[number, number]> => { const v = num(s.data.foreignCores); return v === undefined ? [] : [[sec(s.t), v]] })
+  const serverSetRaw = run.interference.flatMap((s): Array<[number, number]> => { const v = num(s.data.serverSetForeignCores); return v === undefined ? [] : [[sec(s.t), v]] })
+  // Tick CPU per tick: tick-thread CPU ms per second (consecutive cumulative cpuMs of the same
+  // thread) divided by the TPS at that time (probe, else the tick counter).
+  const tpsAt = nearest(run.probe.map((p): [number, number] => [p.t, p.data.tps]).filter(([, y]) => Number.isFinite(y)))
+  const counterAt = nearest(counterAbs)
+  const tickCpuRaw: Array<[number, number]> = []
+  for (let i = 1; i < run.sys.length; i++) {
+    const a = run.sys[i - 1]!
+    const b = run.sys[i]!
+    const ca = num(a.data.mainThread?.cpuMs)
+    const cb = num(b.data.mainThread?.cpuMs)
+    if (ca === undefined || cb === undefined || a.data.mainThread?.tid !== b.data.mainThread?.tid) continue
+    const dt = b.t - a.t
+    if (!(dt > 0) || cb < ca) continue
+    const mid = (a.t + b.t) / 2
+    const tps = tpsAt(mid) ?? counterAt(mid)
+    if (tps === undefined || tps < 0.5) continue
+    tickCpuRaw.push([sec(mid), (cb - ca) / (dt / 1000) / tps])
+  }
+
+  const lastX = Math.max(0, tpsRaw.at(-1)?.[0] ?? 0, utilRaw.at(-1)?.[0] ?? 0, playersRaw.at(-1)?.[0] ?? 0, counterRaw.at(-1)?.[0] ?? 0, foreignRaw.at(-1)?.[0] ?? 0, serverSetRaw.at(-1)?.[0] ?? 0, tickCpuRaw.at(-1)?.[0] ?? 0, ...bands.map((b) => b.t1))
   const repeatIds = [...new Set(bands.map((b) => b.repeat))].sort((a, b) => a - b)
   const repeats: Timeline['repeats'] = []
   let x0 = 0
@@ -307,8 +428,25 @@ function timelineOf (run: RunData, rows: readonly StepRow[]): Timeline {
     tps: downsample(tpsRaw, budget, 'min'),
     util: downsample(utilRaw, budget, 'mean'),
     players: downsample(playersRaw, budget, 'max'),
+    counterTps: downsample(counterRaw, budget, 'min'),
+    foreign: downsample(foreignRaw, budget, 'max'),
+    serverSetForeign: downsample(serverSetRaw, budget, 'max'),
+    tickCpu: downsample(tickCpuRaw, budget, 'mean'),
     bands,
     repeats
+  }
+}
+
+/**
+ * Nearest-sample lookup (within 5 s) over time-sorted [t, value] pairs, for joining series sampled
+ * at different instants. Queries must come in non-decreasing t.
+ */
+function nearest (pts: ReadonlyArray<readonly [number, number]>): (t: number) => number | undefined {
+  let i = 0
+  return (t) => {
+    if (pts.length === 0) return undefined
+    while (i + 1 < pts.length && Math.abs(pts[i + 1]![0] - t) <= Math.abs(pts[i]![0] - t)) i++
+    return Math.abs(pts[i]![0] - t) <= 5000 ? pts[i]![1] : undefined
   }
 }
 
@@ -316,8 +454,8 @@ function timelineOf (run: RunData, rows: readonly StepRow[]): Timeline {
 export function analyze (run: RunData): Analysis {
   const steps = run.steps.map(rowOf)
   const repeats = [...new Set(steps.map((s) => s.repeat))].sort((a, b) => a - b)
-  // Steps measured while the load generator was saturated are invalid: the bot count is not the
-  // load the server saw, so they stay out of the curves and the per-player fits.
+  // Invalid steps (loadgen saturated, interference, placement not verified, ... as recorded in
+  // `invalidReasons`) do not measure the server, so they stay out of the curves and fits.
   const valid = steps.filter((s) => !s.invalid)
   const curves = repeats.map((r) => curveOf(valid.filter((s) => s.repeat === r), r))
   const headline = headlineOf(run)
@@ -333,13 +471,15 @@ export function analyze (run: RunData): Analysis {
     notes.push(`${headline.kOk}/${headline.n} repeats ok. Left out of the median${okRepeats.length > 0 ? ', the mean curve and the fits' : ''}: ${notOk.map((i) => `repeat ${i.repeat} ${i.status}${i.reasons.length > 0 ? ` (${i.reasons.join('; ')})` : ''}`).join(', ')}.`)
   }
   if (steps.length === 0) notes.push('No step results were recorded.')
-  if (steps.length > valid.length) notes.push(`${steps.length - valid.length} step(s) invalidated by loadgen saturation are left out of the curves and fits.`)
+  if (steps.length > valid.length) notes.push(`${steps.length - valid.length} invalid step(s) are left out of the curves and fits.`)
   if (run.probe.length === 0) notes.push('No probe samples; TPS timeline is empty.')
   if (run.sys.length === 0) notes.push('No sysmon samples; main-thread utilisation timeline is empty.')
   if (run.badLines > 0) notes.push(`${run.badLines} malformed line(s) in samples.jsonl were skipped.`)
   const other = Object.entries(run.otherKinds)
   if (other.length > 0) notes.push(`Ignored envelope kinds: ${other.map(([k, n]) => `${k} (${n})`).join(', ')}.`)
 
+  const provenance = provenanceOf(run.meta)
+  const threats = threatsOf(run, headline, steps, provenance)
   return {
     analysisVersion: ANALYSIS_VERSION,
     name: String(run.config.name ?? run.result?.config ?? ''),
@@ -354,6 +494,9 @@ export function analyze (run: RunData): Analysis {
     repeatDerived: okRepeats.map((r) => ({ repeat: r, derived: derivedOf(valid.filter((s) => s.repeat === r)) })),
     okRepeats,
     timeline: timelineOf(run, steps),
+    provenance,
+    threats,
+    publishable: !threats.some((t) => t.level === 'bad'),
     notes
   }
 }

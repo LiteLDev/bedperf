@@ -6,7 +6,15 @@ export interface ParsedArgs {
 }
 
 /** Flags that never take a value. */
-const BOOLEAN_FLAGS = new Set(['accept-eula', 'keep-instances', 'no-report', 'no-lock', 'help', 'h', 'dry-run', 'preview'])
+const BOOLEAN_FLAGS = new Set(['accept-eula', 'keep-instances', 'no-report', 'no-lock', 'help', 'h', 'dry-run', 'preview', 'force', 'skip-idle-check', 'write'])
+
+/** Bad command line (exit code 2). */
+export class UsageError extends Error {
+  constructor (message: string) {
+    super(message)
+    this.name = 'UsageError'
+  }
+}
 
 export function parseArgs (argv: readonly string[]): ParsedArgs {
   const positionals: string[] = []
@@ -22,7 +30,7 @@ export function parseArgs (argv: readonly string[]): ParsedArgs {
     else if (BOOLEAN_FLAGS.has(key)) add(key, 'true')
     else {
       const next = argv[i + 1]
-      if (next === undefined || next.startsWith('--')) throw new Error(`--${key} needs a value`)
+      if (next === undefined || next.startsWith('--')) throw new UsageError(`--${key} needs a value`)
       add(key, next)
       i++
     }
@@ -44,7 +52,7 @@ export function intFlag (args: ParsedArgs, key: string): number | undefined {
   const v = flag(args, key)
   if (v === undefined) return undefined
   const n = Number(v)
-  if (!Number.isInteger(n)) throw new Error(`--${key} expects an integer, got '${v}'`)
+  if (!Number.isInteger(n)) throw new UsageError(`--${key} expects an integer, got '${v}'`)
   return n
 }
 
@@ -60,7 +68,7 @@ export function parseValue (raw: string): unknown {
 export function applySets (obj: Record<string, unknown>, sets: readonly string[]): Record<string, unknown> {
   for (const s of sets) {
     const eq = s.indexOf('=')
-    if (eq <= 0) throw new Error(`--set expects path=value, got '${s}'`)
+    if (eq <= 0) throw new UsageError(`--set expects path=value, got '${s}'`)
     const path = s.slice(0, eq)
     const value = parseValue(s.slice(eq + 1))
     let parts = path.split('.')

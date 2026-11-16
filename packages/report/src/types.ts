@@ -1,4 +1,4 @@
-import type { BenchmarkConfig, BotFleetStats, ProbeSample, RunMeta, RunResult, StepResult, SysSample } from '@bedperf/core'
+import type { BenchmarkConfig, BotFleetStats, GametimeSample, InterferenceSample, ProbeSample, RunMeta, RunResult, StepResult, SysSample } from '@bedperf/core'
 
 /**
  * Payload of an `orch.step.start` / `orch.step.end` envelope.
@@ -64,6 +64,10 @@ export interface RunData {
   probe: Array<Timed<ProbeSample>>
   sys: Array<Timed<SysSample>>
   bot: Array<Timed<BotFleetStats>>
+  /** `sys.interference` envelopes (machine-level foreign load); empty in older runs. */
+  interference: Array<Timed<InterferenceSample>>
+  /** `bds.gametime` envelopes (tick-counter replies); empty in older runs. */
+  gametime: Array<Timed<GametimeSample>>
   stepMarks: StepMark[]
   /** Repeat numbers from `orch.repeat.start` envelopes, in file order. */
   repeatStarts: number[]
@@ -109,6 +113,8 @@ export interface Headline {
   spread: number | undefined
   capped: boolean
   loadgenLimited: boolean
+  /** result.json `invalidLimited`: the search stopped on invalid steps. */
+  invalidLimited: boolean
   /** 'result' when taken from result.json, 'steps' when recomputed from steps (aborted run). */
   source: 'result' | 'steps'
   aborted: boolean
@@ -122,8 +128,10 @@ export interface StepRow {
   phase: 'ramp' | 'bisect'
   players: number
   pass: boolean
-  /** Step invalidated by loadgen saturation. */
+  /** Step invalid: `invalidReasons` non-empty, or (older runs) loadgen saturation. */
   invalid: boolean
+  /** Why the step is invalid (the orchestrator's `invalidReasons`, or loadgen saturation). */
+  invalidReasons: string[]
   failReasons: string[]
   startT: number
   endT: number
@@ -139,10 +147,44 @@ export interface StepRow {
   netRxBps?: number
   netTxBps?: number
   botFailures: number
+  // Newer measurements; all optional, absent in older runs.
+  /** Script-free TPS from the server tick counter over the hold window. */
+  counterTps?: number
+  /** Lowest ~5 s tick-counter TPS in the hold window. */
+  counterTpsLow5?: number
+  /** Longest stretch of the hold window without a tick-counter reply, ms. */
+  gametimeMaxGapMs?: number
+  /** Tick-counter reply latency p50, ms. */
+  gametimeLatencyP50?: number
+  /** Tick-thread CPU time per server tick, ms. */
+  tickCpuMsPerTick?: number
+  /** How the tick thread was identified. */
+  tickThreadSource?: 'name' | 'busiest'
+  /** Mean / peak-10 s foreign CPU load during the hold, cores. */
+  foreignMean?: number
+  foreignPeak10s?: number
+  /** Mean foreign load on the server CPU set, cores. */
+  serverSetForeignMean?: number
+  /** Whether the server's CPU placement verified for this step. */
+  placementVerified?: boolean
+  /** Settle time actually used before the hold, s. */
+  settleSec?: number
+  /** The adaptive settle hit its cap instead of converging. */
+  settleCapped?: boolean
+  /** Some bots had not finished loading their view when the hold started. */
+  viewsIncomplete?: boolean
+  /** Median per-bot in-view chunk columns. */
+  inViewMedian?: number
+  /** Median per-bot time to 90 % of the in-view columns, ms. */
+  viewT90MsP50?: number
+  /** Chunk columns delivered to the fleet per second. */
+  chunksPerSec?: number
+  /** Distinct chunk columns received per bot. */
+  uniqChunksPerBot?: number
 }
 
 /** Metrics that have a scaling curve. */
-export const CURVE_METRICS = ['tps', 'util', 'cpu', 'rss', 'rssPerPlayer', 'rttP95', 'netTx', 'tickP99'] as const
+export const CURVE_METRICS = ['tps', 'util', 'cpu', 'rss', 'rssPerPlayer', 'rttP95', 'netTx', 'tickP99', 'counterTps', 'tickCpuMsPerTick', 'foreignMean', 'inViewMedian', 'viewT90', 'chunksPerSec'] as const
 export type CurveMetric = typeof CURVE_METRICS[number]
 
 export interface CurvePoint {
@@ -173,6 +215,11 @@ export interface Derived {
   utilPerPlayer?: Fit
   /** Players at which the util fit reaches 1.0. */
   playersAtUtil1?: number
+  /**
+   * Tick-thread CPU ms per tick per additional player (slope of `tickCpuMsPerTick`), fitted on
+   * passing steps when possible. A cross-machine capacity cost: unlike util it does not saturate.
+   */
+  tickCpuPerPlayer?: Fit
 }
 
 export interface StepBand {
@@ -190,6 +237,14 @@ export interface Timeline {
   tps: Array<[number, number]>
   util: Array<[number, number]>
   players: Array<[number, number]>
+  /** Tick-counter TPS between consecutive `bds.gametime` replies (empty in older runs). */
+  counterTps: Array<[number, number]>
+  /** Foreign CPU load, cores, from `sys.interference` (empty in older runs). */
+  foreign: Array<[number, number]>
+  /** Foreign CPU load on the server CPU set, cores (empty without a server CPU set). */
+  serverSetForeign: Array<[number, number]>
+  /** Tick-thread CPU ms per tick from consecutive sys samples' `mainThread.cpuMs` and TPS. */
+  tickCpu: Array<[number, number]>
   bands: StepBand[]
   /** Per-repeat time windows in seconds from t0, for small multiples. */
   repeats: Array<{ repeat: number, x0: number, x1: number }>
@@ -217,7 +272,42 @@ export interface Analysis {
   /** Repeat numbers whose status is `ok`, ascending. */
   okRepeats: number[]
   timeline: Timeline
+  provenance: Provenance
+  /** Threats to validity, most severe first. */
+  threats: Threat[]
+  /** True when nothing blocks publishing the headline (see `threats`). */
+  publishable: boolean
   notes: string[]
+}
+
+/** One threat-to-validity / disclosure item. `bad` makes the run not publishable. */
+export interface Threat {
+  id: string
+  level: 'bad' | 'warn' | 'info'
+  text: string
+}
+
+/** Provenance and environment read defensively from meta.json (all optional). */
+export interface Provenance {
+  configSha256?: string
+  machineFingerprint?: string
+  machine?: { os?: string, cpuModel?: string, logical?: number, physical?: number, ramGiB?: number }
+  harness?: { version?: string, git?: string, dirty?: boolean, node?: string }
+  bdsZipSha256?: string
+  probePackSha256?: string
+  bedbooCommit?: string
+  placement?: {
+    profileSha256?: string
+    kind?: string
+    method?: string
+    serverCpus?: string
+    botCpus?: string
+    priority?: string
+    verified?: boolean
+    checks: Array<{ id: string, level: string, summary: string }>
+  }
+  /** Gate thresholds, flattened to dotted keys. */
+  gates: Array<[string, string]>
 }
 
 /**
