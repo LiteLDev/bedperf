@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { SysSample } from '@bedperf/core'
 import { createProcessSampler } from './sampler.ts'
+import { mainThreadCpuSeries, tickCpuMsPerTick } from './tickthread.ts'
 
 const e2e = process.env.BEDPERF_E2E === '1'
 const PORT = 19240
@@ -64,6 +65,40 @@ test('sysmon samples a real BDS, idle then with 5 bots', { skip: !e2e, timeout: 
   const helperPid = sampler.overhead().helperPid!
   assert.throws(() => process.kill(helperPid, 0), 'helper process is gone')
   assert.equal(ended, undefined)
+})
+
+test('sysmon finds the BDS tick thread by name and tracks its cumulative CPU', { skip: !e2e, timeout: 180_000 }, async () => {
+  const { startTestBds } = await import('../../testkit/src/index.ts')
+  const bds = await startTestBds({ port: PORT })
+  const samples: SysSample[] = []
+  const sampler = createProcessSampler({ pid: bds.proc.pid!, intervalMs: 500 })
+  try {
+    await sampler.start(s => samples.push(s))
+    await sleep(10_500)
+  } finally {
+    await sampler.stop()
+    await bds.stop()
+  }
+  assert.ok(samples.length >= 15, `samples: ${samples.length}`)
+  const mts = samples.map(s => s.mainThread).filter(m => m !== undefined)
+  assert.equal(mts.length, samples.length, 'every sample has a main thread')
+  const last = mts.at(-1)!
+  console.log(`tick thread: tid=${last.tid} name=${last.name} source=${last.source} cpuMs=${last.cpuMs}`)
+  console.log(`named threads: ${[...new Set(samples.flatMap(s => (s.threads ?? []).map(t => t.name ?? '?')))].join(', ')}`)
+  if (process.platform === 'win32' || process.platform === 'linux') {
+    assert.ok(mts.every(m => m.source === 'name' && m.name === 'MC_SERVER'), 'selected by name MC_SERVER')
+    assert.equal(new Set(mts.map(m => m.tid)).size, 1, 'one tick thread throughout')
+  }
+  const cpu = mainThreadCpuSeries(samples)
+  assert.equal(cpu.length, samples.length)
+  for (let i = 1; i < cpu.length; i++) assert.ok(cpu[i]!.cpuMs >= cpu[i - 1]!.cpuMs, `cpuMs monotonic at ${i}`)
+  // No probe here: approximate the tick counter with a nominal 20 TPS wall clock. An idle BDS
+  // holds 20 TPS, so this is close to the real per-tick figure.
+  const t0 = samples[0]!.t
+  const ticks = samples.map(s => ({ t: s.t, tick: (s.t - t0) * 20 / 1000 }))
+  const perTick = tickCpuMsPerTick(cpu, ticks, t0, samples.at(-1)!.t)
+  console.log(`tick-thread CPU per tick (idle, ~20 TPS): ${perTick?.toFixed(3)} ms`)
+  assert.ok(perTick !== undefined && Number.isFinite(perTick) && perTick > 0 && perTick < 50, `per tick ${perTick}`)
 })
 
 test('sysmon stops by itself when the target exits', { skip: !e2e, timeout: 180_000 }, async () => {

@@ -8,11 +8,24 @@ export interface SysSample {
   /** Whole-process CPU usage over the interval, in % of ONE core (can exceed 100). */
   cpuPct: number
   /**
-   * Busiest thread over a sliding window — assumed to be the server main (tick) thread.
-   * `util` = cpuPct / 100: fraction of wall time the main thread was on-CPU. This is the
-   * no-mod proxy for MSPT / 50 ms headroom.
+   * The server main (tick) thread. Selected by thread name when possible (BDS names it
+   * `MC_SERVER`; `source: 'name'`), otherwise the busiest thread over a sliding window
+   * (`source: 'busiest'`). `util` = cpuPct / 100: fraction of wall time the main thread was
+   * on-CPU. This is the no-mod proxy for MSPT / 50 ms headroom.
    */
-  mainThread?: { tid: number, name?: string, cpuPct: number, util: number }
+  mainThread?: {
+    tid: number
+    name?: string
+    cpuPct: number
+    util: number
+    /** How the thread was identified. Absent in producers that predate tick-thread naming. */
+    source?: 'name' | 'busiest'
+    /**
+     * Cumulative CPU time (user + kernel) of this thread since it started, ms, read at `t`.
+     * Only comparable between samples with the same `tid`.
+     */
+    cpuMs?: number
+  }
   /** Top-N threads by CPU over the interval. */
   threads?: Array<{ tid: number, name?: string, cpuPct: number }>
   threadCount?: number

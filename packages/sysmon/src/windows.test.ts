@@ -21,6 +21,15 @@ test('parseHelperLine: sample', () => {
   })
 })
 
+test('parseHelperLine: thread names (third element), empty names dropped', () => {
+  const m = parseHelperLine('BPSM {"t":1,"cpu":2,"ws":3,"th":[[7,10,"MC_SERVER"],[8,0,""],[9,1],[10,2,"caf\\u00e9 \\"x\\""]]}')
+  assert.equal(m?.kind, 'reading')
+  if (m?.kind !== 'reading') return
+  assert.deepEqual(m.raw.threads, [
+    { tid: 7, name: 'MC_SERVER', cpuMs: 10 }, { tid: 8, cpuMs: 0 }, { tid: 9, cpuMs: 1 }, { tid: 10, name: 'café "x"', cpuMs: 2 }
+  ])
+})
+
 test('parseHelperLine: without net/threads', () => {
   const m = parseHelperLine('BPSM {"t":1,"cpu":2,"ws":3}')
   assert.deepEqual(m, { kind: 'reading', raw: { t: 1, procCpuMs: 2, rssBytes: 3 } })
@@ -43,6 +52,9 @@ test('helper script is one line and embeds the pid', () => {
   assert.ok(s.includes('GetProcessById(1234)'))
   assert.ok(s.includes('GetAllNetworkInterfaces'))
   assert.ok(!windowsHelperScript(1234, false).includes('GetAllNetworkInterfaces'))
+  assert.ok(s.includes('GetThreadDescription') && s.includes('-ge 10000'))
+  assert.ok(windowsHelperScript(1234, true, { nameRefreshMs: 2500 }).includes('-ge 2500'))
+  assert.ok(!windowsHelperScript(1234, true, { threadNames: false }).includes('Add-Type'))
   assert.throws(() => windowsHelperScript(0, true))
   assert.throws(() => windowsHelperScript(1.5, true))
 })

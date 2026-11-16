@@ -5,17 +5,73 @@ import type { Backend, BackendResult, RawReading } from './types.ts'
 const PREFIX = 'BPSM '
 
 /**
+ * C# (5, for Windows PowerShell's built-in compiler) compiled once by `Add-Type` in the helper:
+ * `kernel32!GetThreadDescription` via P/Invoke, returning the name already JSON-encoded as a
+ * pure-ASCII string literal (so console code pages cannot mangle it), "" for an unnamed
+ * thread, or null if the thread could not be opened. On Windows builds without the API
+ * (before 10 1607) the EntryPointNotFoundException is caught once and names are skipped.
+ */
+const THREAD_NAME_CS = [
+  'using System; using System.Text; using System.Runtime.InteropServices;',
+  'public static class BpThreadName {',
+  '  [DllImport("kernel32.dll")] static extern IntPtr OpenThread(uint access, bool inherit, uint tid);',
+  '  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);',
+  '  [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr p);',
+  '  [DllImport("kernel32.dll")] static extern int GetThreadDescription(IntPtr h, out IntPtr desc);',
+  '  static bool missing;',
+  '  public static string Json(int tid) {',
+  '    if (missing) return null;',
+  // THREAD_QUERY_LIMITED_INFORMATION
+  '    IntPtr h = OpenThread(0x0800, false, (uint)tid);',
+  '    if (h == IntPtr.Zero) return null;',
+  '    try {',
+  '      IntPtr p = IntPtr.Zero; int hr;',
+  '      try { hr = GetThreadDescription(h, out p); } catch (EntryPointNotFoundException) { missing = true; return null; }',
+  '      if (hr < 0 || p == IntPtr.Zero) return null;',
+  '      try { string s = Marshal.PtrToStringUni(p); return string.IsNullOrEmpty(s) ? "" : Quote(s); } finally { LocalFree(p); }',
+  '    } finally { CloseHandle(h); }',
+  '  }',
+  '  static string Quote(string s) {',
+  // Char codes instead of quote/backslash literals keep the PowerShell and JS quoting trivial:
+  // 34 = '"', 92 = '\', 117 = 'u'. Everything outside printable ASCII becomes \uXXXX.
+  '    StringBuilder b = new StringBuilder(); b.Append((char)34);',
+  '    foreach (char c in s) {',
+  '      if (c == 34 || c == 92) b.Append((char)92).Append(c);',
+  '      else if (c < 32 || c > 126) b.Append((char)92).Append((char)117).Append(((int)c).ToString("x4"));',
+  '      else b.Append(c);',
+  '    }',
+  '    return b.Append((char)34).ToString();',
+  '  }',
+  '}'
+].map(l => l.trim()).join(' ')
+
+export interface HelperScriptOptions {
+  /** Collect thread names via GetThreadDescription (default true). */
+  threadNames?: boolean
+  /**
+   * Re-read all thread names this often, ms (default 10 000). New tids are named on sight; an
+   * unnamed thread is re-tried on its first 5 sightings after each refresh.
+   */
+  nameRefreshMs?: number
+}
+
+/**
  * PowerShell for the long-lived helper. It defines `bp <seq>`, which prints ONE line
  * `BPSM {"seq":<seq>,...}` per call; Node writes `bp <seq>` to the helper's stdin once per
  * interval and matches replies by `seq`. Kept on a single line because `-Command -` executes
  * stdin line by line. Numbers are integers only, so the output is culture-invariant.
  */
-export function windowsHelperScript (pid: number, net: boolean): string {
+export function windowsHelperScript (pid: number, net: boolean, opts: HelperScriptOptions = {}): string {
   if (!Number.isInteger(pid) || pid <= 0) throw new Error(`invalid pid ${pid}`)
+  const names = opts.threadNames ?? true
+  const refreshMs = Math.max(0, Math.round(opts.nameRefreshMs ?? 10_000))
   const lines = [
     "$ErrorActionPreference = 'Stop';",
     '$bpSelf = [Diagnostics.Process]::GetCurrentProcess();',
     `$bpP = $null; try { $bpP = [Diagnostics.Process]::GetProcessById(${pid}) } catch { };`,
+    // $global:bpNm: tid -> JSON-encoded name ($null = names unavailable); bpNu: tid -> failed lookups.
+    '$global:bpNm = $null; $global:bpNu = @{}; $global:bpNmAt = [long]0;',
+    ...(names ? [`try { Add-Type -TypeDefinition '${THREAD_NAME_CS.replace(/'/g, "''")}'; $global:bpNm = @{} } catch { };`] : []),
     "function bpOut($s) { [Console]::Out.WriteLine('BPSM ' + $s) };",
     'function bp([long]$seq) {',
     "  $pre = '{\"seq\":' + $seq + ',';",
@@ -24,7 +80,10 @@ export function windowsHelperScript (pid: number, net: boolean): string {
     '    $bpP.Refresh();',
     "    if ($bpP.HasExited) { bpOut ($pre + '\"exited\":true}'); return };",
     '    $sb = New-Object Text.StringBuilder;',
-    "    [void]$sb.Append($pre).Append('\"t\":').Append([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds());",
+    '    $bpT = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds();',
+    // Forget all names every refreshMs, so renamed threads and reused tids are re-read.
+    `    if ($null -ne $global:bpNm -and $bpT - $global:bpNmAt -ge ${refreshMs}) { $global:bpNm.Clear(); $global:bpNu.Clear(); $global:bpNmAt = $bpT };`,
+    "    [void]$sb.Append($pre).Append('\"t\":').Append($bpT);",
     "    [void]$sb.Append(',\"cpu\":').Append([long]$bpP.TotalProcessorTime.TotalMilliseconds);",
     "    [void]$sb.Append(',\"ws\":').Append([long]$bpP.WorkingSet64);",
     "    [void]$sb.Append(',\"pb\":').Append([long]$bpP.PrivateMemorySize64);",
@@ -34,8 +93,14 @@ export function windowsHelperScript (pid: number, net: boolean): string {
     '    foreach ($th in $bpP.Threads) {',
     '      try {',
     '        $ms = [long]$th.TotalProcessorTime.TotalMilliseconds;',
+    '        $bpTid = [int]$th.Id; $bpN = $null;',
+    // Names are cached per tid until the next refresh. A thread without a name yet (it may be
+    // named just after it starts) is re-queried on its first few sightings, then left alone.
+    "        if ($null -ne $global:bpNm) { $bpN = $global:bpNm[$bpTid]; if ($null -eq $bpN -and $global:bpNu[$bpTid] -lt 5) { $bpN = [BpThreadName]::Json($bpTid); if ($bpN) { $global:bpNm[$bpTid] = $bpN } else { $global:bpNu[$bpTid] = 1 + [int]$global:bpNu[$bpTid] } } };",
     "        if (-not $bpFirst) { [void]$sb.Append(',') };",
-    "        [void]$sb.Append('[').Append([long]$th.Id).Append(',').Append($ms).Append(']');",
+    "        [void]$sb.Append('[').Append($bpTid).Append(',').Append($ms);",
+    "        if ($bpN) { [void]$sb.Append(',').Append($bpN) };",
+    "        [void]$sb.Append(']');",
     '        $bpFirst = $false',
     '      } catch { }',
     '    };',
@@ -82,7 +147,7 @@ interface WireSample {
   ws: number
   pb: number
   h: number
-  th: Array<[number, number]>
+  th: Array<[number, number] | [number, number, string]>
   net: Array<[string, number, number]>
   self: number
   exited: boolean
@@ -107,7 +172,7 @@ export function parseHelperLine (line: string): HelperMessage | null {
   if (typeof r.pb === 'number') raw.privateBytes = r.pb
   if (typeof r.h === 'number') raw.handles = r.h
   if (Array.isArray(r.th)) {
-    raw.threads = r.th.map(([tid, cpuMs]) => ({ tid, cpuMs }))
+    raw.threads = r.th.map(([tid, cpuMs, name]) => typeof name === 'string' && name !== '' ? { tid, name, cpuMs } : { tid, cpuMs })
     raw.threadCount = raw.threads.length
   }
   if (Array.isArray(r.net)) raw.net = r.net.map(([name, rxBytes, txBytes]) => ({ name, rxBytes, txBytes }))
@@ -119,6 +184,9 @@ export function parseHelperLine (line: string): HelperMessage | null {
 export interface WindowsBackendOptions {
   pid: number
   net?: boolean
+  /** Collect thread names (default true); see `HelperScriptOptions`. */
+  threadNames?: boolean
+  nameRefreshMs?: number
   /** Max wait for one helper reply (the first one also covers PowerShell start-up). */
   replyTimeoutMs?: number
   firstReplyTimeoutMs?: number
@@ -157,7 +225,10 @@ export function createWindowsBackend (opts: WindowsBackendOptions): Backend {
     pending = null
     p.resolve(m)
   })
-  child.stdin.write(windowsHelperScript(opts.pid, opts.net ?? true) + '\n')
+  const scriptOpts: HelperScriptOptions = {}
+  if (opts.threadNames !== undefined) scriptOpts.threadNames = opts.threadNames
+  if (opts.nameRefreshMs !== undefined) scriptOpts.nameRefreshMs = opts.nameRefreshMs
+  child.stdin.write(windowsHelperScript(opts.pid, opts.net ?? true, scriptOpts) + '\n')
 
   return {
     async read (): Promise<BackendResult> {

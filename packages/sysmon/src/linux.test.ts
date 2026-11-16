@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createLinuxBackend, parseNetDev, parseProcStat, parseProcStatus } from './linux.ts'
+import { createLinuxBackend, parseNetDev, parseProcStat, parseProcStatus, parseSchedstat } from './linux.ts'
 
 const STAT = '4242 (bedrock_server) S 1 4242 4242 0 -1 4194560 120000 0 3 0 1500 250 0 0 20 0 37 0 9999 2147483648 51200 18446744073709551615 0 0 0 0 0 0 0 4096 0 0 0 0 17 3 0 0 0 0 0\n'
 // comm with spaces and a ')' inside.
@@ -80,6 +80,58 @@ test('linux backend reads a fake /proc tree and reports exit', async () => {
     assert.deepEqual(await be.read(), { kind: 'exited' })
     rmSync(p, { recursive: true, force: true })
     assert.deepEqual(await be.read(), { kind: 'exited' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('parseSchedstat', () => {
+  assert.equal(parseSchedstat('123456789 2000 15\n'), 123456789)
+  assert.equal(parseSchedstat(''), undefined)
+  assert.equal(parseSchedstat('x 1 2'), undefined)
+})
+
+test('linux backend prefers task schedstat (ns) for thread CPU, decided once', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'sysmon-proc-'))
+  try {
+    const p = join(root, '4242')
+    const MC = '4251 (MC_SERVER) S 1 4242 4242 0 -1 4194624 10 0 0 0 300 20 0 0 20 0 37 0 10000 0 0 18446744073709551615 0 0 0 0 0 0 0 0 0 0 0 0 -1 3 0 0 0 0 0\n'
+    for (const t of ['4242', '4250', '4251']) mkdirSync(join(p, 'task', t), { recursive: true })
+    writeFileSync(join(p, 'stat'), STAT)
+    writeFileSync(join(p, 'status'), STATUS)
+    writeFileSync(join(p, 'task', '4242', 'stat'), STAT)
+    writeFileSync(join(p, 'task', '4250', 'stat'), TASK_STAT)
+    writeFileSync(join(p, 'task', '4251', 'stat'), MC)
+    writeFileSync(join(p, 'task', '4242', 'schedstat'), '17512345678 0 0\n')
+    writeFileSync(join(p, 'task', '4250', 'schedstat'), '7501000000 0 0\n')
+    // 4251 has no schedstat: treated like a thread that exited mid-read.
+
+    const be = createLinuxBackend({ pid: 4242, procRoot: root, clkTck: 100, net: false })
+    const r = await be.read()
+    assert.equal(r.kind, 'reading')
+    if (r.kind !== 'reading') return
+    assert.deepEqual(r.raw.threads?.sort((a, b) => a.tid - b.tid),
+      [{ tid: 4242, name: 'bedrock_server', cpuMs: 17512.345678 }, { tid: 4250, name: 'Server Thr) d', cpuMs: 7501 }])
+
+    const ticks = createLinuxBackend({ pid: 4242, procRoot: root, clkTck: 100, net: false, schedstat: false })
+    const r2 = await ticks.read()
+    assert.ok(r2.kind === 'reading')
+    assert.deepEqual(r2.raw.threads?.find(t => t.tid === 4251), { tid: 4251, name: 'MC_SERVER', cpuMs: 3200 })
+
+    // No schedstat on the main task at the first read: utime+stime for the whole run.
+    rmSync(join(p, 'task', '4242', 'schedstat'))
+    const noSched = createLinuxBackend({ pid: 4242, procRoot: root, clkTck: 100, net: false })
+    const r3 = await noSched.read()
+    assert.ok(r3.kind === 'reading')
+    assert.equal(r3.raw.threads?.find(t => t.tid === 4250)?.cpuMs, 7500)
+    assert.equal(r3.raw.threads?.length, 3)
+
+    // Placeholder "0 0 0" (sched_info off) is not trusted either.
+    writeFileSync(join(p, 'task', '4242', 'schedstat'), '0 0 0\n')
+    const zero = createLinuxBackend({ pid: 4242, procRoot: root, clkTck: 100, net: false })
+    const r4 = await zero.read()
+    assert.ok(r4.kind === 'reading')
+    assert.equal(r4.raw.threads?.find(t => t.tid === 4242)?.cpuMs, 17500)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

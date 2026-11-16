@@ -9,6 +9,14 @@ export interface ProcessSamplerOptions extends ComputeOptions {
   intervalMs?: number
   /** Sample system-wide NIC counters (default true). */
   net?: boolean
+  /**
+   * Windows: collect thread names via GetThreadDescription (default true), needed to find the
+   * tick thread by name (`tickThreadRule`). Names are re-read every `nameRefreshMs` (10 s).
+   */
+  threadNames?: boolean
+  nameRefreshMs?: number
+  /** Linux: per-thread CPU from task schedstat when available (default true). */
+  schedstat?: boolean
   /** Linux: clock ticks per second (default 100). */
   clkTck?: number
   /** Consecutive backend read errors tolerated before giving up (default 3). */
@@ -54,10 +62,16 @@ export function readSysCpu (): { busyMs: number, totalMs: number } {
 
 export function createPlatformBackend (opts: ProcessSamplerOptions): Backend {
   const net = opts.net ?? true
-  if (process.platform === 'win32') return createWindowsBackend({ pid: opts.pid, net })
+  if (process.platform === 'win32') {
+    const o: Parameters<typeof createWindowsBackend>[0] = { pid: opts.pid, net }
+    if (opts.threadNames !== undefined) o.threadNames = opts.threadNames
+    if (opts.nameRefreshMs !== undefined) o.nameRefreshMs = opts.nameRefreshMs
+    return createWindowsBackend(o)
+  }
   if (process.platform === 'linux') {
     const o: Parameters<typeof createLinuxBackend>[0] = { pid: opts.pid, net }
     if (opts.clkTck !== undefined) o.clkTck = opts.clkTck
+    if (opts.schedstat !== undefined) o.schedstat = opts.schedstat
     return createLinuxBackend(o)
   }
   throw new Error(`sysmon: unsupported platform ${process.platform}`)
