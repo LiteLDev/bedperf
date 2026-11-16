@@ -31,6 +31,27 @@ export interface FixtureOptions {
   noSys?: boolean
   /** Raw lines appended to samples.jsonl (e.g. malformed lines). */
   extraLines?: string[]
+  /** Exact per-repeat capacities, overriding `capacity` and its noise. */
+  capacities?: number[]
+  /** Emit `orch.repeat.start` / `orch.repeat.end` envelopes (default true; false = older run). */
+  repeatMarks?: boolean
+  /** Number of the first repeat (the orchestrator counts from 0; default 1). */
+  repeatBase?: number
+  /** Per-repeat overrides of the `orch.repeat.end` outcome, keyed by recorded repeat number. */
+  repeatOutcomes?: Record<number, FixtureRepeatOutcome>
+  /** Extra meta.json fields (configSha256, machine.fingerprint, ...), merged over the defaults. */
+  metaExtra?: Record<string, unknown>
+}
+
+export interface FixtureRepeatOutcome {
+  status?: 'ok' | 'invalid' | 'server_failed'
+  statusReasons?: string[]
+  /** `outcome.aborted`, as an orchestrator sets it when the server exits mid-repeat. */
+  aborted?: string
+  /** Do not emit `orch.repeat.end` for this repeat (the run was cut off). */
+  noEnd?: boolean
+  /** Emit `orch.repeat.end` with `outcome: null` (the repeat threw). */
+  nullOutcome?: boolean
 }
 
 export interface Fixture {
@@ -124,8 +145,12 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
   let tick = 0
   emit(envelope('orch', Kinds.runStart, { runId: o.runId }, t))
 
-  for (let r = 1; r <= o.repeats; r++) {
-    const cap = o.capacity * (1 + 0.04 * gauss())
+  const base = o.repeatBase ?? 1
+  for (let k = 1; k <= o.repeats; k++) {
+    const r = k - 1 + base
+    const noise = o.capacity * (1 + 0.04 * gauss())
+    const cap = o.capacities?.[k - 1] ?? noise
+    if (o.repeatMarks !== false) emit(envelope('orch', 'orch.repeat.start', { repeat: r }, t))
     capacities.push(cap)
     const perPlayer = (0.98 - o.baseUtil) / cap
     let players = 0
@@ -195,7 +220,7 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
 
     // Warmup.
     for (let i = 0; i < config.warmupSec; i++) second(0)
-    if (r === 1) emit(envelope('bds', Kinds.bdsLog, { line: 'Server started.' }, t))
+    if (k === 1) emit(envelope('bds', Kinds.bdsLog, { line: 'Server started.' }, t))
 
     const runStep = (n: number, phase: 'ramp' | 'bisect'): StepResult => {
       emit(envelope('orch', Kinds.stepStart, { repeat: r, index, players: n, phase }, t))
@@ -262,6 +287,22 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
     }
     // Scale down and restart on a fresh instance.
     for (let i = 0; i < 3; i++) second(0)
+    const ov = o.repeatOutcomes?.[r] ?? {}
+    if (o.repeatMarks !== false && ov.noEnd !== true) {
+      const passing = steps.filter((s) => s.repeat === r && s.pass).map((s) => s.players)
+      const best = passing.length > 0 ? Math.max(...passing) : 0
+      const outcome: Record<string, unknown> = {
+        done: true,
+        repeat: r,
+        maxPlayers: best,
+        capped: best >= o.rampMax,
+        loadgenLimited: steps.some((s) => s.repeat === r && s.loadgenSaturated)
+      }
+      if (ov.aborted !== undefined) outcome.aborted = ov.aborted
+      if (ov.status !== undefined) outcome.status = ov.status
+      if (ov.statusReasons !== undefined) outcome.statusReasons = ov.statusReasons
+      emit(envelope('orch', 'orch.repeat.end', { repeat: r, outcome: ov.nullOutcome === true ? null : outcome }, t))
+    }
     t += 15_000
   }
   emit(envelope('orch', Kinds.runEnd, { runId: o.runId }, t))
@@ -269,7 +310,7 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
   lines.push(...(o.extraLines ?? []))
 
   const maxPlayers = Array.from({ length: o.repeats }, (_, i) => {
-    const pass = steps.filter((s) => s.repeat === i + 1 && s.pass).map((s) => s.players)
+    const pass = steps.filter((s) => s.repeat === i + base && s.pass).map((s) => s.players)
     return pass.length > 0 ? Math.max(...pass) : 0
   })
   const sortedMax = [...maxPlayers].sort((a, b) => a - b)
@@ -296,7 +337,7 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
 
   await mkdir(dir, { recursive: true })
   await writeFile(join(dir, RUN_FILES.config), JSON.stringify(config, null, 2))
-  await writeFile(join(dir, RUN_FILES.meta), JSON.stringify(meta, null, 2))
+  await writeFile(join(dir, RUN_FILES.meta), JSON.stringify({ ...meta, ...o.metaExtra }, null, 2))
   await writeFile(join(dir, RUN_FILES.steps), JSON.stringify(steps, null, 2))
   if (o.aborted !== true) await writeFile(join(dir, RUN_FILES.result), JSON.stringify(result, null, 2))
   await writeFile(join(dir, RUN_FILES.samples), lines.join('\n') + '\n')

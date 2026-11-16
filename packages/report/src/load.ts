@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { Kinds, RUN_FILES } from '@bedperf/core'
 import type { BenchmarkConfig, BotFleetStats, Envelope, ProbeSample, RunMeta, RunResult, StepResult, SysSample } from '@bedperf/core'
-import type { RunData, StepMarkData } from './types.ts'
+import { num } from './math.ts'
+import type { RepeatEnd, RepeatStatus, RunData, StepMarkData } from './types.ts'
 
 async function readJson<T> (file: string): Promise<T | undefined> {
   let text: string
@@ -36,6 +37,35 @@ function isObject (v: unknown): v is Record<string, unknown> {
 function isStepLike (v: unknown): v is StepResult {
   return isObject(v) && typeof v.players === 'number' && typeof v.repeat === 'number' &&
     typeof v.index === 'number' && typeof v.pass === 'boolean'
+}
+
+/** Envelope kinds of a repeat's boundaries (core does not name them yet). */
+export const REPEAT_START = 'orch.repeat.start'
+export const REPEAT_END = 'orch.repeat.end'
+
+const STATUSES = new Set<string>(['ok', 'invalid', 'server_failed'])
+
+/**
+ * Reads an `orch.repeat.end` payload `{ repeat, outcome }`. `outcome` may be null (the repeat
+ * threw) and may carry `status` / `statusReasons` (newer orchestrators) or only `aborted`.
+ * Returns undefined when there is no usable repeat number.
+ */
+export function parseRepeatEnd (t: number, data: unknown): RepeatEnd | undefined {
+  if (!isObject(data)) return undefined
+  const outcome = isObject(data.outcome) ? data.outcome : undefined
+  const repeat = num(data.repeat) ?? num(outcome?.repeat)
+  if (repeat === undefined) return undefined
+  const end: RepeatEnd = { t, repeat, hasOutcome: outcome !== undefined, statusReasons: [] }
+  if (outcome === undefined) return end
+  if (typeof outcome.status === 'string' && STATUSES.has(outcome.status)) end.status = outcome.status as RepeatStatus
+  if (Array.isArray(outcome.statusReasons)) end.statusReasons = outcome.statusReasons.filter((r) => r !== null && r !== undefined).map(String)
+  const maxPlayers = num(outcome.maxPlayers)
+  if (maxPlayers !== undefined) end.maxPlayers = maxPlayers
+  if (typeof outcome.capped === 'boolean') end.capped = outcome.capped
+  if (typeof outcome.loadgenLimited === 'boolean') end.loadgenLimited = outcome.loadgenLimited
+  if (typeof outcome.aborted === 'string' && outcome.aborted !== '') end.aborted = outcome.aborted
+  else if (outcome.aborted === true) end.aborted = 'aborted'
+  return end
 }
 
 /** A step-end payload that is a full StepResult (not just a mark). */
@@ -70,6 +100,8 @@ export async function loadRun (dir: string): Promise<RunData> {
     sys: [],
     bot: [],
     stepMarks: [],
+    repeatStarts: [],
+    repeatEnds: [],
     otherKinds: {},
     badLines: 0,
     warnings
@@ -121,6 +153,23 @@ export async function loadRun (dir: string): Promise<RunData> {
           if (kind === Kinds.stepEnd && isStepResult(data)) endSteps.push(data)
           break
         }
+        case REPEAT_START: {
+          const r = isObject(data) ? num(data.repeat) : undefined
+          if (r !== undefined) run.repeatStarts.push(r)
+          else run.badLines++
+          break
+        }
+        case REPEAT_END: {
+          const end = parseRepeatEnd(t, data)
+          if (end === undefined) {
+            run.badLines++
+            break
+          }
+          const i = run.repeatEnds.findIndex((e) => e.repeat === end.repeat)
+          if (i >= 0) run.repeatEnds[i] = end
+          else run.repeatEnds.push(end)
+          break
+        }
         case Kinds.runStart:
           run.runStartT ??= t
           break
@@ -139,6 +188,7 @@ export async function loadRun (dir: string): Promise<RunData> {
   run.sys.sort(byT)
   run.bot.sort(byT)
   run.stepMarks.sort(byT)
+  run.repeatEnds.sort((a, b) => a.repeat - b.repeat)
   run.steps.sort((a, b) => a.repeat - b.repeat || a.startT - b.startT || a.index - b.index)
   return run
 }
