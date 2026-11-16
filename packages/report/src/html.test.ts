@@ -67,7 +67,7 @@ test('renderHtml shows repeat statuses and k/n ok', async () => {
   assert.match(html, /<details class="repeats" open>/)
   assert.match(html, /abc123/)
   assert.match(html, /fp-1/)
-  assert.match(html, /analysis version 1/)
+  assert.match(html, /analysis version 2/)
 })
 
 test('renderHtml escapes user strings', async () => {
