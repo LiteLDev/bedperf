@@ -76,13 +76,27 @@ An unexpected server exit fails the current step, or is noticed before the next 
 
 | file | content |
 |---|---|
-| `config.json` | the resolved `BenchmarkConfig` |
-| `meta.json` | `RunMeta` with host info from `node:os`. It is written at the start and rewritten with `finishedAt` at the end |
+| `config.json` | the resolved `BenchmarkConfig`, scrubbed (see below) |
+| `meta.json` | `RunMeta` with host info from `node:os` and provenance (below). It is written at the start and rewritten with `finishedAt` and the `files` manifest at the end |
 | `samples.jsonl` | streamed core `Envelope`s: `probe.sample/mark/pong`, `sys.sample`, `bot.stats`, `bds.event`, `orch.run.start/end`, `orch.repeat.start/end`, `orch.step.start/end` (the latter carries the `StepResult`) and `orch.command` |
 | `steps.json` | `StepResult[]` for all repeats, rewritten after every step |
 | `result.json` | `RunResult` |
 
 `t` comes from the injected clock. Empty `Summary` fields (NaN) serialise as `null`.
+
+### Provenance
+
+`meta.json` also records (core `provenance.ts`):
+
+- `configSha256`: `sha256Json` (sorted-key compact JSON) of config.json's content, so `sha256Json(JSON.parse(config.json))` must match.
+- `machine`: `fingerprint` (16 hex digits over OS family, CPU model, logical and physical cores and whole GiB of RAM; no user or host name), plus `os`, `cpuModel`, `logical`, `physical` (best effort: PowerShell `Win32_Processor` on Windows, `/proc/cpuinfo` on Linux) and `ramGiB`.
+- `harness`: bedperf `version`, `git` commit of the checkout, `dirty` (tracked files under `packages/` or `scripts/` changed) and `node`.
+- `artifacts`: whatever the caller passes in `meta` (the CLI sets the BDS zip sha256, the probe pack tree hash and the bedboo commit).
+- `files`: `{ sha256, bytes }` of every file in the run dir at `close()`, except `meta.json` and `report.html`.
+
+The machine and harness blocks are computed once per process; `RunRecorder.create` takes `provenance` and `scrubber` for tests.
+
+meta.json and config.json go through a `Scrubber`: the run dir, cache, repo, temp, home and (Windows) `%LOCALAPPDATA%` become `<run>`, `<cache>`, `<repo>`, `<tmp>`, `<home>`, `<localappdata>` (most specific wins, forward slashes after); any other private absolute path becomes `<abs>/<file name>`; the user and host names become `<user>` and `<host>`. `host.hostname` is no longer written. Raw logs (`samples.jsonl`, `bds*.log`) are **not** scrubbed: share them with care.
 
 ## Simulation
 
