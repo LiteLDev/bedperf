@@ -122,3 +122,69 @@ export function downsample (
   flush()
   return out
 }
+
+/**
+ * Binomial coefficient C(n, k), exact for the small n used here (repeat counts). Returns 0 when
+ * k is outside [0, n] and NaN for non-integer or negative n.
+ */
+export function binomial (n: number, k: number): number {
+  if (!Number.isInteger(n) || !Number.isInteger(k) || n < 0) return Number.NaN
+  if (k < 0 || k > n) return 0
+  const kk = Math.min(k, n - k)
+  let c = 1
+  // c stays C(n - kk + i, i), an integer, after every step.
+  for (let i = 1; i <= kk; i++) c = (c * (n - kk + i)) / i
+  return Math.round(c)
+}
+
+/**
+ * Chance that m values of one group and n of another come out completely separated in one given
+ * direction (every value of one above every value of the other) when there is no real
+ * difference, i.e. every ordering is equally likely: 1 / C(m + n, m). 3 vs 3 gives 1/20,
+ * 5 vs 5 gives 1/252.
+ */
+export function separationChance (m: number, n: number): number {
+  return 1 / binomial(m + n, m)
+}
+
+/**
+ * Mann-Whitney U of `b` against `a`: the number of (a, b) pairs with b > a, ties counting 1/2.
+ * U = m * n means every b is above every a; U = 0 means every b is below every a.
+ */
+export function mannWhitneyU (a: readonly number[], b: readonly number[]): number {
+  let u = 0
+  for (const y of b) {
+    for (const x of a) u += y > x ? 1 : y === x ? 0.5 : 0
+  }
+  return u
+}
+
+/** Average ranks (1-based) of `xs`, ties sharing the mean of the ranks they span. */
+export function ranks (xs: readonly number[]): number[] {
+  const order = xs.map((x, i) => [x, i] as const).sort((p, q) => p[0] - q[0])
+  const out = new Array<number>(xs.length)
+  let i = 0
+  while (i < order.length) {
+    let j = i
+    while (j + 1 < order.length && order[j + 1]![0] === order[i]![0]) j++
+    const r = (i + j) / 2 + 1
+    for (let k = i; k <= j; k++) out[order[k]![1]] = r
+    i = j + 1
+  }
+  return out
+}
+
+/**
+ * Complete-separation test of group `b` against group `a`: 'higher' when every b is strictly
+ * above every a, 'lower' when every b is strictly below every a, else 'overlap'. Non-finite
+ * values are ignored; an empty group gives 'overlap'.
+ */
+export function dominance (a: readonly number[], b: readonly number[]): 'higher' | 'lower' | 'overlap' {
+  const fa = a.filter(Number.isFinite)
+  const fb = b.filter(Number.isFinite)
+  if (fa.length === 0 || fb.length === 0) return 'overlap'
+  // Equivalent to Mann-Whitney U = m * n (higher) or U = 0 (lower).
+  if (Math.min(...fb) > Math.max(...fa)) return 'higher'
+  if (Math.max(...fb) < Math.min(...fa)) return 'lower'
+  return 'overlap'
+}

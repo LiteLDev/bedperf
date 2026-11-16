@@ -52,6 +52,24 @@ test('renderHtml has all sections and charts', async () => {
   assert.equal((html.match(/<tr>\n<td>/g) ?? []).length, a.steps.length)
 })
 
+test('renderHtml shows repeat statuses and k/n ok', async () => {
+  const fx = await generateRun(join(root, 'statuses'), {
+    seed: 4,
+    repeatOutcomes: { 2: { aborted: 'server exited with code 3221225477' } },
+    metaExtra: { configSha256: 'abc123', machine: { fingerprint: 'fp-1' } }
+  })
+  const a = analyze(await loadRun(fx.dir))
+  const html = renderHtml(a)
+  checkHtml(html)
+  assert.match(html, /2\/3 repeats ok/)
+  assert.match(html, /1 repeat server_failed/)
+  assert.match(html, /server exited with code 3221225477/)
+  assert.match(html, /<details class="repeats" open>/)
+  assert.match(html, /abc123/)
+  assert.match(html, /fp-1/)
+  assert.match(html, /analysis version 1/)
+})
+
 test('renderHtml escapes user strings', async () => {
   const evil = '<script>alert("x")</script>&<img src=x onerror=alert(1)>'
   const fx = await generateRun(join(root, 'evil'), { seed: 2, name: evil, runId: '"><svg onload=alert(1)>' })
@@ -102,14 +120,18 @@ test('compareRuns: deltas, verdicts and matched player counts', async () => {
   assert.equal(util.length, 1)
   assert.equal(util[0]!.verdict, 'better')
 
+  assert.equal(c.headline.chance, 1 / 20)
+
   const self = compareRuns(a, a)
-  assert.equal(self.headline.verdict, 'same')
-  assert.ok(self.rows.every((r) => r.verdict === 'same' || r.verdict === 'n/a'))
+  assert.equal(self.headline.verdict, 'not separated')
+  assert.ok(self.rows.every((r) => r.verdict === 'not separated' || r.verdict === 'n/a' || r.verdict === 'insufficient repeats'))
 
   const html = renderCompareHtml(c)
   checkHtml(html)
-  for (const id of ['headline', 'derived', 'scaling', 'metrics', 'methodology']) assert.match(html, new RegExp(`<section id="${id}"`))
-  assert.match(html, /class="better"/)
+  for (const id of ['headline', 'comparability', 'derived', 'scaling', 'metrics', 'decision-rule', 'methodology']) assert.match(html, new RegExp(`<section id="${id}"`))
+  assert.match(html, /class="l better"/)
+  assert.match(html, /chance 1\/20/)
+  assert.match(html, /3\/3 repeats ok/)
 })
 
 test('writeReport and writeCompare write files', async () => {

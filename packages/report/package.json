@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "test": "node --test \"src/**/*.test.ts\""
+    "test": "node --test \"src/**/*.test.ts\"",
+    "examples": "node src/examples.ts"
   },
   "dependencies": {
     "@bedperf/core": "workspace:*"

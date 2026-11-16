@@ -91,6 +91,13 @@ td.reasons { white-space: normal; min-width: 220px; text-align: left; color: var
 .st.fail { color: var(--bad-ink); } .st.fail::before { background: var(--bad); }
 .st.invalid { color: var(--warn-ink); } .st.invalid::before { background: var(--warn); }
 .better { color: var(--good-ink); font-weight: 600; } .worse { color: var(--bad-ink); font-weight: 600; } .same { color: var(--ink-2); }
+.vn, .rng { color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+.rs { font-weight: 600; } .rs.server_failed { color: var(--bad-ink); } .rs.invalid { color: var(--warn-ink); }
+.hero .detail.verdict { max-width: 34ch; }
+details.repeats { margin-top: 10px; }
+details.repeats table { margin-top: 6px; }
+.banner { border: 2px solid var(--bad); background: var(--band-fail); color: var(--ink); border-radius: 12px; padding: 14px 18px; margin: 0 0 18px; overflow-wrap: anywhere; }
+.banner b { color: var(--bad-ink); }
 .foot { color: var(--ink-2); font-size: 0.85rem; }
 .foot ul { padding-left: 18px; }
 .vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; align-items: end; }
