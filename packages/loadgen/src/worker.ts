@@ -7,6 +7,7 @@ import type { Bot, BotOptions } from 'bedboo'
 import type { Scenario, ScenarioContext } from '@bedperf/core'
 import type { ControllerMessage, WorkerInit, WorkerMessage } from './protocol.ts'
 import { botRandom, isSampled } from './rng.ts'
+import { ViewTracker, type BotViewSample } from './view.ts'
 
 const require = createRequire(import.meta.url)
 
@@ -16,7 +17,15 @@ interface BotInternals {
     physics?: { stats?: () => { corrections?: number } }
     commands?: { request?: (cmd: string, opts?: { timeout?: number }) => Promise<{ success_count?: number } | undefined> }
   }
-  _client?: { handle?: (buf: Buffer) => unknown }
+  _client?: ClientInternals
+  game?: { dimension?: string, serverViewDistance?: number }
+}
+
+interface ClientInternals {
+  handle?: (buf: Buffer) => unknown
+  on?: (event: string, listener: (...args: any[]) => void) => unknown
+  queue?: (name: string, params: unknown) => unknown
+  write?: (name: string, params: unknown) => unknown
 }
 
 interface BotState {
@@ -32,6 +41,11 @@ interface BotState {
   lastCorrections: number
   lastError?: string
   kickReason?: string
+  view: ViewTracker
+  /** start_game runtime_entity_id, as a string (varint64 vs varint in move_player). */
+  runtimeId?: string
+  /** Latest network_chunk_publisher_update radius, chunks (fallback when no chunk_radius_update came). */
+  publisherRadius?: number
 }
 
 const ELD_RESOLUTION_MS = 10
@@ -55,6 +69,10 @@ let correctionsAcc = 0 // corrections of bots that ended mid-interval
 let rxBytes = 0
 let logsThisInterval = 0
 let logsDropped = 0
+let chunkLoads = 0
+let packets = new Map<string, number>()
+let chunkCacheSeen = false
+let blobMissReplies = 0
 
 function log (msg: string): void {
   if (logsThisInterval >= MAX_LOGS_PER_INTERVAL) { logsDropped++; return }
@@ -117,7 +135,8 @@ function join (index: number, seq: number): void {
     createdAt: performance.now(),
     abort: new AbortController(),
     timers: new Set(),
-    lastCorrections: 0
+    lastCorrections: 0,
+    view: new ViewTracker()
   }
   bots.set(index, s)
 
@@ -148,6 +167,7 @@ function join (index: number, seq: number): void {
       return orig.call(this, buf)
     }
   }
+  if (client) hookView(s, bot, client, cfg.forceFullChunks === true)
 
   later(s, cfg.joinTimeoutMs, () => {
     if (s.phase === 'joining') finish(s, s.endRequested ? 'left' : 'fail', `no spawn within ${cfg.joinTimeoutMs} ms`)
@@ -183,6 +203,87 @@ function join (index: number, seq: number): void {
     runScenario(s, bot)
     if (isSampled(index, cfg.rtt.sampleRatio) && cfg.rtt.intervalMs > 0) startRttProbe(s, bot)
   })
+}
+
+/** Packet counters, view-load tracking and the forceFullChunks blob-cache answers of one bot. */
+function hookView (s: BotState, bot: Bot, client: ClientInternals, forceFullChunks: boolean): void {
+  if (typeof client.on !== 'function') return
+  const on = (event: string, fn: (p: any) => void): void => {
+    client.on!(event, (p: any) => { try { fn(p) } catch (err) { log(`bot ${s.index}: ${event} hook: ${errText(err)}`) } })
+  }
+  on('packet', (des: any) => {
+    const name = des?.data?.name
+    if (typeof name === 'string') packets.set(name, (packets.get(name) ?? 0) + 1)
+  })
+  on('start_game', p => {
+    s.runtimeId = String(p?.runtime_entity_id)
+    s.view.startGame(performance.now())
+  })
+  on('move_player', p => {
+    if (s.phase === 'spawned' && p?.mode === 'teleport' && s.runtimeId !== undefined && String(p.runtime_id) === s.runtimeId) {
+      s.view.teleport(performance.now())
+    }
+  })
+  on('network_chunk_publisher_update', p => {
+    const r = Number(p?.radius)
+    if (r > 0) s.publisherRadius = Math.ceil(r / 16)
+  })
+  // bedboo keeps the world of the current dimension only and unloads every column on a dimension change, so the
+  // dimension is only needed for `uniq` (best effort: bot.game.dimension at load time)
+  const emitter = bot as unknown as NodeJS.EventEmitter
+  emitter.on('chunkColumnLoad', (pos: { x: number, z: number } | undefined) => {
+    if (!pos) return
+    chunkLoads++
+    const dim = (bot as unknown as BotInternals).game?.dimension ?? 'overworld'
+    s.view.load(dim, Math.floor(pos.x / 16), Math.floor(pos.z / 16), performance.now())
+  })
+  emitter.on('chunkColumnUnload', (pos: { x: number, z: number } | undefined) => {
+    if (pos) s.view.unload(Math.floor(pos.x / 16), Math.floor(pos.z / 16))
+  })
+
+  const missing = (hashes: unknown[]): void => {
+    if (!forceFullChunks || hashes.length === 0 || typeof client.queue !== 'function') return
+    client.queue('client_cache_blob_status', { missing: hashes, have: [] })
+    blobMissReplies++
+  }
+  on('level_chunk', p => {
+    const blobs: unknown[] = Array.isArray(p?.blobs) ? p.blobs : []
+    if (p?.cache_enabled || blobs.length > 0) chunkCacheSeen = true
+    missing(blobs)
+  })
+  on('subchunk', p => {
+    const blobs: unknown[] = []
+    for (const e of p?.entries ?? []) if (e?.blob_id !== undefined && e.blob_id !== null) blobs.push(e.blob_id)
+    if (p?.cache_enabled || blobs.length > 0) chunkCacheSeen = true
+    missing(blobs)
+  })
+
+  if (forceFullChunks) {
+    // bedrock-protocol already sends client_cache_status { enabled: false }; make sure nothing turns it on, since
+    // bedboo decodes chunk payloads inline and cannot resolve blob-cache answers.
+    for (const m of ['queue', 'write'] as const) {
+      const orig = client[m]
+      if (typeof orig !== 'function') continue
+      client[m] = function (this: unknown, name: string, params: unknown) {
+        return orig.call(this, name, name === 'client_cache_status' ? { enabled: false } : params)
+      }
+    }
+  }
+}
+
+/** Server view radius of a bot, chunks: chunk_radius_update, else the chunk publisher radius, else unbounded. */
+function viewRadius (s: BotState): number {
+  const r = Number((s.bot as unknown as BotInternals | null)?.game?.serverViewDistance)
+  if (r > 0) return r
+  return s.publisherRadius ?? Number.POSITIVE_INFINITY
+}
+
+function sampleView (s: BotState, now: number): BotViewSample {
+  const bot = s.bot as unknown as { entity?: { position?: { x: number, z: number } } } | null
+  const pos = bot?.entity?.position
+  // no usable position (should not happen after spawn): count every loaded column
+  if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.z)) return s.view.sample(0, 0, Number.POSITIVE_INFINITY, now)
+  return s.view.sample(Math.floor(pos.x / 16), Math.floor(pos.z / 16), viewRadius(s), now)
 }
 
 function runScenario (s: BotState, bot: Bot): void {
@@ -289,6 +390,11 @@ function startStats (): void {
     // the histogram measures timer delay including its own period
     const p99 = eld.count > 0 ? Math.max(0, eld.percentile(99) / 1e6 - ELD_RESOLUTION_MS) : 0
     eld.reset()
+    const view: BotViewSample[] = []
+    for (const s of bots.values()) {
+      if (s.phase !== 'spawned' || s.done) continue
+      try { view.push(sampleView(s, now)) } catch (err) { log(`bot ${s.index}: view sample failed: ${errText(err)}`) }
+    }
     if (logsDropped > 0) send({ type: 'log', workerId, msg: `(${logsDropped} log lines dropped)` })
     logsThisInterval = 0
     logsDropped = 0
@@ -304,8 +410,16 @@ function startStats (): void {
       eventLoopP99Ms: p99,
       mainThreadCpuPct: pct(tcpu),
       cpuPct: pct(cpu),
-      rssBytes: process.memoryUsage.rss()
+      rssBytes: process.memoryUsage.rss(),
+      chunkLoads,
+      packets: Object.fromEntries(packets),
+      view,
+      chunkCacheSeen,
+      blobMissReplies
     })
+    chunkLoads = 0
+    packets = new Map()
+    blobMissReplies = 0
     joinLatencies = []
     rtts = []
     rxBytes = 0

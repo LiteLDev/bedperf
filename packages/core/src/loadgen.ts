@@ -34,4 +34,8 @@ export interface LoadGenerator {
   onStats (listener: (s: BotFleetStats) => void): void
   /** Disconnect all bots and terminate workers. */
   stop (): Promise<void>
+  /** OS process ids of the live load-generator worker processes (optional). */
+  pids? (): number[]
+  /** Called with the pid of every worker process the generator starts, including re-forks (optional). */
+  onWorkerSpawn? (listener: (pid: number) => void): void
 }

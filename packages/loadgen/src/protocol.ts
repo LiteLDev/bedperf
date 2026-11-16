@@ -1,5 +1,6 @@
 // IPC messages between the BotFleet controller (src/index.ts) and its worker processes (src/worker.ts).
 // Every message is a plain JSON-serialisable object sent over the child_process IPC channel.
+import type { BotViewSample } from './view.ts'
 
 /** Per-bot RTT probe settings. */
 export interface RttOptions {
@@ -27,6 +28,11 @@ export interface WorkerInit {
   /** After `leave`, report the bot as left even if bedboo never emits `end`, ms. */
   leaveTimeoutMs: number
   rtt: RttOptions
+  /**
+   * Answer every chunk blob hash the server sends with `client_cache_blob_status { missing: all }` and keep the
+   * client blob cache reported as disabled, so the server always has to send full chunk payloads.
+   */
+  forceFullChunks?: boolean
 }
 
 export type ControllerMessage =
@@ -75,6 +81,16 @@ export interface WorkerStats {
   /** CPU of the whole worker process (incl. V8 GC helper threads) over the interval, % of one core. */
   cpuPct: number
   rssBytes: number
+  /** Chunk columns loaded by bedboo in the interval (sum over bots, re-loads included). */
+  chunkLoads?: number
+  /** Packets received in the interval by name (sum over bots). */
+  packets?: Record<string, number>
+  /** View-load state of every spawned bot at the end of the interval. */
+  view?: BotViewSample[]
+  /** Any bot of this worker has seen a level_chunk/subchunk with `cache_enabled` or blob hashes (ever). */
+  chunkCacheSeen?: boolean
+  /** client_cache_blob_status replies sent in the interval (forceFullChunks). */
+  blobMissReplies?: number
 }
 
 export type WorkerMessage =

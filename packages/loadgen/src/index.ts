@@ -8,7 +8,8 @@ import type { LoadGenerator, LoadGenOptions } from '@bedperf/core'
 import { aggregateStats, DEFAULT_SATURATION, type FleetStats, type SaturationThresholds } from './aggregate.ts'
 import type { BotEvent, ControllerMessage, RttOptions, WorkerInit, WorkerMessage, WorkerStats } from './protocol.ts'
 
-export { aggregateStats, DEFAULT_SATURATION } from './aggregate.ts'
+export { aggregateStats, aggregateView, censoredMedian, nearestRank, DEFAULT_SATURATION } from './aggregate.ts'
+export { ViewTracker, VIEW_N, inView, t90Rank, type BotViewSample } from './view.ts'
 export type { FleetStats, SaturationThresholds } from './aggregate.ts'
 export type { RttOptions, WorkerInit, ControllerMessage, WorkerMessage, WorkerStats, BotEvent } from './protocol.ts'
 export { botRandom, botSeed, mulberry32, isSampled } from './rng.ts'
@@ -36,6 +37,11 @@ export interface BotFleetOptions extends LoadGenOptions {
    */
   rtt?: Partial<RttOptions>
   saturation?: Partial<SaturationThresholds>
+  /**
+   * Force full chunk payloads: keep the client blob cache reported as disabled and answer any blob hash with
+   * `client_cache_blob_status { missing: all }`. Also settable per run via scenarioParams `forceFullChunks`.
+   */
+  forceFullChunks?: boolean
   /** Node flags for worker processes. Default []. */
   workerExecArgv?: string[]
   /** Worker log lines (bot errors, stdout/stderr). Default: written to stderr with a `[loadgen wN]` prefix. */
@@ -130,6 +136,7 @@ export class BotFleet implements LoadGenerator {
   private readonly listeners: Array<(s: FleetStats) => void> = []
   private readonly waiters = new Set<() => void>()
   private stopping = false
+  private readonly spawnListeners: Array<(pid: number) => void> = []
 
   constructor (deps: { spawnWorker?: WorkerFactory, now?: () => number } = {}) {
     this.spawnWorker = deps.spawnWorker ?? forkWorker
@@ -155,6 +162,7 @@ export class BotFleet implements LoadGenerator {
       statsIntervalMs: opts.statsIntervalMs,
       joinTimeoutMs: opts.joinTimeoutMs ?? 60_000,
       leaveTimeoutMs: opts.leaveTimeoutMs ?? 5000,
+      forceFullChunks: typeof p.forceFullChunks === 'boolean' ? p.forceFullChunks : opts.forceFullChunks ?? false,
       rtt: {
         sampleRatio: num(p.rttSampleRatio) ?? opts.rtt?.sampleRatio ?? DEFAULT_RTT.sampleRatio,
         intervalMs: num(p.rttIntervalMs) ?? opts.rtt?.intervalMs ?? DEFAULT_RTT.intervalMs,
@@ -239,6 +247,20 @@ export class BotFleet implements LoadGenerator {
     this.retired.clear()
     this.bots.clear()
     this.changed()
+  }
+
+  /** OS pids of the live worker processes (retiring ones included until they exit). */
+  pids (): number[] {
+    const out: number[] = []
+    for (const w of [...this.workers.values(), ...this.retired]) {
+      if (w.alive && w.link.pid !== undefined && !out.includes(w.link.pid)) out.push(w.link.pid)
+    }
+    return out
+  }
+
+  /** `listener(pid)` runs for every worker process started from now on (re-forks included). */
+  onWorkerSpawn (listener: (pid: number) => void): void {
+    this.spawnListeners.push(listener)
   }
 
   /** Current per-state counts (for diagnostics and tests). */
@@ -336,6 +358,11 @@ export class BotFleet implements LoadGenerator {
     if (existing?.alive && !existing.retiring) return existing
     if ((this.brokenUntil.get(id) ?? 0) > this.now()) throw new Error(`worker ${id} failed to start recently`)
     const link = this.spawnWorker(id, this.opts!)
+    if (link.pid !== undefined) {
+      for (const l of this.spawnListeners) {
+        try { l(link.pid) } catch (err) { this.log(-1, `worker spawn listener threw: ${(err as Error)?.message}`) }
+      }
+    }
     let onReady!: () => void
     let onFail!: (err: Error) => void
     const ready = new Promise<void>((resolve, reject) => { onReady = resolve; onFail = reject })
