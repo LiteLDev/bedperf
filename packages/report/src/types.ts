@@ -228,7 +228,7 @@ export const COMPARABILITY_FIELDS: Array<{ key: string, label: string, paths: Re
   { key: 'configSha256', label: 'config hash', paths: [['configSha256']] },
   { key: 'machineFingerprint', label: 'machine fingerprint', paths: [['machine', 'fingerprint'], ['machineFingerprint']] },
   { key: 'bdsVersion', label: 'BDS version', paths: [['bdsVersion']] },
-  { key: 'bdsBuildSha256', label: 'BDS build hash', paths: [['bdsBuildSha256'], ['artifacts', 'bdsBuildSha256'], ['artifacts', 'bds', 'sha256']] },
+  { key: 'bdsBuildSha256', label: 'BDS build hash', paths: [['artifacts', 'bdsZipSha256'], ['bdsBuildSha256'], ['artifacts', 'bdsBuildSha256'], ['artifacts', 'bds', 'sha256']] },
   { key: 'analysisVersion', label: 'analysis version', paths: [['analysisVersion']] },
   { key: 'placementProfileSha256', label: 'placement profile hash', paths: [['placement', 'profileSha256']] },
   { key: 'botVersion', label: 'bot version', paths: [['botVersion']] }
