@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ensureBds, readSidecar, zipFileName } from './ensure.ts'
+import { bdsZipSha256, ensureBds, readSidecar, zipFileName } from './ensure.ts'
 import { hostPlatform, serverExeName } from './platform.ts'
 import type { FetchLike } from './resolve.ts'
 import { makeFakeBdsZip } from './testutil.ts'
@@ -46,6 +46,8 @@ test('ensureBds downloads, verifies, extracts, records sha256 and then skips', a
     assert.equal(side.size, zip.length)
     assert.equal(side.platform, hostPlatform())
     assert.ok(side.extractedAt)
+    assert.equal(bdsZipSha256(V, { cacheRoot: root }), side.sha256)
+    assert.equal(bdsZipSha256('1.2.3.4', { cacheRoot: root }), undefined)
     assert.deepEqual(readdirSync(root).filter(n => n.includes('.tmp-')), [])
 
     const again = await ensureBds(V, { acceptEula: true, cacheRoot: root, fetch: m.fetch })

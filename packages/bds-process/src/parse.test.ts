@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { encodeProbeLine, type ProbeSample } from '@bedperf/core'
-import { parseBdsLine, parseLinePrefix, parseListHeader, parseListNames, isBlankLine, stripEol } from './parse.ts'
+import { parseBdsLine, parseLinePrefix, parseListHeader, parseListNames, isBlankLine, stripEol, parseGametime } from './parse.ts'
 
 const sample: ProbeSample = {
   type: 'sample', v: 1, tick: 100, t: 1, windowMs: 1000, ticks: 20, tps: 20,
@@ -114,4 +114,18 @@ test('list parsing', () => {
   assert.equal(parseListHeader('There are players'), undefined)
   assert.deepEqual(parseListNames('a, b c, d\r'), ['a', 'b c', 'd'])
   assert.deepEqual(parseListNames(''), [])
+})
+
+test('parseGametime reads `time query gametime` replies', () => {
+  assert.equal(parseGametime('[2026-11-16 16:15:28:495 INFO] Gametime is 12345\r'), 12345)
+  assert.equal(parseGametime('[2026-11-16 16:15:28 INFO] Gametime is 0'), 0)
+  assert.equal(parseGametime('Gametime is 987654321'), 987654321)
+  assert.equal(parseGametime('gametime is 42'), 42)
+  // Other `time query` answers and unrelated lines are not gametime replies.
+  assert.equal(parseGametime('[2026-11-16 16:15:28:495 INFO] Daytime is 1000'), undefined)
+  assert.equal(parseGametime('[2026-11-16 16:15:28:495 INFO] Day is 3'), undefined)
+  assert.equal(parseGametime('[2026-11-16 16:15:28:495 INFO] [Scripting] Gametime is 5'), undefined)
+  assert.equal(parseGametime('[2026-11-16 16:15:28:495 ERROR] Syntax error: Unexpected "x": at "query >>x<<"'), undefined)
+  assert.equal(parseGametime(''), undefined)
+  assert.equal(parseGametime('Gametime is 99999999999999999999'), undefined)
 })

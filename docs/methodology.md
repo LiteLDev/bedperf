@@ -63,10 +63,16 @@ A step measured while the load generator was saturated is **invalid** rather tha
 
 The run's `meta.json` records:
 
-- BDS build and bedboo commit
-- the full config: properties, seed or snapshot hash, scenario parameters
-- host CPU and RAM
+- BDS build and bedboo commit, the BDS zip sha256 and the probe pack hash
+- the full config: properties, seed or snapshot hash, scenario parameters, and its `configSha256`
+- host CPU and RAM, and a machine fingerprint (OS family, CPU model, core counts, RAM) to tell whether two runs ran on the same hardware
+- the bedperf commit and whether the checkout was dirty
 - whether the load generator was colocated with BDS
+- sha256 and size of every file in the run dir
+
+meta.json and config.json are scrubbed of absolute paths, user and host names, so they can be shared; raw logs are not.
+
+Only one `bedperf run` measures at a time per machine (the machine lock, see the CLI README).
 
 Before a run:
 

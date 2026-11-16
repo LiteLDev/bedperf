@@ -103,3 +103,19 @@ export function parseListHeader (message: string): { online: number, max: number
 export function parseListNames (line: string): string[] {
   return stripEol(line).split(',').map(s => s.trim()).filter(s => s !== '')
 }
+
+/** Console command that prints the tick counter. */
+export const GAMETIME_COMMAND = 'time query gametime'
+
+export const GAMETIME_RE = /^Gametime is (\d+)/i
+
+/**
+ * Parse the reply to `time query gametime` (`Gametime is 12345`). Accepts a full log line or a
+ * message whose `[timestamp LEVEL]` prefix is already stripped. Returns undefined otherwise.
+ */
+export function parseGametime (line: string): number | undefined {
+  const m = GAMETIME_RE.exec(parseLinePrefix(line).message)
+  if (!m) return undefined
+  const n = Number(m[1])
+  return Number.isSafeInteger(n) ? n : undefined
+}

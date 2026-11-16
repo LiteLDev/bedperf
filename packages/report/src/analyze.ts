@@ -1,43 +1,96 @@
 import type { StepResult } from '@bedperf/core'
 import { downsample, linreg, mean, median, num } from './math.ts'
 import { CURVE_METRICS } from './types.ts'
-import type { Analysis, Curve, CurveMetric, CurvePoint, Derived, Headline, RunData, StepBand, StepMarkData, StepRow, Timeline } from './types.ts'
+import type { Analysis, Curve, CurveMetric, CurvePoint, Derived, Headline, RepeatInfo, RepeatStatus, RunData, StepBand, StepMarkData, StepRow, Timeline } from './types.ts'
 
 /** Max points per timeline series per repeat after downsampling. */
 const TIMELINE_POINTS_PER_REPEAT = 600
 
-function headlineOf (run: RunData): Headline {
-  const loadgenLimitedSteps = run.steps.some((s) => s.loadgenSaturated)
-  let perRepeat: number[]
-  let capped: boolean
-  let loadgenLimited: boolean
-  let medianValue: number | undefined
-  let incompleteRepeats: number[] = []
-  if (run.result !== undefined) {
-    perRepeat = run.result.maxPlayers.filter(Number.isFinite)
-    capped = run.result.capped
-    loadgenLimited = run.result.loadgenLimited || loadgenLimitedSteps
-    medianValue = num(run.result.maxPlayersMedian) ?? median(perRepeat)
-  } else {
-    // No result.json: recompute per repeat, leaving out repeats whose search had not finished
-    // (an aborted run's last repeat) unless no repeat finished at all.
-    const repeats = [...new Set(run.steps.map((s) => s.repeat))].sort((a, b) => a - b)
-    const best = (r: number): number => {
-      const passing = run.steps.filter((s) => s.repeat === r && s.pass).map((s) => s.players)
-      return passing.length > 0 ? Math.max(...passing) : 0
-    }
-    const done = repeats.filter((r) => repeatFinished(run, r, best(r)))
-    const used = done.length > 0 ? done : repeats
-    incompleteRepeats = repeats.filter((r) => !used.includes(r))
-    perRepeat = used.map(best)
-    const cap = num(run.config.ramp?.max)
-    capped = cap !== undefined && perRepeat.some((v) => v >= cap)
-    loadgenLimited = loadgenLimitedSteps
-    medianValue = median(perRepeat)
+/**
+ * Version of the analysis rules (headline aggregation, repeat statuses, curve and fit inputs,
+ * comparison decision rule). Bump it whenever a change can move a number or a verdict computed
+ * from the same raw data, so runs analysed under different rules are flagged as not comparable.
+ * Pure presentation changes (layout, wording, colours) do not bump it.
+ */
+export const ANALYSIS_VERSION = 1
+
+/** Status and per-repeat result of every repeat, from repeat envelopes, result.json and steps. */
+function repeatInfosOf (run: RunData): { infos: RepeatInfo[], incomplete: number[] } {
+  const best = (r: number): number | undefined => {
+    const mine = run.steps.filter((s) => s.repeat === r)
+    if (mine.length === 0) return undefined
+    const passing = mine.filter((s) => s.pass).map((s) => s.players)
+    return passing.length > 0 ? Math.max(...passing) : 0
   }
+  const hasMarks = run.repeatStarts.length > 0 || run.repeatEnds.length > 0
+  const ids = new Set<number>([...run.steps.map((s) => s.repeat), ...run.repeatStarts, ...run.repeatEnds.map((e) => e.repeat)])
+  // result.maxPlayers is indexed by position; the orchestrator numbers repeats from 0, older
+  // runs and fixtures from 1. Infer the base from the recorded repeat numbers.
+  const base = ids.size === 0 || Math.min(...ids) >= 1 ? 1 : Math.min(...ids)
+  const fromResult = (r: number): number | undefined => num(run.result?.maxPlayers[r - base])
+  if (run.result !== undefined) run.result.maxPlayers.forEach((_, i) => ids.add(i + base))
+  const infos: RepeatInfo[] = []
+  const incomplete: number[] = []
+  for (const r of [...ids].sort((a, b) => a - b)) {
+    const end = run.repeatEnds.find((e) => e.repeat === r)
+    let status: RepeatStatus
+    let reasons: string[] = []
+    let maxPlayers = fromResult(r) ?? best(r)
+    if (end !== undefined) {
+      maxPlayers = end.maxPlayers ?? maxPlayers
+      if (!end.hasOutcome) {
+        status = 'invalid'
+        reasons = ['repeat ended without a search result']
+      } else if (end.status !== undefined) {
+        status = end.status
+        reasons = end.statusReasons.length > 0 ? end.statusReasons : end.aborted !== undefined ? [end.aborted] : []
+      } else if (end.aborted !== undefined) {
+        status = 'server_failed'
+        reasons = [end.aborted]
+      } else {
+        status = 'ok'
+      }
+    } else if (hasMarks) {
+      // The run records repeat boundaries but this repeat has no end: it was cut off.
+      status = 'invalid'
+      reasons = ['repeat never ended (run stopped mid-repeat)']
+      incomplete.push(r)
+    } else if (run.result !== undefined && fromResult(r) !== undefined) {
+      // Older run without repeat envelopes: result.json lists every repeat that finished.
+      status = 'ok'
+    } else if (repeatFinished(run, r, best(r) ?? 0)) {
+      status = 'ok'
+    } else {
+      status = 'invalid'
+      reasons = ['search did not finish']
+      incomplete.push(r)
+    }
+    infos.push({ repeat: r, status, reasons, maxPlayers })
+  }
+  return { infos, incomplete }
+}
+
+function headlineOf (run: RunData): Headline {
+  const { infos, incomplete } = repeatInfosOf(run)
+  const ok = infos.filter((i) => i.status === 'ok')
+  const perRepeat = ok.map((i) => i.maxPlayers).filter((v): v is number => v !== undefined)
+  const statusCounts: Record<RepeatStatus, number> = { ok: 0, server_failed: 0, invalid: 0 }
+  for (const i of infos) statusCounts[i.status]++
+  const okEnds = run.repeatEnds.filter((e) => ok.some((i) => i.repeat === e.repeat))
+  const cap = num(run.config.ramp?.max)
+  // Capped describes the median, so only ok repeats count. result.capped covers every repeat, so
+  // it is used only for older runs without repeat envelopes (where every listed repeat is ok).
+  const capped = okEnds.some((e) => e.capped === true) || (cap !== undefined && perRepeat.some((v) => v >= cap)) ||
+    (run.repeatEnds.length === 0 && run.result?.capped === true)
+  const loadgenLimited = run.result?.loadgenLimited === true || run.repeatEnds.some((e) => e.loadgenLimited === true) ||
+    run.steps.some((s) => s.loadgenSaturated)
   return {
-    maxPlayersMedian: medianValue,
+    maxPlayersMedian: median(perRepeat),
     perRepeat,
+    repeats: infos,
+    kOk: ok.length,
+    n: infos.length,
+    statusCounts,
     min: perRepeat.length > 0 ? Math.min(...perRepeat) : undefined,
     max: perRepeat.length > 0 ? Math.max(...perRepeat) : undefined,
     spread: perRepeat.length > 0 ? Math.max(...perRepeat) - Math.min(...perRepeat) : undefined,
@@ -45,7 +98,7 @@ function headlineOf (run: RunData): Headline {
     loadgenLimited,
     source: run.result !== undefined ? 'result' : 'steps',
     aborted: run.result === undefined,
-    incompleteRepeats
+    incompleteRepeats: incomplete
   }
 }
 
@@ -268,9 +321,17 @@ export function analyze (run: RunData): Analysis {
   const valid = steps.filter((s) => !s.invalid)
   const curves = repeats.map((r) => curveOf(valid.filter((s) => s.repeat === r), r))
   const headline = headlineOf(run)
+  const okRepeats = headline.repeats.filter((i) => i.status === 'ok').map((i) => i.repeat)
+  // Aggregate curves and fits use the ok repeats only, like the headline, so a crashed or cut-off
+  // repeat cannot shift them. With no ok repeat at all, fall back to every valid step.
+  const okSet = new Set(okRepeats)
+  const fitRows = okRepeats.length > 0 ? valid.filter((s) => okSet.has(s.repeat)) : valid
   const notes: string[] = [...run.warnings]
   if (run.result === undefined) notes.push('result.json is missing (run aborted?); the headline was recomputed from the recorded steps.')
-  if (headline.incompleteRepeats.length > 0) notes.push(`Unfinished repeat(s) ${headline.incompleteRepeats.join(', ')} left out of the headline.`)
+  const notOk = headline.repeats.filter((i) => i.status !== 'ok')
+  if (notOk.length > 0) {
+    notes.push(`${headline.kOk}/${headline.n} repeats ok. Left out of the median${okRepeats.length > 0 ? ', the mean curve and the fits' : ''}: ${notOk.map((i) => `repeat ${i.repeat} ${i.status}${i.reasons.length > 0 ? ` (${i.reasons.join('; ')})` : ''}`).join(', ')}.`)
+  }
   if (steps.length === 0) notes.push('No step results were recorded.')
   if (steps.length > valid.length) notes.push(`${steps.length - valid.length} step(s) invalidated by loadgen saturation are left out of the curves and fits.`)
   if (run.probe.length === 0) notes.push('No probe samples; TPS timeline is empty.')
@@ -280,6 +341,7 @@ export function analyze (run: RunData): Analysis {
   if (other.length > 0) notes.push(`Ignored envelope kinds: ${other.map(([k, n]) => `${k} (${n})`).join(', ')}.`)
 
   return {
+    analysisVersion: ANALYSIS_VERSION,
     name: String(run.config.name ?? run.result?.config ?? ''),
     runId: String(run.meta.runId ?? run.result?.runId ?? ''),
     config: run.config,
@@ -287,8 +349,10 @@ export function analyze (run: RunData): Analysis {
     headline,
     steps,
     curves,
-    meanCurve: curveOf(valid, undefined),
-    derived: derivedOf(valid),
+    meanCurve: curveOf(fitRows, undefined),
+    derived: derivedOf(fitRows),
+    repeatDerived: okRepeats.map((r) => ({ repeat: r, derived: derivedOf(valid.filter((s) => s.repeat === r)) })),
+    okRepeats,
     timeline: timelineOf(run, steps),
     notes
   }

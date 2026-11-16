@@ -51,3 +51,23 @@ export function fmtDuration (sec: number): string {
   if (h > 0) return `${h}:${String(m % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
   return `${m}:${String(s % 60).padStart(2, '0')}`
 }
+
+/** Reads a scalar at `path` of an unknown-typed object as a string, or undefined. */
+export function scalarAt (obj: unknown, path: readonly string[]): string | undefined {
+  let cur: unknown = obj
+  for (const k of path) {
+    if (cur === null || typeof cur !== 'object') return undefined
+    cur = (cur as Record<string, unknown>)[k]
+  }
+  if (typeof cur === 'string') return cur === '' ? undefined : cur
+  if (typeof cur === 'number' && Number.isFinite(cur)) return String(cur)
+  return undefined
+}
+
+export function firstAt (obj: unknown, paths: ReadonlyArray<readonly string[]>): string | undefined {
+  for (const p of paths) {
+    const v = scalarAt(obj, p)
+    if (v !== undefined) return v
+  }
+  return undefined
+}

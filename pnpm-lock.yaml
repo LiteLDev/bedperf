@@ -326,6 +326,19 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  packages/placement:
+    dependencies:
+      '@bedperf/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   packages/probe-addon:
     dependencies:
       '@bedperf/core':

@@ -1,8 +1,9 @@
-import { DASH, esc, fmt, fmtBytes, fmtDuration, fmtPct, fmtRate, fmtTick, MiB } from './format.ts'
-import { curveValues } from './analyze.ts'
+import { DASH, esc, firstAt, fmt, fmtBytes, fmtDuration, fmtPct, fmtRate, fmtTick, MiB } from './format.ts'
+import { ANALYSIS_VERSION, curveValues } from './analyze.ts'
 import { page } from './page.ts'
 import { legend, lineChart, timeTicks } from './svg.ts'
 import type { Series } from './svg.ts'
+import { COMPARABILITY_FIELDS, REPEAT_STATUSES } from './types.ts'
 import type { Analysis, Curve, CurveMetric, StepRow } from './types.ts'
 
 
@@ -27,15 +28,35 @@ export function flagsHtml (a: Analysis): string {
   if (h.aborted) flags.push('<span class="flag bad">aborted: no result.json</span>')
   if (h.capped) flags.push('<span class="flag warn">capped: hit ramp.max, true capacity is higher</span>')
   if (h.loadgenLimited) flags.push('<span class="flag warn">loadgen limited: some steps invalid</span>')
+  if (h.statusCounts.server_failed > 0) flags.push(`<span class="flag bad">${h.statusCounts.server_failed} repeat${h.statusCounts.server_failed === 1 ? '' : 's'} server_failed</span>`)
+  if (h.statusCounts.invalid > 0) flags.push(`<span class="flag warn">${h.statusCounts.invalid} repeat${h.statusCounts.invalid === 1 ? '' : 's'} invalid</span>`)
   if (flags.length === 0) flags.push('<span class="flag ok">no flags</span>')
   return `<div class="flags">${flags.join('')}</div>`
 }
 
+/** "k/n ok · median [min, max] · per-repeat values with status" for a headline card. */
 export function repeatsDetail (a: Analysis): string {
   const h = a.headline
-  if (h.perRepeat.length === 0) return 'no repeats recorded'
-  const list = h.perRepeat.map((v) => esc(v)).join(' · ')
-  return `${h.perRepeat.length} repeat${h.perRepeat.length === 1 ? '' : 's'}: ${list} (range ${esc(h.min)}–${esc(h.max)}, spread ${esc(h.spread)})`
+  if (h.n === 0) return 'no repeats recorded'
+  const counts = REPEAT_STATUSES.filter((s) => h.statusCounts[s] > 0 && s !== 'ok').map((s) => `${h.statusCounts[s]} ${s}`)
+  const head = `<b>${esc(h.kOk)}/${esc(h.n)} repeats ok</b>${counts.length > 0 ? ` (${esc(counts.join(', '))})` : ''}`
+  const range = h.min !== undefined ? `, range [${esc(h.min)}, ${esc(h.max)}], spread ${esc(h.spread)}` : ''
+  const list = h.repeats.map((r) => {
+    const v = r.maxPlayers === undefined ? DASH : String(r.maxPlayers)
+    return r.status === 'ok' ? esc(v) : `<span class="rs ${r.status}">${esc(v)} ${esc(r.status)}</span>`
+  }).join(' · ')
+  return `${head}${range}: ${list}`
+}
+
+function repeatsTable (a: Analysis): string {
+  const h = a.headline
+  if (h.n === 0) return ''
+  const rows = h.repeats.map((r) => `<tr><td>${esc(r.repeat)}</td><td class="l"><span class="st ${r.status === 'ok' ? 'pass' : r.status === 'server_failed' ? 'fail' : 'invalid'}">${esc(r.status)}</span></td><td>${r.maxPlayers === undefined ? DASH : esc(r.maxPlayers)}</td><td>${r.status === 'ok' ? 'yes' : 'no'}</td><td class="reasons">${r.reasons.map(esc).join('<br>')}</td></tr>`).join('\n')
+  return `<details class="repeats"${h.kOk < h.n ? ' open' : ''}><summary>Repeats (${esc(h.kOk)}/${esc(h.n)} ok)</summary>
+<div class="scroll"><table>
+<thead><tr><th>repeat</th><th class="l">status</th><th>max players</th><th>in median</th><th class="l">reasons</th></tr></thead>
+<tbody>${rows}</tbody>
+</table></div></details>`
 }
 
 function tile (k: string, v: string, n = ''): string {
@@ -52,10 +73,11 @@ function headlineSection (a: Analysis): string {
   const value = h.maxPlayersMedian === undefined ? DASH : fmtTick(h.maxPlayersMedian, 1)
   return `<section id="headline" class="headline" aria-label="Headline">
 <div class="hero">
-<div class="label">Max players @ 20 TPS (median)</div>
+<div class="label">Max players @ 20 TPS (median of ok repeats)</div>
 <div class="value">${esc(value)}</div>
 <div class="detail">${repeatsDetail(a)}</div>
 ${flagsHtml(a)}
+${repeatsTable(a)}
 </div>
 <div class="tiles">
 ${tile('Memory per player', fmtBytes(d.memPerPlayer?.slope), r2Note(d.memPerPlayer?.r2, d.memPerPlayer?.n))}
@@ -118,6 +140,7 @@ ${dlItem('Loadgen', c.loadgen !== undefined ? `${c.loadgen.botsPerWorker} bots/w
 ${dlItem('Ramp', ramp)}
 ${dlItem('Pass criteria', criteria)}
 ${dlItem('Repeats / warmup', `${c.repeats ?? DASH} / ${c.warmupSec ?? DASH} s`)}
+${COMPARABILITY_FIELDS.filter((f) => f.key !== 'bdsVersion' && f.key !== 'botVersion').map((f) => dlItem(`${f.label[0]!.toUpperCase()}${f.label.slice(1)}`, firstAt(m, f.paths) ?? 'not recorded')).join('\n')}
 ${keyProps.map((k) => dlItem(k, props[k])).join('\n')}
 </dl>
 <details><summary>All server properties (${Object.keys(props).length})</summary><dl class="meta">${allProps}</dl></details>
@@ -236,8 +259,9 @@ ${rows || '<tr><td class="l" colspan="18">No steps recorded.</td></tr>'}
 export function methodologyHtml (notes: string[] = []): string {
   return `<section id="methodology" class="foot" aria-label="Methodology">
 <h2>Methodology</h2>
-<p>The headline is the largest bot count that passed every criterion in a step, taken as the median over independent repeats on fresh instances. Each repeat ramps the bot count until the first failing step, then bisects between the last pass and the first fail. Steps measured while the load generator was saturated are invalid rather than failed.</p>
+<p>The headline is the largest bot count that passed every criterion in a step, taken as the median over the <b>ok</b> repeats, each on a fresh instance. Each repeat ramps the bot count until the first failing step, then bisects between the last pass and the first fail. Steps measured while the load generator was saturated are invalid rather than failed.</p>
 <ul>
+<li><b>Repeat status.</b> A repeat is <code>ok</code>, <code>server_failed</code> (the server crashed, was stopped by a watchdog or ended the repeat early: a result about the server, shown as k/n ok, never dropped silently) or <code>invalid</code> (never ended, search unfinished, or flagged by the harness: says something about the harness or machine). Only ok repeats enter the median, the mean curves and the per-player fits.</li>
 <li><b>TPS</b> comes from the Script API probe: ticks per ~1 s window, measured inside the server tick.</li>
 <li><b>Main-thread utilisation</b> is the CPU share of the busiest server thread (OS sampling). Because BDS sleeps out the rest of each 50 ms tick it approximates MSPT / 50 ms. It cannot separate lock waits from sleep and does not include work offloaded to other threads.</li>
 <li><b>Per-player figures</b> are least-squares slopes over the step means of all repeats. Utilisation is fitted on passing steps when possible, because it flattens near 1.0 once the tick thread is saturated. "Players at util 1.0" extrapolates that fit.</li>
@@ -246,7 +270,7 @@ export function methodologyHtml (notes: string[] = []): string {
 <li>The timeline is downsampled for size. TPS shows the minimum of each bucket so dips stay visible.</li>
 </ul>
 ${notes.length > 0 ? `<h3>Notes</h3><ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
-<p>Generated by bedperf.</p>
+<p>Generated by bedperf, analysis version ${esc(ANALYSIS_VERSION)}.</p>
 </section>`
 }
 

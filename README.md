@@ -14,6 +14,7 @@ The headline metric is **the largest number of players the server can hold while
 | `packages/bds-process` | BDS process control, stdout event parser, console command channel |
 | `packages/probe-addon` | Script API behavior pack reporting in-tick TPS, tick intervals and entity counts on stdout |
 | `packages/sysmon` | OS sampler: process and per-thread CPU (main-thread utilisation), memory, network |
+| `packages/placement` | CPU topology (P/E classes, SMT, VMs), server/bot/harness CPU placement planning, apply and per-thread verification |
 | `packages/loadgen` | multi-process bedboo bot fleet with `scaleTo(n)` and bot-side metrics |
 | `packages/scenarios` | workloads: idle, walk, explore, build, chat, mobs, entity-stress |
 | `packages/orchestrator` | benchmark config, step ramp and bisection, pass criteria, run recorder |

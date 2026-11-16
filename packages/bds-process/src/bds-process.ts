@@ -5,8 +5,8 @@ import { createWriteStream, mkdirSync, type WriteStream } from 'node:fs'
 import { constants as osConstants, setPriority } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Readable } from 'node:stream'
-import type { BdsInstance, BdsServer, BdsServerEvents } from '@bedperf/core'
-import { isBlankLine, parseBdsLine, parseListHeader, parseListNames, type ParsedBdsLine } from './parse.ts'
+import type { BdsInstance, BdsServer, BdsServerEvents, GametimeReading } from '@bedperf/core'
+import { GAMETIME_COMMAND, isBlankLine, parseBdsLine, parseGametime, parseListHeader, parseListNames, type ParsedBdsLine } from './parse.ts'
 
 /** Events of `BdsProcess`: the core `BdsServerEvents` plus non-fatal warnings. */
 export interface BdsProcessEvents extends BdsServerEvents {
@@ -106,19 +106,31 @@ function execFileP (file: string, args: string[]): Promise<void> {
 type Collector = (p: ParsedBdsLine) => void
 type ExitInfo = Parameters<BdsServerEvents['exit']>[0]
 
+/** Host clock: epoch ms with sub-ms resolution, monotonic within the process. */
+export function hostNow (): number {
+  return performance.timeOrigin + performance.now()
+}
+
+/** Queue lane: `priority` jobs run before every queued `normal` job. */
+export type CommandLane = 'normal' | 'priority'
+
+const GAMETIME_CMD_RE = /^\s*time\s+query\s+gametime\b/i
 const COMMAND_FAILURE_RE = /^(Syntax error|Unknown command|No targets matched|Incorrect argument|Invalid|Could not)/
 
 /**
  * One BDS server process. `start()` may be called again after the previous process exited.
  * Console output is not correlated with commands, so `command()` calls are serialised and
  * each collects every non-blank, non-probe line printed after its command was written.
+ * The queue has two lanes: a queued `priority` job runs before any queued `normal` job (the
+ * job already running is never interrupted).
  */
 export class BdsProcess implements BdsServer {
   readonly instance: BdsInstance
   private readonly opts: BdsProcessOptions
   private readonly events = new EventEmitter()
   private readonly collectors = new Set<Collector>()
-  private queue: Promise<unknown> = Promise.resolve()
+  private readonly lanes: Record<CommandLane, Array<() => void>> = { priority: [], normal: [] }
+  private busy = false
 
   private proc: ChildProcess | undefined
   /** The current run is over ('close' seen, or fallback after 'exit'); `exit` was emitted. */
@@ -385,21 +397,59 @@ export class BdsProcess implements BdsServer {
     stdin.write(command + '\n')
   }
 
-  /** Run `fn` after every previously queued command finished (successfully or not). */
-  private enqueue<T> (fn: () => Promise<T>): Promise<T> {
-    const p = this.queue.then(fn, fn)
-    this.queue = p.catch(() => {})
-    return p
+  /**
+   * Run `fn` once the queue is free: after the running job, every queued `priority` job and,
+   * for the `normal` lane, every previously queued `normal` job finished (successfully or not).
+   */
+  private enqueue<T> (fn: () => Promise<T>, lane: CommandLane = 'normal'): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.lanes[lane].push(() => {
+        let p: Promise<T>
+        try { p = fn() } catch (err) { p = Promise.reject(err) }
+        p.then(resolve, reject).finally(() => {
+          this.busy = false
+          this.pump()
+        })
+      })
+      this.pump()
+    })
+  }
+
+  private pump (): void {
+    if (this.busy) return
+    const job = this.lanes.priority.shift() ?? this.lanes.normal.shift()
+    if (job === undefined) return
+    this.busy = true
+    // Run asynchronously, like a promise continuation, so callers never see a synchronous send.
+    queueMicrotask(job)
   }
 
   /**
-   * Write `command` and feed every following non-blank, non-probe line to `done` until it
+   * Write `command` in queue order without waiting for output. Resolves with the host time
+   * (`hostNow()`) taken right before the bytes were written; rejects when BDS is not running.
+   * `onSent` gets the same time synchronously right after the write, before any output of the
+   * command can be processed.
+   */
+  sendQueued (command: string, opts: { priority?: boolean, onSent?: (sentAt: number) => void } = {}): Promise<number> {
+    return this.enqueue(async () => {
+      const sentAt = hostNow()
+      this.send(command)
+      opts.onSent?.(sentAt)
+      return sentAt
+    }, opts.priority === true ? 'priority' : 'normal')
+  }
+
+  /**
+   * Write `command` and feed every following non-blank, non-probe line (and, unless the command
+   * is itself a gametime query, non-`Gametime is` line) to `done` until it
    * returns true. Not queued; callers go through `enqueue`.
    */
-  private collect (command: string, done: (p: ParsedBdsLine) => boolean, timeoutMs?: number): Promise<string[]> {
+  private collect (command: string, done: (p: ParsedBdsLine) => boolean, timeoutMs?: number, onSent?: (at: number) => void): Promise<string[]> {
     const t = timeoutMs ?? this.opts.commandTimeoutMs ?? 10_000
     return new Promise((resolve, reject) => {
       const lines: string[] = []
+      // Replies to fire-and-forget gametime queries (GametimeSampler) are not this command's output.
+      const skipGametime = !GAMETIME_CMD_RE.test(command)
       const finish = (err?: Error): void => {
         clearTimeout(timer)
         this.collectors.delete(collector)
@@ -409,6 +459,7 @@ export class BdsProcess implements BdsServer {
       }
       const collector: Collector = p => {
         if (p.kind === 'probe') return
+        if (skipGametime && parseGametime(p.message) !== undefined) return
         lines.push(p.text)
         let hit: boolean
         try { hit = done(p) } catch (err) { finish(err as Error); return }
@@ -419,7 +470,9 @@ export class BdsProcess implements BdsServer {
       this.collectors.add(collector)
       this.events.on('exit', onExit)
       try {
+        const at = hostNow()
         this.send(command)
+        onSent?.(at)
       } catch (err) {
         finish(new BdsCommandError(command, (err as Error).message, lines))
       }
@@ -475,6 +528,28 @@ export class BdsProcess implements BdsServer {
     return { online: header!.online, max: header!.max, names }
   }
 
+  /**
+   * `time query gametime`: the tick counter, independent of the Script API. `sentAt` is taken
+   * right before the command is written, `recvAt` when the `Gametime is <n>` line is read (both
+   * `hostNow()`). `priority` puts the query ahead of queued normal commands.
+   */
+  async queryGametime (opts: { timeoutMs?: number, priority?: boolean } = {}): Promise<GametimeReading> {
+    let sentAt = Number.NaN
+    let recvAt = Number.NaN
+    let gametime: number | undefined
+    await this.enqueue(() => this.collect(GAMETIME_COMMAND, p => {
+      const g = parseGametime(p.message)
+      if (g !== undefined) {
+        recvAt = hostNow()
+        gametime = g
+        return true
+      }
+      if (p.kind === 'error' && COMMAND_FAILURE_RE.test(p.message)) throw new BdsCommandError(GAMETIME_COMMAND, p.message, [p.text])
+      return false
+    }, opts.timeoutMs, at => { sentAt = at }), opts.priority === true ? 'priority' : 'normal')
+    return { gametime: gametime!, sentAt, recvAt }
+  }
+
   /** `gamerule <rule> <value>`; rejects on a syntax error or unknown rule. */
   async setGamerule (rule: string, value: string | number | boolean, timeoutMs?: number): Promise<void> {
     await this.exec(`gamerule ${rule} ${String(value)}`, /^Game rule \S+ has been updated to/, timeoutMs)
@@ -482,7 +557,7 @@ export class BdsProcess implements BdsServer {
 
   /** `say <msg>`. BDS prints nothing for it, so this only queues the write behind pending commands. */
   say (message: string): Promise<void> {
-    return this.enqueue(async () => { this.send(`say ${message}`) })
+    return this.sendQueued(`say ${message}`).then(() => {})
   }
 
   /**

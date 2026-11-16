@@ -1,4 +1,5 @@
 import type { ProbeRecord } from './probe.ts'
+import type { GametimeReading } from './tickcounter.ts'
 
 /** server.properties as key → value. Values are written verbatim. */
 export type ServerProperties = Record<string, string | number | boolean>
@@ -52,6 +53,11 @@ export interface BdsServer {
    * Resolves with the collected lines (including the matching one).
    */
   command (command: string, until: RegExp, timeoutMs?: number): Promise<string[]>
+  /**
+   * Optional: `time query gametime` round trip, the script-free tick counter. `priority` puts it
+   * ahead of queued normal commands.
+   */
+  queryGametime? (opts?: { timeoutMs?: number, priority?: boolean }): Promise<GametimeReading>
   /** Graceful stop (`stop` + wait for exit), killing after the timeout. */
   stop (timeoutMs?: number): Promise<void>
   on<E extends keyof BdsServerEvents> (event: E, listener: BdsServerEvents[E]): this

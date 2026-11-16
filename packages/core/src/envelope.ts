@@ -24,9 +24,12 @@ export const Kinds = {
   probeMark: 'probe.mark',
   probePong: 'probe.pong',
   sysSample: 'sys.sample',
+  sysInterference: 'sys.interference',
   botStats: 'bot.stats',
   bdsLog: 'bds.log',
   bdsEvent: 'bds.event',
+  /** `GametimeSample` from the `time query gametime` tick-counter sampler. */
+  bdsGametime: 'bds.gametime',
   stepStart: 'orch.step.start',
   stepEnd: 'orch.step.end',
   runStart: 'orch.run.start',

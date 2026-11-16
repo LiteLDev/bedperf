@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import type { BdsInstance, BenchmarkConfig } from '@bedperf/core'
-import { createInstance, destroyInstance, ensureBds, hostPlatform, pristineDirOf, resolveVersion, serverExeName } from '@bedperf/bds-install'
+import { bdsZipSha256, createInstance, destroyInstance, ensureBds, hashTree, hostPlatform, pristineDirOf, resolveVersion, serverExeName } from '@bedperf/bds-install'
 import { BdsProcess } from '@bedperf/bds-process'
 import { packDir } from '@bedperf/probe-addon'
 import { createProcessSampler } from '@bedperf/sysmon'
@@ -15,6 +15,8 @@ import { loadScenario } from '@bedperf/scenarios'
 import { consoleLogger, runBenchmark, type BenchmarkOutcome, type Logger } from '@bedperf/orchestrator'
 import { writeReport } from '@bedperf/report'
 import { botFamily, instanceProperties, makeRunId, resolveScenario } from './plan.ts'
+import { acquireMachineLock, type MachineLock } from './lock.ts'
+import pkg from '../package.json' with { type: 'json' }
 
 export const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 
@@ -32,6 +34,10 @@ export interface RunCommandOptions {
   propertyPresets?: Array<'vanilla-default' | 'bench-default' | 'bench-flat'>
   logger?: Logger
   signal?: AbortSignal
+  /** Take the machine lock (one measured run per machine). Default true. */
+  lock?: boolean
+  /** Lock file. Default `$BEDPERF_LOCK` or `<cache root>/machine.lock`. */
+  lockPath?: string
 }
 
 export interface RunCommandResult extends BenchmarkOutcome {
@@ -41,6 +47,14 @@ export interface RunCommandResult extends BenchmarkOutcome {
 function bedbooCommit (): string | undefined {
   try {
     return execFileSync('git', ['-C', join(REPO_ROOT, 'vendor', 'bedboo'), 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  } catch {
+    return undefined
+  }
+}
+
+function probePackSha256 (): string | undefined {
+  try {
+    return hashTree(packDir())
   } catch {
     return undefined
   }
@@ -91,6 +105,23 @@ export async function runCommand (input: BenchmarkConfig, opts: RunCommandOption
   const params = input.scenario.params ?? {}
   const setup = scen.serverSetup?.(params) ?? []
 
+  // One measured run per machine: taken before any download or server start, released in finally / on exit.
+  const lock = opts.lock === false
+    ? undefined
+    : await acquireMachineLock({ bedperfVersion: pkg.version, ...(opts.lockPath !== undefined ? { path: opts.lockPath } : {}) })
+  try {
+    return await runLocked(input, opts, { log, scenario, properties, setup, lock })
+  } finally {
+    lock?.release()
+  }
+}
+
+async function runLocked (
+  input: BenchmarkConfig,
+  opts: RunCommandOptions,
+  ctx: { log: Logger, scenario: ReturnType<typeof resolveScenario>, properties: ReturnType<typeof instanceProperties>, setup: string[], lock: MachineLock | undefined }
+): Promise<RunCommandResult> {
+  const { log, scenario, properties, setup, lock } = ctx
   const { bdsVersion, botVersion } = await prepareBuild(input, { acceptEula: opts.acceptEula, log })
   // Record what actually ran: the concrete build and family instead of 'latest'.
   const config: BenchmarkConfig = { ...input, bdsVersion, botVersion }
@@ -99,10 +130,18 @@ export async function runCommand (input: BenchmarkConfig, opts: RunCommandOption
   const runsDir = resolve(opts.runsDir ?? join(REPO_ROOT, 'runs'))
   let runId = makeRunId(Date.now(), config.name)
   for (let i = 2; existsSync(join(runsDir, runId)); i++) runId = `${makeRunId(Date.now(), config.name)}-${i}`
+  lock?.setRunId(runId)
   const runDir = join(runsDir, runId)
   const port = opts.port ?? 19200
   const instances: BdsInstance[] = []
   const commit = bedbooCommit()
+  const zipSha = bdsZipSha256(bdsVersion)
+  const packSha = probePackSha256()
+  const artifacts = {
+    ...(zipSha !== undefined ? { bdsZipSha256: zipSha } : {}),
+    ...(packSha !== undefined ? { probePackSha256: packSha } : {}),
+    ...(commit !== undefined ? { bedbooCommit: commit } : {})
+  }
 
   try {
     const outcome = await runBenchmark(config, {
@@ -129,7 +168,7 @@ export async function runCommand (input: BenchmarkConfig, opts: RunCommandOption
       logger: log
     }, {
       runId,
-      meta: { bdsVersion, botVersion, colocated: true, ...(commit !== undefined ? { bedbooCommit: commit } : {}) },
+      meta: { bdsVersion, botVersion, colocated: true, artifacts, ...(commit !== undefined ? { bedbooCommit: commit } : {}) },
       ...(opts.signal !== undefined ? { signal: opts.signal } : {})
     })
     let report: string | undefined

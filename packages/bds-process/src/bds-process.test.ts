@@ -6,8 +6,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
-import { encodeProbeLine, type BdsInstance, type PlayerEvent, type ProbeRecord } from '@bedperf/core'
+import { encodeProbeLine, type BdsInstance, type GametimeSample, type PlayerEvent, type ProbeRecord } from '@bedperf/core'
 import { BdsProcess, BdsStartError, BdsCommandError, affinityCommand, type BdsProcessOptions } from './bds-process.ts'
+import { GametimeSampler } from './gametime-sampler.ts'
 
 const TS = '[2026-11-16 16:15:28:495 INFO]'
 
@@ -458,4 +459,85 @@ test('affinityCommand', () => {
   assert.throws(() => affinityCommand(1, [], 'linux'), /empty/)
   assert.throws(() => affinityCommand(1, [63], 'win'), /outside/)
   assert.throws(() => affinityCommand(1, [-1], 'linux'), /invalid/)
+})
+
+test('priority lane: queued priority jobs run before queued normal ones, never preempting', async () => {
+  const { bds, child } = await started()
+  child.onCommand = cmd => {
+    if (cmd === 'stop') { child.quit(); return }
+    setTimeout(() => child.out(`reply ${cmd}`), 10)
+  }
+  const a = bds.command('a', /reply a/)
+  const b = bds.command('b', /reply b/)
+  const p1 = bds.sendQueued('p1', { priority: true })
+  const q = bds.queryGametime({ priority: true, timeoutMs: 50 }).catch(() => 'timeout')
+  const c = bds.command('c', /reply c/)
+  await Promise.all([a, b, p1, q, c])
+  // `a` was already running; p1 and the gametime query jump ahead of b and c.
+  assert.deepEqual(child.received, ['a', 'p1', 'time query gametime', 'b', 'c'])
+  await bds.stop()
+})
+
+test('sendQueued resolves with the send time and rejects when not running', async () => {
+  const { bds, child } = await started()
+  const before = performance.timeOrigin + performance.now()
+  let stamped = Number.NaN
+  const at = await bds.sendQueued('say x', { onSent: t => { stamped = t } })
+  assert.equal(at, stamped)
+  assert.ok(at >= before && at <= performance.timeOrigin + performance.now())
+  assert.deepEqual(child.received, ['say x'])
+  await bds.stop()
+  await assert.rejects(bds.sendQueued('say y', { priority: true }), /not running/)
+})
+
+test('queryGametime parses the reply and stamps sentAt <= recvAt', async () => {
+  const { bds, child } = await started()
+  child.onCommand = cmd => {
+    if (cmd === 'stop') { child.quit(); return }
+    if (cmd === 'time query gametime') {
+      setTimeout(() => child.out(`${TS} Player connected: x, xuid: `, `${TS} Gametime is 4711`), 15)
+    }
+  }
+  const r = await bds.queryGametime()
+  assert.equal(r.gametime, 4711)
+  assert.ok(r.recvAt - r.sentAt >= 10, `latency ${r.recvAt - r.sentAt}`)
+  child.onCommand = cmd => {
+    if (cmd === 'stop') child.quit()
+    else child.out('[2026-11-16 16:15:28:495 ERROR] Unknown command: time. Please check that the command exists and that you have permission to use it.')
+  }
+  await assert.rejects(bds.queryGametime(), (err: unknown) => err instanceof BdsCommandError && /Unknown command/.test(err.message))
+  child.onCommand = cmd => { if (cmd === 'stop') child.quit() }
+  await assert.rejects(bds.queryGametime({ timeoutMs: 20 }), /no matching output/)
+  await bds.stop()
+})
+
+test('normal commands do not collect stray gametime replies', async () => {
+  const { bds, child } = await started()
+  child.onCommand = cmd => {
+    if (cmd === 'stop') child.quit()
+    else if (cmd === 'list') child.out(`${TS} Gametime is 77`, `${TS} There are 0/10 players online:`)
+  }
+  assert.deepEqual(await bds.command('list', /./), [`${TS} There are 0/10 players online:`])
+  await bds.stop()
+})
+
+test('GametimeSampler over BdsProcess: replies pair with sends', async () => {
+  const { bds, child } = await started()
+  let g = 100
+  child.onCommand = cmd => {
+    if (cmd === 'stop') { child.quit(); return }
+    if (cmd === 'time query gametime') { g += 20; setTimeout(() => child.out(`${TS} Gametime is ${g}`), 5) }
+  }
+  const sampler = new GametimeSampler(bds, { intervalMs: 30 })
+  const samples: GametimeSample[] = []
+  sampler.on('sample', s => { samples.push(s) })
+  sampler.start()
+  await new Promise(r => setTimeout(r, 200))
+  await sampler.stop()
+  assert.ok(samples.length >= 4, `got ${samples.length}`)
+  assert.equal(sampler.lost, 0)
+  assert.equal(sampler.unmatched, 0)
+  assert.deepEqual(samples.map(s => s.gametime), samples.map((_, i) => 120 + 20 * i))
+  for (const s of samples) assert.ok(s.latencyMs >= 0 && s.t === s.sentAt + s.latencyMs)
+  await bds.stop()
 })

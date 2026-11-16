@@ -1,6 +1,38 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { downsample, interp, linreg, mean, median, niceTicks } from './math.ts'
+import { binomial, dominance, downsample, interp, linreg, mannWhitneyU, mean, median, niceTicks, ranks, separationChance } from './math.ts'
+
+test('binomial and separationChance', () => {
+  assert.equal(binomial(6, 3), 20)
+  assert.equal(binomial(10, 5), 252)
+  assert.equal(binomial(5, 0), 1)
+  assert.equal(binomial(5, 5), 1)
+  assert.equal(binomial(5, 6), 0)
+  assert.equal(binomial(30, 15), 155117520)
+  assert.ok(Number.isNaN(binomial(-1, 0)))
+  assert.equal(separationChance(3, 3), 1 / 20)
+  assert.equal(separationChance(5, 5), 1 / 252)
+  assert.equal(separationChance(2, 3), 1 / 10)
+})
+
+test('ranks average ties', () => {
+  assert.deepEqual(ranks([10, 30, 20]), [1, 3, 2])
+  assert.deepEqual(ranks([5, 5, 1, 9]), [2.5, 2.5, 1, 4])
+  assert.deepEqual(ranks([]), [])
+})
+
+test('mannWhitneyU and dominance', () => {
+  assert.equal(mannWhitneyU([1, 2, 3], [4, 5, 6]), 9)
+  assert.equal(mannWhitneyU([4, 5, 6], [1, 2, 3]), 0)
+  assert.equal(mannWhitneyU([1, 2], [2, 3]), 3.5)
+  assert.equal(dominance([1, 2, 3], [4, 5, 6]), 'higher')
+  assert.equal(dominance([4, 5, 6], [1, 2, 3]), 'lower')
+  assert.equal(dominance([1, 2, 4], [3, 5, 6]), 'overlap')
+  // A tie at the boundary is not separation.
+  assert.equal(dominance([1, 2, 3], [3, 4, 5]), 'overlap')
+  assert.equal(dominance([], [1]), 'overlap')
+  assert.equal(dominance([1, Number.NaN], [2]), 'higher')
+})
 
 test('median and mean ignore non-finite values', () => {
   assert.equal(median([3, 1, 2]), 2)

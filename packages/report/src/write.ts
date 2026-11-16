@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { RUN_FILES } from '@bedperf/core'
 import { analyze } from './analyze.ts'
 import { compareRuns, renderCompareHtml } from './compare.ts'
+import type { CompareOptions } from './compare.ts'
 import { renderHtml } from './html.ts'
 import { loadRun } from './load.ts'
 
@@ -14,10 +15,14 @@ export async function writeReport (runDir: string): Promise<string> {
   return out
 }
 
-/** Writes an HTML comparison of run B (`dirB`) against baseline A (`dirA`) to `outFile`. */
-export async function writeCompare (dirA: string, dirB: string, outFile: string): Promise<string> {
+/**
+ * Writes an HTML comparison of run B (`dirB`) against baseline A (`dirA`) to `outFile`. Throws
+ * `IncomparableRunsError` (and writes nothing) when the runs are not comparable, unless
+ * `opts.force` is set.
+ */
+export async function writeCompare (dirA: string, dirB: string, outFile: string, opts: CompareOptions = {}): Promise<string> {
   const [a, b] = await Promise.all([loadRun(dirA), loadRun(dirB)])
-  const html = renderCompareHtml(compareRuns(analyze(a), analyze(b)))
+  const html = renderCompareHtml(compareRuns(analyze(a), analyze(b), opts))
   await mkdir(dirname(outFile), { recursive: true })
   await writeFile(outFile, html, 'utf8')
   return outFile

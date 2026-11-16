@@ -30,7 +30,7 @@ test('process and thread rates from deltas', () => {
   assert.equal(s.handles, 8)
   assert.equal(s.threadCount, 3)
   assert.deepEqual(s.threads, [{ tid: 1, cpuPct: 30 }, { tid: 2, cpuPct: 10 }])
-  assert.deepEqual(s.mainThread, { tid: 1, cpuPct: 30, util: 0.3 })
+  assert.deepEqual(s.mainThread, { tid: 1, cpuPct: 30, util: 0.3, source: 'busiest', cpuMs: 400 })
   // 'vpn' appeared in this interval: its lifetime bytes are not a delta.
   assert.deepEqual(s.net, { rxBytesPerSec: 2000, txBytesPerSec: 500, scope: 'system' })
   assert.equal(s.systemCpuPct, 25)
@@ -100,7 +100,7 @@ test('thread names are propagated; topThreads 0 omits threads', () => {
   const b: RawReading = { t: 1000, procCpuMs: 200, rssBytes: 1, threads: [{ tid: 5, name: 'Server', cpuMs: 200 }] }
   const s = computeSample(a, b, st)!
   assert.equal(s.threads, undefined)
-  assert.deepEqual(s.mainThread, { tid: 5, name: 'Server', cpuPct: 20, util: 0.2 })
+  assert.deepEqual(s.mainThread, { tid: 5, name: 'Server', cpuPct: 20, util: 0.2, source: 'busiest', cpuMs: 200 })
 })
 
 test('no thread data: no mainThread/threads; missing prev net/sysCpu: omitted; counter reset clamps to 0', () => {
@@ -126,4 +126,54 @@ test('threadCount survives a failed thread read; missing prev threads skip threa
   assert.equal(s.threads, undefined)
   assert.equal(s.mainThread, undefined)
   assert.equal(st.window.length, 0)
+})
+/** Reading with named threads: [tid, cumulative ms, name?]. */
+function named (t: number, threads: Array<[number, number, string?]>): RawReading {
+  return {
+    t,
+    procCpuMs: threads.reduce((a, [, ms]) => a + ms, 0),
+    rssBytes: 1,
+    threads: threads.map(([tid, cpuMs, name]) => name === undefined ? { tid, cpuMs } : { tid, cpuMs, name })
+  }
+}
+
+test('tick thread by name: lowest tid named MC_SERVER wins over the busiest thread', () => {
+  const st = createComputeState({ pid: 1 })
+  const a = named(0, [[10, 0, 'bedrock_server'], [30, 0, 'MC_SERVER'], [20, 0, 'MC_SERVER'], [40, 0, 'Worker']])
+  const b = named(1000, [[10, 5, 'bedrock_server'], [30, 100, 'MC_SERVER'], [20, 250.5, 'MC_SERVER'], [40, 900, 'Worker']])
+  const s = computeSample(a, b, st)!
+  assert.deepEqual(s.mainThread, { tid: 20, name: 'MC_SERVER', cpuPct: 25.05, util: 0.2505, source: 'name', cpuMs: 250.5 })
+  // The busiest heuristic keeps tracking in the background.
+  assert.equal(st.busiestTid, 40)
+})
+
+test('tick thread rule name:<N> needs exactly one match; falls back to busiest', () => {
+  const two = createComputeState({ pid: 1, tickThreadRule: 'name:MC_SERVER' })
+  const a = named(0, [[20, 0, 'MC_SERVER'], [30, 0, 'MC_SERVER'], [40, 0]])
+  const b = named(1000, [[20, 100, 'MC_SERVER'], [30, 100, 'MC_SERVER'], [40, 700]])
+  assert.deepEqual(computeSample(a, b, two)!.mainThread, { tid: 40, cpuPct: 70, util: 0.7, source: 'busiest', cpuMs: 700 })
+  const one = createComputeState({ pid: 1, tickThreadRule: 'name:Worker' })
+  const c = named(0, [[20, 0, 'MC_SERVER'], [40, 0, 'Worker']])
+  const d = named(1000, [[20, 900, 'MC_SERVER'], [40, 10, 'Worker']])
+  assert.equal(computeSample(c, d, one)!.mainThread!.tid, 40)
+  assert.equal(computeSample(c, d, createComputeState({ pid: 1, tickThreadRule: 'busiest' }))!.mainThread!.source, 'busiest')
+})
+
+test('name match appearing later takes over, disappearing falls back to busiest', () => {
+  const st = createComputeState({ pid: 1 })
+  const r0 = named(0, [[5, 0], [6, 0]])
+  const r1 = named(1000, [[5, 800], [6, 100]])
+  assert.deepEqual([computeSample(r0, r1, st)!.mainThread!.tid, st.mainSource], [5, 'busiest'])
+  const r2 = named(2000, [[5, 1600], [6, 200, 'MC_SERVER']])
+  assert.deepEqual([computeSample(r1, r2, st)!.mainThread!.tid, st.mainSource], [6, 'name'])
+  // Name missing for one reading (failed lookup) while the thread lives: it stays selected.
+  const r3 = named(3000, [[5, 2400], [6, 300]])
+  assert.deepEqual([computeSample(r2, r3, st)!.mainThread!.tid, st.mainSource], [6, 'name'])
+  const r4 = named(4000, [[5, 3200]])
+  assert.deepEqual([computeSample(r3, r4, st)!.mainThread!.tid, st.mainSource], [5, 'busiest'])
+})
+
+test('bad tick thread rule throws', () => {
+  assert.throws(() => createComputeState({ pid: 1, tickThreadRule: 'name:' }))
+  assert.throws(() => createComputeState({ pid: 1, tickThreadRule: 'first_created' }))
 })
