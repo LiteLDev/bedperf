@@ -25,6 +25,7 @@ commands:
               --accept-eula                      allow downloading BDS (accepts the Minecraft EULA)
               --keep-instances                   keep BDS instance dirs after the run
               --no-report                        skip report.html
+              --no-lock                          do not take the machine lock (one measured run per machine)
               --dry-run                          print the resolved config and exit
   report    <runDir>                             (re)write <runDir>/report.html
   compare   <runDirA> <runDirB> [-o out.html]    write a comparison report
@@ -88,6 +89,7 @@ async function main (argv: string[]): Promise<number> {
         acceptEula: bool(args, 'accept-eula'),
         keepInstances: bool(args, 'keep-instances'),
         noReport: bool(args, 'no-report'),
+        lock: !bool(args, 'no-lock'),
         signal: ac.signal
       })
       const r = res.result

@@ -23,12 +23,63 @@ export interface RunMeta {
     cpuModel: string
     cpuCount: number
     totalMemBytes: number
+    /** Written by old runs only; new runs leave it out (see `Scrubber`). */
     hostname?: string
   }
   bedperfVersion: string
   bedbooCommit?: string
   /** Loadgen on the same machine as BDS? */
   colocated: boolean
+  /** sha256Json of config.json's content (as written, after scrubbing). */
+  configSha256?: string
+  machine?: MachineInfo
+  harness?: HarnessInfo
+  artifacts?: RunArtifacts
+  /** Version of the analysis that produced derived numbers; set by the report, not the recorder. */
+  analysisVersion?: string
+  /**
+   * Every file in the run dir at `close()` ('/'-separated relative path), except meta.json itself and
+   * report.html.
+   */
+  files?: Record<string, FileDigest>
+}
+
+/** Hardware identity (see `machineInfo` in provenance.ts). */
+export interface MachineInfo {
+  /** 16 hex digits: sha256Json({osFamily, cpuModel, logical, physical, ramGiB rounded}). No user or host name. */
+  fingerprint: string
+  os: string
+  cpuModel: string
+  logical: number
+  /** Physical cores, when they could be counted. */
+  physical?: number
+  /** Total RAM, GiB, one decimal. */
+  ramGiB: number
+}
+
+/** The bedperf build that produced a run. */
+export interface HarnessInfo {
+  version: string
+  /** `git rev-parse HEAD` of the bedperf checkout, when git is available. */
+  git?: string
+  /** Tracked files under packages/ or scripts/ differ from `git`. */
+  dirty?: boolean
+  /** `process.version`. */
+  node: string
+}
+
+/** Content hashes of the inputs a run depended on. */
+export interface RunArtifacts {
+  /** sha256 of the downloaded BDS zip (from the bds-install cache sidecar). */
+  bdsZipSha256?: string
+  /** `hashTree` of the probe behavior pack directory. */
+  probePackSha256?: string
+  bedbooCommit?: string
+}
+
+export interface FileDigest {
+  sha256: string
+  bytes: number
 }
 
 /** Aggregates for one held load level. */

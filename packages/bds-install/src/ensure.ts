@@ -64,6 +64,15 @@ export function readSidecar (cacheRoot: string, version: string, platform: Platf
   }
 }
 
+/**
+ * sha256 of the downloaded zip of `version`, as recorded in the cache sidecar after a verified download
+ * (for run provenance). Undefined when the build was not downloaded by bds-install (no sidecar).
+ */
+export function bdsZipSha256 (version: string, opts: { cacheRoot?: string, platform?: Platform } = {}): string | undefined {
+  const s = readSidecar(opts.cacheRoot ?? defaultBdsCacheRoot(), version, opts.platform ?? hostPlatform())
+  return typeof s?.sha256 === 'string' && /^[0-9a-f]{64}$/.test(s.sha256) ? s.sha256 : undefined
+}
+
 export async function sha256File (file: string): Promise<string> {
   const h = createHash('sha256')
   for await (const chunk of createReadStream(file)) h.update(chunk as Buffer)

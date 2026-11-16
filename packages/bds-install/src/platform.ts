@@ -1,5 +1,5 @@
-import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { defaultCacheRoot } from '@bedperf/core'
 
 /** BDS build platform, matching `BdsInstance.platform` in @bedperf/core. */
 export type Platform = 'win' | 'linux'
@@ -21,11 +21,7 @@ export function serverExeName (platform: Platform = hostPlatform()): string {
  * - Linux: `$XDG_CACHE_HOME/bedperf` or `~/.cache/bedperf`
  */
 export function cacheBaseDir (): string {
-  if (process.env.BEDPERF_CACHE_DIR) return process.env.BEDPERF_CACHE_DIR
-  if (process.platform === 'win32') {
-    return join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'bedperf', 'cache')
-  }
-  return join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'bedperf')
+  return defaultCacheRoot()
 }
 
 /** Root of the BDS download cache. Same layout as `bdsCacheRoot()` in @bedperf/testkit. */
