@@ -91,7 +91,7 @@ test('tick interval p99 above the limit fails', () => {
   const probe = Array.from({ length: 60 }, () => sample(20, { p99: 120, max: 150 }))
   const r = evaluateStep(win({ probe }), DEFAULT_CRITERIA)
   assert.equal(r.pass, false)
-  assert.ok(r.failReasons.some(x => /^tick interval p99 \d+(\.\d)? ms > 60 ms$/.test(x)), r.failReasons.join())
+  assert.ok(r.failReasons.some(x => /^tick interval p99 \d+(\.\d)? ms > 80 ms$/.test(x)), r.failReasons.join())
   assert.equal(r.tickIntervalMs.max, 150)
 })
 

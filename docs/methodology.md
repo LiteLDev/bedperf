@@ -30,7 +30,7 @@ The probe records `Date.now()` at every tick (`system.runInterval(fn, 1)`). Each
 
 - mean probe TPS ≥ 19.8
 - after discarding the worst 1 % of 1 s windows, the minimum window TPS ≥ 19.0
-- p99 tick interval ≤ 60 ms
+- p99 tick interval ≤ 80 ms. On Windows, BDS sleeps out each tick in ~15.6 ms timer quanta, so a healthy server alternates ~47 ms and ~63 ms intervals (mean 50 ms) and its p99 sits near 63 ms; 80 ms leaves room for that while still catching real stalls. TPS and the worst-window rule do the rest.
 - zero unexpected bot disconnects or join failures
 - optional: mean main-thread utilisation ≤ a configured ceiling
 

@@ -1,0 +1,33 @@
+{
+  "name": "@bedperf/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "bedperf command line: run, report, compare, install",
+  "type": "module",
+  "bin": {
+    "bedperf": "./src/main.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@bedperf/bds-install": "workspace:*",
+    "@bedperf/bds-process": "workspace:*",
+    "@bedperf/core": "workspace:*",
+    "@bedperf/loadgen": "workspace:*",
+    "@bedperf/orchestrator": "workspace:*",
+    "@bedperf/probe-addon": "workspace:*",
+    "@bedperf/report": "workspace:*",
+    "@bedperf/scenarios": "workspace:*",
+    "@bedperf/sysmon": "workspace:*",
+    "bedboo": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

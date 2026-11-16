@@ -11,7 +11,8 @@
   "scripts": {
     "sync-bedboo": "node scripts/sync-bedboo.mjs",
     "typecheck": "pnpm -r --filter \"./packages/*\" --if-present run typecheck",
-    "test": "pnpm -r --filter \"./packages/*\" --if-present run test"
+    "test": "pnpm -r --filter \"./packages/*\" --if-present run test",
+    "bedperf": "node packages/cli/src/main.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

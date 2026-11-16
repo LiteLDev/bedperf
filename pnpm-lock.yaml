@@ -244,6 +244,46 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  packages/cli:
+    dependencies:
+      '@bedperf/bds-install':
+        specifier: workspace:*
+        version: link:../bds-install
+      '@bedperf/bds-process':
+        specifier: workspace:*
+        version: link:../bds-process
+      '@bedperf/core':
+        specifier: workspace:*
+        version: link:../core
+      '@bedperf/loadgen':
+        specifier: workspace:*
+        version: link:../loadgen
+      '@bedperf/orchestrator':
+        specifier: workspace:*
+        version: link:../orchestrator
+      '@bedperf/probe-addon':
+        specifier: workspace:*
+        version: link:../probe-addon
+      '@bedperf/report':
+        specifier: workspace:*
+        version: link:../report
+      '@bedperf/scenarios':
+        specifier: workspace:*
+        version: link:../scenarios
+      '@bedperf/sysmon':
+        specifier: workspace:*
+        version: link:../sysmon
+      bedboo:
+        specifier: workspace:*
+        version: link:../../vendor/bedboo/packages/bedboo
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   packages/core:
     dependencies:
       bedboo:

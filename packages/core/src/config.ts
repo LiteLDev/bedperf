@@ -7,7 +7,7 @@ export interface PassCriteria {
   /** Minimum over 1 s windows, after discarding the worst `worstWindowDiscardPct` %. Default 19.0. */
   minWorstWindowTps: number
   worstWindowDiscardPct: number
-  /** p99 of tick intervals, ms. Default 60. */
+  /** p99 of tick intervals, ms. Default 80: BDS on Windows sleeps in ~15.6 ms timer quanta, so a healthy 20 TPS server alternates ~47/63 ms intervals. */
   maxTickIntervalP99Ms: number
   /** Optional: mean main-thread utilisation ceiling (0..1). Not enforced when undefined. */
   maxMainThreadUtil?: number
@@ -58,6 +58,6 @@ export const DEFAULT_CRITERIA: PassCriteria = {
   minAvgTps: 19.8,
   minWorstWindowTps: 19.0,
   worstWindowDiscardPct: 1,
-  maxTickIntervalP99Ms: 60,
+  maxTickIntervalP99Ms: 80,
   maxBotFailures: 0
 }

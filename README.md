@@ -18,6 +18,7 @@ The headline metric is **the largest number of players the server can hold while
 | `packages/scenarios` | workloads: idle, walk, explore, build, chat, mobs, entity-stress |
 | `packages/orchestrator` | benchmark config, step ramp and bisection, pass criteria, run recorder |
 | `packages/report` | run analysis and a self-contained HTML report and comparison |
+| `packages/cli` | the `bedperf` command (`run`, `report`, `compare`, `install`, `scenarios`) that wires everything together |
 | `vendor/bedboo` | git submodule. bedboo only works inside a pnpm workspace that carries its overrides and patches, so `scripts/sync-bedboo.mjs` generates our `pnpm-workspace.yaml` from its own |
 
 ## Setup
@@ -48,6 +49,16 @@ curl -L -A "Mozilla/5.0" -o bds.zip https://www.minecraft.net/bedrockdedicatedse
 ```
 
 Then extract it into the cache directory above. Real-BDS tests only run when `BEDPERF_E2E=1` is set.
+
+## Running a benchmark
+
+```bash
+corepack pnpm bedperf run --scenario walk --set ramp.max=200 --set loadgen.botsPerWorker=15
+```
+
+This writes `runs/<id>/` (config, meta, samples.jsonl, steps.json, result.json, bds.log) and `report.html`. See [packages/cli/README.md](packages/cli/README.md) for every option.
+
+Bots are expensive: about 0.16 cores and 60 MB each for `walk`. When the bots share a host with BDS, they saturate before a fast server does, and the result is then flagged `loadgenLimited`. To measure real capacity, run the bots on a separate machine.
 
 ## Conventions
 
