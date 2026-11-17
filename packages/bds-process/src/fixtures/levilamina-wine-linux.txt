@@ -1,0 +1,66 @@
+[38;2;173;216;230m02:55:53.870[0m[38;2;032;178;170m INFO [0m[37m[PreLoader] Loading records from data...
+[0m[38;2;173;216;230m02:55:58.379[0m[38;2;032;178;170m INFO [0m[37m[PreLoader] Preloading: LeviLamina <LeviLamina.dll>
+[0m[38;2;173;216;230m02:55:58.620[0m[38;2;032;178;170m INFO [0m[37m[PreLoader] LeviLamina Loaded.
+[0m[38;2;173;216;230m02:55:58.627[0m [38;2;032;178;170mIFO[0m [LeviLamina] Statistics has been enabled, you can disable statistics in configuration file
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]                                                                       
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]          _               _ _                    _                     
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]         | |    _____   _(_) |    __ _ _ __ ___ (_)_ __   __ _         
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]         | |   / _ \ \ / / | |   / _` | '_ ` _ \| | '_ \ / _` |        
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]         | |__|  __/\ V /| | |__| (_| | | | | | | | | | | (_| |        
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]         |_____\___| \_/ |_|_____\__,_|_| |_| |_|_|_| |_|\__,_|        
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]                                                                       
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]         ------------   Light-Weight Mod Loader   -------------        
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]                                                                       
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina]                                                                       
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina] LeviLamina is a free software licensed under LGPLv3
+[38;2;173;216;230m02:55:58.673[0m [38;2;032;178;170mIFO[0m [LeviLamina] Help us translate & improve text -> https://crowdin.com/project/levilamina
+[38;2;173;216;230m02:55:58.690[0m [38;2;032;178;170mIFO[0m [LeviLamina] Loading mods...
+[38;2;173;216;230m02:55:58.690[0m [38;2;032;178;170mIFO[0m [LeviLamina] 0 mod(s) loaded
+[38;2;173;216;230m02:55:58.787[0m [38;2;032;178;170mIFO[0m [LeviLamina] Configured 2 STUN server(s) for NetherNet.
+[38;2;173;216;230m02:55:58.968[0m [38;2;032;178;170mIFO[0m [Server] setting up server logging...[0m
+[38;2;173;216;230m02:55:58.969[0m [38;2;032;178;170mIFO[0m [Server] Starting Server[0m
+[38;2;173;216;230m02:55:58.969[0m [38;2;032;178;170mIFO[0m [Server] Version: 1.26.60.6(ProtocolVersion 2225) with [38;2;135;206;250mLeviLamina-26.60.7[0m[0m
+[38;2;173;216;230m02:55:58.969[0m [38;2;032;178;170mIFO[0m [Server] Session ID: 8ffff5f6-dcd0-41bf-9c74-ff22393ba4cf[0m
+[38;2;173;216;230m02:55:58.969[0m [38;2;032;178;170mIFO[0m [Server] Build ID: 52886189[0m
+[38;2;173;216;230m02:55:58.969[0m [38;2;032;178;170mIFO[0m [Server] Branch: r/26_u6[0m
+[38;2;173;216;230m02:55:58.969[0m [38;2;032;178;170mIFO[0m [Server] Commit ID: 41512d4dd85848ccc1661436a414f90f617bb630[0m
+[38;2;173;216;230m02:55:58.969[0m [38;2;032;178;170mIFO[0m [Server] Configuration: Publish[0m
+[38;2;173;216;230m02:55:58.969[0m [38;2;032;178;170mIFO[0m [Server] Level Name: Bedrock level[0m
+[38;2;173;216;230m02:55:58.970[0m [38;2;032;178;170mIFO[0m [Server] Profiler config ('bootstrap.json') load result: success=1, errorMessage=(null)[0m
+[38;2;173;216;230m02:55:58.982[0m [38;2;032;178;170mIFO[0m [Server] No CDN config file found at: cdn_config.json for dedicated server[0m
+[38;2;173;216;230m02:55:58.982[0m [38;2;032;178;170mIFO[0m [Server] Game mode: 0 Survival[0m
+[38;2;173;216;230m02:55:58.982[0m [38;2;032;178;170mIFO[0m [Server] Difficulty: 1 EASY[0m
+[38;2;173;216;230m02:55:58.983[0m [38;2;032;178;170mIFO[0m [Server] Content logging to console is enabled.[0m
+[38;2;173;216;230m02:55:58.985[0m [38;2;032;178;170mIFO[0m [Server] [0m
+[38;2;173;216;230m02:55:58.985[0m [38;2;032;178;170mIFO[0m [Server] [0m
+[38;2;173;216;230m02:55:58.985[0m [38;2;032;178;170mIFO[0m [Server] #####################################################[0m
+[38;2;173;216;230m02:55:58.985[0m [38;2;032;178;170mIFO[0m [Server] #                                                   #[0m
+[38;2;173;216;230m02:55:58.985[0m [38;2;032;178;170mIFO[0m [Server] #              CREATING VANILLA WORLD               #[0m
+[38;2;173;216;230m02:55:58.985[0m [38;2;032;178;170mIFO[0m [Server] #                                                   #[0m
+[38;2;173;216;230m02:55:58.985[0m [38;2;032;178;170mIFO[0m [Server] #####################################################[0m
+[38;2;173;216;230m02:55:59.859[0m [38;2;032;178;170mIFO[0m [Server] Pack Stack - None[0m
+[38;2;173;216;230m02:56:00.041[0m [38;2;032;178;170mIFO[0m [Server] Signed in to signaling service successfully[0m
+[38;2;173;216;230m02:56:00.612[0m [38;2;032;178;170mIFO[0m [Server] IPv4 supported, port: 19340: Used for gameplay[0m
+[38;2;173;216;230m02:56:00.612[0m [38;2;032;178;170mIFO[0m [Server] IPv6 supported, port: 19341: Used for gameplay[0m
+[38;2;173;216;230m02:56:00.658[0m [38;2;032;178;170mIFO[0m [Server] Server started in (2.0s)! For help, type "help" or "?"[0m
+[38;2;173;216;230m02:56:00.659[0m [91mERR[0m [91m[Server][0m [1m[91m================ TRANSPORT TYPE ERROR  ===================[0m[0m
+[38;2;173;216;230m02:56:00.659[0m [91mERR[0m [91m[Server][0m [1m[91mYour current connection type is not set to NetherNet. In this release, NetherNet is the only supported transport type.[0m[0m
+[38;2;173;216;230m02:56:00.659[0m [91mERR[0m [91m[Server][0m [1m[91mPlayers will not be able to connect to your game without NetherNet.[0m[0m
+[38;2;173;216;230m02:56:00.659[0m [91mERR[0m [91m[Server][0m [1m[91mTo switch, set 'transport=nethernet' in server.properties.[0m[0m
+[38;2;173;216;230m02:56:00.659[0m [91mERR[0m [91m[Server][0m [1m[91mFor more information, please reference the included bedrock_server_how_to.html file.[0m[0m
+[38;2;173;216;230m02:56:00.659[0m [91mERR[0m [91m[Server][0m [1m[91m=======================================================[0m[0m
+[38;2;173;216;230m02:56:00.659[0m [38;2;032;178;170mIFO[0m [Server] ================ TELEMETRY MESSAGE ===================[0m
+[38;2;173;216;230m02:56:00.659[0m [38;2;032;178;170mIFO[0m [Server] Server Telemetry is currently not enabled. [0m
+[38;2;173;216;230m02:56:00.659[0m [38;2;032;178;170mIFO[0m [Server] Enabling this telemetry helps us improve the game.[0m
+[38;2;173;216;230m02:56:00.659[0m [38;2;032;178;170mIFO[0m [Server] To enable this feature, add the line 'emit-server-telemetry=true'[0m
+[38;2;173;216;230m02:56:00.659[0m [38;2;032;178;170mIFO[0m [Server] to the server.properties file in the handheld/src-server directory[0m
+[38;2;173;216;230m02:56:00.659[0m [38;2;032;178;170mIFO[0m [Server] ======================================================[0m
+[38;2;173;216;230m02:56:00.777[0m [38;2;032;178;170mIFO[0m [CrashLogger] CrashLogger enabled successfully
+[38;2;173;216;230m02:56:02.215[0m [38;2;032;178;170mIFO[0m [Server] There are 0/10 players online:[0m
+[38;2;173;216;230m02:56:03.669[0m [38;2;032;178;170mIFO[0m [Server] Gametime is 59[0m
+[38;2;173;216;230m02:56:05.169[0m [91mERR[0m [91m[Server][0m [1m[91mUnknown command: bogus_cmd. Please check that the command exists and that you have permission to use it.[0m[0m
+[38;2;173;216;230m02:56:06.675[0m [91mERR[0m [91m[Server][0m [1m[91mSyntax error: Unexpected "nope": at "/gamerule >>nope<< 1"[0m[0m
+[38;2;173;216;230m02:56:08.180[0m [38;2;032;178;170mIFO[0m [Server] Gametime is 150[0m
+[38;2;173;216;230m02:56:09.680[0m [38;2;032;178;170mIFO[0m [Server] Server stop requested.[0m
+[38;2;173;216;230m02:56:09.736[0m [38;2;032;178;170mIFO[0m [Server] Stopping server...[0m
+Quit correctly

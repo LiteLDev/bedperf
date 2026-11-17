@@ -57,10 +57,11 @@ test('listLinuxProcesses / linuxEnvVar over a fake /proc', async () => {
     '/proc/10/cmdline': '/opt/wine/bin/wine\0bedrock_server_mod.exe\0',
     '/proc/11/stat': '11 (bedrock_server_) S 10 10 10 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 120 0 0',
     '/proc/11/cmdline': 'Z:\\srv\\bedrock_server_mod.exe\0',
-    '/proc/11/environ': 'A=1\0WINEPREFIX=/srv/.lip/wine\0'
+    '/proc/11/environ': 'A=1\0WINEPREFIX=/srv/.lip/wine\0',
+    '/proc/13/stat': '13 (wineserver) Z 1 13 13 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 90 0 0' // zombie: skipped
   }
   const opts = {
-    readdir: async () => ['10', '11', '12', 'self', 'cpuinfo'],
+    readdir: async () => ['10', '11', '12', '13', 'self', 'cpuinfo'],
     readFile: async (path: string) => { const v = files[path]; if (v === undefined) throw new Error('ENOENT'); return v },
     statUid: async () => 1000
   }

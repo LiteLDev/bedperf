@@ -203,8 +203,10 @@ export async function listLinuxProcesses (opts: LinuxHostOptions = {}): Promise<
   const pids = (await rd(root)).filter(n => /^\d+$/.test(n)).map(Number)
   const one = async (pid: number): Promise<ProcInfo | undefined> => {
     try {
-      const s = parseStat(await rf(`${root}/${pid}/stat`))
-      if (!s) return undefined
+      const text = await rf(`${root}/${pid}/stat`)
+      const s = parseStat(text)
+      // Zombies (dead, not yet reaped) are not running processes.
+      if (!s || /^[ZX]$/.test(linuxProcState(text) ?? '')) return undefined
       const p: ProcInfo = { pid, ppid: s.ppid, name: s.comm, start: s.startTicks * 10 }
       try { p.argv0 = argv0Name(await rf(`${root}/${pid}/cmdline`)) } catch {}
       try { p.uid = await su(`${root}/${pid}`) } catch {}

@@ -137,7 +137,8 @@ const fixture = (name: string): string[] => readFileSync(new URL(`./fixtures/${n
 for (const [file, format] of [
   ['levilamina-win.txt', 'levilamina'],
   ['levilamina-levioptimize-win.txt', 'levilamina'],
-  ['endstone-win.txt', 'endstone']
+  ['endstone-win.txt', 'endstone'],
+  ['levilamina-wine-linux.txt', 'levilamina']
 ] as const) {
   test(`real log ${file}: ready, gametime, list, command errors`, () => {
     const parsed = fixture(file).map(l => parseBdsLine(l))

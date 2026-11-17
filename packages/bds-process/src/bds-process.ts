@@ -586,12 +586,15 @@ export class BdsProcess implements BdsServer {
     // Wine: `wineserver -k` follows in finalize(), once the launcher has exited.
   }
 
+  /**
+   * Best-effort: `wineserver -k` exits non-zero when the prefix's wineserver already quit on its
+   * own (the usual case after a graceful stop), so failures are ignored. `auxPids()` tells whether
+   * anything is left.
+   */
   private async wineserverKill (wine: NonNullable<LaunchSpec['wine']>): Promise<void> {
     try {
       await this.host.exec(wineserverBin(wine), ['-k'], { WINEPREFIX: wine.prefix })
-    } catch (err) {
-      this.emit('warning', `wineserver -k: ${(err as Error).message}`)
-    }
+    } catch {}
   }
 
   /** Apply affinity / priority. Never throws; failures become `warning` events. */
