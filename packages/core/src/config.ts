@@ -1,5 +1,6 @@
 import type { ServerProperties } from './bds.ts'
 import type { CpuSpec, PlacementPriority } from './placement.ts'
+import type { ServerSpec } from './server.ts'
 
 /** Thresholds a load step must meet to "pass" (i.e. the server holds 20 TPS at that load). */
 export interface PassCriteria {
@@ -100,8 +101,13 @@ export interface RampConfig {
 
 export interface BenchmarkConfig {
   name: string
-  /** BDS version: 'latest' | 'preview' | '1.26.63.1'. */
+  /**
+   * BDS version: 'latest' | 'preview' | '1.26.63.1'. For a modded `server` flavor, 'latest'/'preview'
+   * resolve to the flavor's pinned BDS (see `bdsVersionFor`).
+   */
   bdsVersion: string
+  /** Server implementation. Absent: vanilla BDS, native (see `DEFAULT_SERVER_SPEC`). */
+  server?: ServerSpec
   /** bedboo protocol family for bots; derived from bdsVersion when omitted. */
   botVersion?: string
   serverProperties: ServerProperties
