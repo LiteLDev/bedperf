@@ -263,6 +263,17 @@ function enginePlacement (plan: PlacementPlan): EnginePlacement {
 const activeServers = new Set<BdsProcess>()
 /** Instance dirs to delete if the process is forced to exit. */
 const activeInstances = new Set<BdsInstance>()
+/** One deletion per instance dir: the forced-exit path and the run's own cleanup may both ask for it. */
+const deletions = new Map<string, Promise<void>>()
+
+function destroyOnce (inst: BdsInstance): Promise<void> {
+  let d = deletions.get(inst.dir)
+  if (d === undefined) {
+    d = destroyInstance(inst)
+    deletions.set(inst.dir, d)
+  }
+  return d
+}
 
 /**
  * Stop every server this process started and that still runs (graceful `stop`, killed after
@@ -288,7 +299,7 @@ export async function stopActiveServers (opts: { timeoutMs?: number } = {}): Pro
     if (s.pid !== undefined || s.launcherPid !== undefined) await bounded(s.kill(), 3000)
   }))
   for (const inst of [...activeInstances]) {
-    await destroyInstance(inst).catch(() => {})
+    await destroyOnce(inst).catch(() => {})
     activeInstances.delete(inst)
   }
 }
@@ -480,7 +491,7 @@ async function destroyAll (instances: BdsInstance[], opts: RunCommandOptions, lo
   if (opts.keepInstances === true) return
   for (const inst of instances) {
     activeInstances.delete(inst)
-    await destroyInstance(inst).catch(err => log.warn(`could not delete instance ${inst.dir}: ${String(err)}`))
+    await destroyOnce(inst).catch(err => log.warn(`could not delete instance ${inst.dir}: ${String(err)}`))
   }
 }
 
