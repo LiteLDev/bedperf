@@ -215,6 +215,28 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  packages/agent:
+    dependencies:
+      '@bedperf/core':
+        specifier: workspace:*
+        version: link:../core
+      '@bedperf/loadgen':
+        specifier: workspace:*
+        version: link:../loadgen
+      '@bedperf/scenarios':
+        specifier: workspace:*
+        version: link:../scenarios
+      '@bedperf/sysmon':
+        specifier: workspace:*
+        version: link:../sysmon
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   packages/bds-install:
     dependencies:
       '@bedperf/core':

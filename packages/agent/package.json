@@ -1,0 +1,24 @@
+{
+  "name": "@bedperf/agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Remote bot-worker agent and its orchestrator-side client: run loadgen workers on other machines over TCP",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@bedperf/core": "workspace:*",
+    "@bedperf/loadgen": "workspace:*",
+    "@bedperf/scenarios": "workspace:*",
+    "@bedperf/sysmon": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

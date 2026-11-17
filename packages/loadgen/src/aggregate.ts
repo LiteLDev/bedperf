@@ -1,5 +1,5 @@
 // Pure aggregation of worker interval reports into fleet stats (kept separate from the controller for tests).
-import { summarize, type BotFleetStats } from '@bedperf/core'
+import { summarize, type AgentFleetSlice, type BotFleetStats } from '@bedperf/core'
 import type { WorkerStats } from './protocol.ts'
 import type { BotViewSample } from './view.ts'
 
@@ -79,6 +79,8 @@ export interface LiveWorker {
   latest?: WorkerStats
   /** Time since the latest report (or since the worker was started if none), ms. */
   sinceMs: number
+  /** Remote agent running this worker, if any. */
+  agent?: string
 }
 
 export interface AggregateInput {
@@ -97,6 +99,40 @@ export interface AggregateInput {
   thresholds: SaturationThresholds
   /** A live worker silent for longer than this is considered stuck (saturated), ms. */
   staleMs: number
+  /** agent name -> reasons its machine reported itself saturated (non-empty arrays only). */
+  externalSaturation?: Readonly<Record<string, readonly string[]>>
+}
+
+/** Per-agent slices; empty when no worker runs on an agent and no agent reported saturation. */
+export function aggregateAgents (a: Pick<AggregateInput, 'workers' | 'thresholds' | 'staleMs' | 'externalSaturation'>): AgentFleetSlice[] {
+  const by = new Map<string, AgentFleetSlice>()
+  const slice = (agent: string): AgentFleetSlice => {
+    let s = by.get(agent)
+    if (!s) {
+      s = { agent, workers: 0, bots: 0, totalCores: 0, eventLoopLagP99Ms: 0, maxWorkerCpuPct: 0, saturated: false }
+      by.set(agent, s)
+    }
+    return s
+  }
+  for (const w of a.workers) {
+    if (w.agent === undefined) continue
+    const s = slice(w.agent)
+    s.workers++
+    if (w.sinceMs > a.staleMs) s.saturated = true
+    const l = w.latest
+    if (!l) continue
+    s.bots += l.bots
+    s.totalCores += l.cpuPct / 100
+    s.eventLoopLagP99Ms = Math.max(s.eventLoopLagP99Ms, l.eventLoopP99Ms)
+    s.maxWorkerCpuPct = Math.max(s.maxWorkerCpuPct, l.mainThreadCpuPct)
+  }
+  for (const [agent, reasons] of Object.entries(a.externalSaturation ?? {})) {
+    if (reasons.length > 0) slice(agent).saturated = true
+  }
+  for (const s of by.values()) {
+    if (s.eventLoopLagP99Ms > a.thresholds.eventLoopP99Ms || s.maxWorkerCpuPct > a.thresholds.cpuPct) s.saturated = true
+  }
+  return [...by.values()].sort((x, y) => x.agent < y.agent ? -1 : x.agent > y.agent ? 1 : 0)
 }
 
 export function aggregateStats (a: AggregateInput): FleetStats {
@@ -144,6 +180,8 @@ export function aggregateStats (a: AggregateInput): FleetStats {
     if (l.chunkCacheSeen !== undefined) cacheSeen = (cacheSeen ?? false) || l.chunkCacheSeen
   }
   const sec = a.elapsedMs / 1000
+  const agents = aggregateAgents(a)
+  const externallySaturated = Object.values(a.externalSaturation ?? {}).some(r => r.length > 0)
   const stats: FleetStats = {
     t: a.t,
     target: a.target,
@@ -155,14 +193,15 @@ export function aggregateStats (a: AggregateInput): FleetStats {
       workers: a.workers.length,
       eventLoopLagP99Ms: lag,
       maxWorkerCpuPct: maxCpu,
-      saturated: lag > a.thresholds.eventLoopP99Ms || maxCpu > a.thresholds.cpuPct || stale > 0,
+      saturated: lag > a.thresholds.eventLoopP99Ms || maxCpu > a.thresholds.cpuPct || stale > 0 || externallySaturated,
       bots,
       maxWorkerProcessCpuPct: maxProcCpu,
       totalCpuPct: totalCpu,
       rssBytes: rss,
       staleWorkers: stale,
       totalCores: totalCpu / 100,
-      blobMissReplies: blobMiss
+      blobMissReplies: blobMiss,
+      ...(agents.length > 0 ? { agents } : {})
     },
     ...aggregateView(view)
   }
