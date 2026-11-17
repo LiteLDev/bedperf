@@ -14,6 +14,8 @@ export interface BotFleetStats {
   joinFailures: number
   /** Cumulative disconnects after spawn that the fleet did not request (kick/error/end). */
   unexpectedDisconnects: number
+  /** Cumulative joins re-queued because their transport never connected (`LoadGenOptions.connectRetries`). */
+  connectRetries?: number
   /** connect → spawn latency of joins completed in this interval, ms. */
   joinLatencyMs?: Summary
   /**

@@ -61,7 +61,7 @@ The probe records `Date.now()` at every tick (`system.runInterval(fn, 1)`). Each
 - after discarding the worst 1 % of 1 s windows (`criteria.worstWindowDiscardPct`), the minimum window TPS ≥ 19.0 (`criteria.minWorstWindowTps`)
 - p99 tick interval ≤ 80 ms (`criteria.maxTickIntervalP99Ms`). On Windows, BDS sleeps out each tick in ~15.6 ms timer quanta, so a healthy server alternates ~47 ms and ~63 ms intervals (mean 50 ms) and its p99 sits near 63 ms; 80 ms leaves room for that while still catching real stalls. TPS and the worst-window rule do the rest.
 - counter TPS over the hold ≥ `criteria.minCounterTps`
-- zero unexpected bot disconnects or join failures (`criteria.maxBotFailures`)
+- zero unexpected bot disconnects or join failures (`criteria.maxBotFailures`). With `loadgen.connectRetries` set, a join whose transport never came up (for example a RakNet `Connect timed out`) is first re-queued up to that many times, as a client would retry; these retries are counted in `connectRetries` of every `bot.stats` envelope, and every join failure and disconnect is logged with its reason
 - optional: mean main-thread utilisation ≤ `criteria.maxMainThreadUtil`
 
 A pass criterion that is not met **fails** the step: that is a finding about the server. A gate that is not met **invalidates** the step: the measurement cannot be trusted, so it says nothing about the server (R11).

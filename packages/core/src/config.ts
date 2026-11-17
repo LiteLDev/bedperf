@@ -118,7 +118,8 @@ export interface BenchmarkConfig {
     levelType?: 'DEFAULT' | 'FLAT'
   }
   scenario: { module: string, params?: Record<string, unknown> }
-  loadgen: { botsPerWorker: number, joinIntervalMs: number }
+  /** `connectRetries`: see `LoadGenOptions.connectRetries` (absent: 0). */
+  loadgen: { botsPerWorker: number, joinIntervalMs: number, connectRetries?: number }
   ramp: RampConfig
   criteria: PassCriteria
   /** Independent repetitions of the whole search. */

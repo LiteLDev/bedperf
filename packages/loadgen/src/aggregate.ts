@@ -90,6 +90,7 @@ export interface AggregateInput {
   spawned: number
   joinFailures: number
   unexpectedDisconnects: number
+  connectRetries?: number
   /** Wall time since the previous aggregate, ms. */
   elapsedMs: number
   /** All worker reports received since the previous aggregate. */
@@ -189,6 +190,7 @@ export function aggregateStats (a: AggregateInput): FleetStats {
     spawned: a.spawned,
     joinFailures: a.joinFailures,
     unexpectedDisconnects: a.unexpectedDisconnects,
+    ...(a.connectRetries !== undefined ? { connectRetries: a.connectRetries } : {}),
     loadgen: {
       workers: a.workers.length,
       eventLoopLagP99Ms: lag,

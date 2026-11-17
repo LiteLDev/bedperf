@@ -104,3 +104,11 @@ test('presets are valid and carry the bench basics', () => {
   copy.ramp.max = 1
   assert.notEqual(presets.quick.ramp.max, 1)
 })
+
+test('loadgen.connectRetries is optional, never filled in, and bounded', () => {
+  const base = { name: 'x', bdsVersion: 'latest', scenario: { module: 'idle' } }
+  assert.equal(parseConfig(base).loadgen.connectRetries, undefined)
+  assert.equal(parseConfig({ ...base, loadgen: { connectRetries: 2 } }).loadgen.connectRetries, 2)
+  assert.throws(() => parseConfig({ ...base, loadgen: { connectRetries: -1 } }), /connectRetries/)
+  assert.throws(() => parseConfig({ ...base, loadgen: { connectRetries: 1.5 } }), /connectRetries/)
+})

@@ -93,6 +93,8 @@ interface BotEntry {
   state: 'queued' | 'joining' | 'spawned' | 'leaving'
   seq: number
   connected: boolean
+  /** Connect retries used by this index since its last scaleTo request. */
+  retries?: number
 }
 
 interface WorkerRec {
@@ -136,6 +138,7 @@ export class BotFleet implements LoadGenerator {
   private target = 0
   private joinFailures = 0
   private unexpectedDisconnects = 0
+  private connectRetries = 0
   private reports: WorkerStats[] = []
   private readonly listeners: Array<(s: FleetStats) => void> = []
   private readonly waiters = new Set<() => void>()
@@ -154,6 +157,7 @@ export class BotFleet implements LoadGenerator {
     if (!(opts.botsPerWorker >= 1)) throw new Error('botsPerWorker must be >= 1')
     if (!(opts.statsIntervalMs > 0)) throw new Error('statsIntervalMs must be > 0')
     if (!(opts.joinIntervalMs >= 0) || !Number.isFinite(opts.joinIntervalMs)) throw new Error('joinIntervalMs must be a finite number >= 0')
+    if (opts.connectRetries !== undefined && !(Number.isInteger(opts.connectRetries) && opts.connectRetries >= 0)) throw new Error('connectRetries must be an integer >= 0')
     const p = opts.scenarioParams ?? {}
     this.opts = opts
     this.thresholds = { ...DEFAULT_SATURATION, ...opts.saturation }
@@ -312,6 +316,7 @@ export class BotFleet implements LoadGenerator {
       spawned: snap.spawned,
       joinFailures: this.joinFailures,
       unexpectedDisconnects: this.unexpectedDisconnects,
+      ...(this.opts?.connectRetries ? { connectRetries: this.connectRetries } : {}),
       elapsedMs: now - this.lastStatsAt,
       reports: this.reports,
       workers: [...this.workers.values()].filter(w => w.alive).map(w => ({
@@ -445,11 +450,27 @@ export class BotFleet implements LoadGenerator {
         if (e.state === 'joining') e.state = 'spawned'
         break
       case 'fail':
-        if (e.state !== 'leaving') this.joinFailures++
+        if (e.state === 'joining' && !e.connected && (e.retries ?? 0) < (this.opts?.connectRetries ?? 0) && !this.stopping) {
+          // the transport never came up (no `connect`): try the same index again, as a client would
+          this.connectRetries++
+          this.log(this.workerOf(msg.index), `bot ${msg.index}: connect failed (${msg.reason ?? 'no reason given'}), retry ${(e.retries ?? 0) + 1}/${this.opts!.connectRetries}`)
+          this.bots.set(msg.index, { state: 'queued', seq: ++this.seq, connected: false, retries: (e.retries ?? 0) + 1 })
+          this.queue.push(msg.index)
+          this.queue.sort((a, b) => a - b)
+          this.pump()
+          break
+        }
+        if (e.state !== 'leaving') {
+          this.joinFailures++
+          this.log(this.workerOf(msg.index), `bot ${msg.index}: join failed: ${msg.reason ?? 'no reason given'}`)
+        }
         this.release(msg.index, e)
         break
       case 'disconnect':
-        if (e.state !== 'leaving') this.unexpectedDisconnects++
+        if (e.state !== 'leaving') {
+          this.unexpectedDisconnects++
+          this.log(this.workerOf(msg.index), `bot ${msg.index}: disconnected: ${msg.reason ?? 'no reason given'}`)
+        }
         this.release(msg.index, e)
         break
       case 'left':

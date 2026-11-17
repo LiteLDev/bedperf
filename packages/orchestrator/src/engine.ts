@@ -699,6 +699,7 @@ export class BenchmarkRun {
       scenarioParams: config.scenario.params ?? {},
       botsPerWorker: config.loadgen.botsPerWorker,
       joinIntervalMs: config.loadgen.joinIntervalMs,
+      ...(config.loadgen.connectRetries !== undefined ? { connectRetries: config.loadgen.connectRetries } : {}),
       usernamePrefix: `bp${r}_`,
       seed: config.seed + r,
       statsIntervalMs: 1000,

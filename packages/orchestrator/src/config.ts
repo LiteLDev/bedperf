@@ -201,7 +201,7 @@ function serverSpec (v: Validator, raw: Obj, P: string): ServerSpec | undefined 
 
 const WORLD_KEYS = ['snapshot', 'seed', 'levelType'] as const
 const SCENARIO_KEYS = ['module', 'params'] as const
-const LOADGEN_KEYS = ['botsPerWorker', 'joinIntervalMs'] as const
+const LOADGEN_KEYS = ['botsPerWorker', 'joinIntervalMs', 'connectRetries'] as const
 
 /**
  * Validate a raw config object and fill defaults. Pure (no I/O). Throws `ConfigError`
@@ -267,10 +267,13 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
   // loadgen
   const lg = v.obj(raw, 'loadgen', P) ?? {}
   v.unknownKeys(lg, `${P}.loadgen`, LOADGEN_KEYS)
-  const loadgen = {
+  const loadgen: BenchmarkConfig['loadgen'] = {
     botsPerWorker: v.num(lg, 'botsPerWorker', `${P}.loadgen`, { def: DEFAULT_LOADGEN.botsPerWorker, int: true, min: 1 })!,
     joinIntervalMs: v.num(lg, 'joinIntervalMs', `${P}.loadgen`, { def: DEFAULT_LOADGEN.joinIntervalMs, min: 0 })!
   }
+  // optional and not filled in, so configs without it keep their hash
+  const connectRetries = v.num(lg, 'connectRetries', `${P}.loadgen`, { int: true, min: 0, max: 10 })
+  if (connectRetries !== undefined) loadgen.connectRetries = connectRetries
 
   // ramp
   const r = v.obj(raw, 'ramp', P) ?? {}

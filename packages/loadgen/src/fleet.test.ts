@@ -406,3 +406,47 @@ test('remote links: agent label reaches stats, no pid reported, setExternalSatur
   assert.equal(fleet.emitStats().loadgen.saturated, false)
   await fleet.stop()
 })
+
+test('connectRetries: a join whose transport never connected is retried; one that connected is not', async () => {
+  const attempts = new Map<number, number>()
+  const behavior: Behavior = (w, msg) => {
+    if (msg.type === 'join') {
+      const n = (attempts.get(msg.index) ?? 0) + 1
+      attempts.set(msg.index, n)
+      // bot 1: two connect timeouts, then fine; bot 2: always times out; bot 3: connects, then fails before spawn
+      if ((msg.index === 1 && n <= 2) || msg.index === 2) {
+        w.emit({ type: 'bot', event: 'fail', index: msg.index, seq: msg.seq, reason: 'error: Connect timed out' })
+        return
+      }
+      if (msg.index === 3) {
+        w.emit({ type: 'bot', event: 'connect', index: msg.index, seq: msg.seq })
+        w.emit({ type: 'bot', event: 'fail', index: msg.index, seq: msg.seq, reason: 'kicked' })
+        return
+      }
+    }
+    happy(w, msg)
+  }
+  const logs: string[] = []
+  const { fleet, opts } = setup(behavior, { connectRetries: 2, onLog: (_w, l) => logs.push(l) })
+  await fleet.start(opts)
+  await fleet.scaleTo(4, 5000)
+  const s = fleet.snapshot()
+  assert.deepEqual(fleet.indices('spawned'), [0, 1])
+  assert.equal(s.joinFailures, 2) // bot 2 after its retries, bot 3 at once
+  assert.equal(attempts.get(1), 3)
+  assert.equal(attempts.get(2), 3)
+  assert.equal(attempts.get(3), 1)
+  assert.equal(fleet.emitStats().connectRetries, 4)
+  assert.ok(logs.some(l => /bot 2: connect failed \(error: Connect timed out\), retry 2\/2/.test(l)), logs.join('\n'))
+  assert.ok(logs.some(l => /bot 3: join failed: kicked/.test(l)), logs.join('\n'))
+  await fleet.stop()
+
+  // without the option nothing is retried and stats carry no connectRetries
+  attempts.clear()
+  const plain = setup(behavior)
+  await plain.fleet.start(plain.opts)
+  await plain.fleet.scaleTo(4, 5000)
+  assert.equal(plain.fleet.snapshot().joinFailures, 3)
+  assert.equal(plain.fleet.emitStats().connectRetries, undefined)
+  await plain.fleet.stop()
+})
