@@ -1,12 +1,12 @@
-# Methodology (phase 1: vanilla BDS, no mod loader)
+# Methodology
 
-This document defines what bedperf measures, how a run proceeds, when a number is trusted, and how two runs are compared. The rules (R1–R12) are numbered so that reports, issues and code comments can cite them. Several of the rigor mechanisms (interference sampling, placement verification, a tick-counter TPS source, repeat statuses, the complete-separation decision rule) are adapted from [EndstoneMC/bedrock-bench](https://github.com/EndstoneMC/bedrock-bench); see [comparison-bedrock-bench.md](comparison-bedrock-bench.md).
+This document defines what bedperf measures, how a run proceeds, when a number is trusted, and how two runs are compared. The server is vanilla BDS or one of the modded flavors built on it ([server-flavors.md](server-flavors.md)). The bots run on the server machine or on remote agents ([distributed.md](distributed.md)). The rules (R1–R14) are numbered so that reports, issues and code comments can cite them. Several of the rigor mechanisms (interference sampling, placement verification, a tick-counter TPS source, repeat statuses, the complete-separation decision rule) are adapted from [EndstoneMC/bedrock-bench](https://github.com/EndstoneMC/bedrock-bench); see [comparison-bedrock-bench.md](comparison-bedrock-bench.md).
 
 ## Rules
 
 | rule | statement | enforced by |
 |---|---|---|
-| **R1** | One workload config per session and per comparison. Nothing in it changes between the runs being compared. | `configSha256` in `meta.json`; `bedperf compare` refuses a mismatch |
+| **R1** | One workload config per session and per comparison. Nothing in it changes between the runs being compared. | `configSha256` and `benchConfigSha256` (the config without `server`) in `meta.json`; `bedperf compare` refuses a `benchConfigSha256` mismatch, and a different server only as an implementation comparison (R13) |
 | **R2** | One bot source with the same options for every run being compared. | the bedboo commit and `botVersion` in `meta.json`; compare refuses a `botVersion` mismatch |
 | **R3** | The same CPU placement and priority for every run being compared: server, bot and harness CPU sets come from one placement profile. | `placement.profileSha256`; placement is verified at ready and at the start and end of every hold (see Gates) |
 | **R4** | One measured run per machine at a time, with continuous interference sampling. | the machine lock, the idle gate before each repeat, the per-hold interference gate |
@@ -18,6 +18,8 @@ This document defines what bedperf measures, how a run proceeds, when a number i
 | **R10** | Every number in a report is recomputable from the run's raw files by the same code. | `bedperf analyze` rebuilds the analysis byte for byte from `samples.jsonl` and the run files; `analysisVersion` is recorded and compared |
 | **R11** | Capacity is searched (ramp, then bisect), not assumed from one fixed load. A saturated load generator invalidates a step; it never fails it. | `planNext`; `loadgen.saturated` makes a step invalid and the run `loadgenLimited` |
 | **R12** | A comparison claims a difference only on complete separation across repeats. | the decision rule below; otherwise the verdict is `not separated` |
+| **R13** | The server implementation is part of what is measured, never a hidden variable. An implementation comparison changes only the server: the same benchmark, BDS build, machine, bot topology and placement profile. Everything that comes with a server (loader, mods, runtime, allocator, loader config) is pinned, recorded and disclosed. | `meta.server` (spec, pinned versions, artifact hashes, `buildSha256`, allocator, effective loader config, notes); `benchConfigSha256`; `compare` refuses a different benchmark, BDS version, machine, topology or placement, and warns about allocator, Wine and loader-config differences ([server-flavors.md](server-flavors.md)) |
+| **R14** | Where the bots run is recorded and held fixed across a comparison. Remote bot machines are held to the same standard as the server machine: idle before every repeat, watched during every hold, and a lost or saturated agent invalidates the measurement, never fails it. | `meta.topology` and its `sha256`; the idle gate on every agent; the `agent_interference`, `agent_lost` and `agent_topology_changed` gates and agent saturation ([distributed.md](distributed.md)) |
 
 ## Measurement layers
 
@@ -26,10 +28,11 @@ This document defines what bedperf measures, how a run proceeds, when a number i
 | L0 OS | `sysmon` process sampler: process and per-thread CPU, RSS / private bytes, NIC bytes | tick thread found by name (`MC_SERVER`), **main-thread utilisation** (the headroom proxy), **tick-thread CPU per tick** (with L1'), memory per player, bandwidth per player | nothing |
 | L0 OS | `sysmon` machine sampler and `idleCheck` | **interference**: CPU taken by processes outside the server, bot and harness groups, machine-wide and on the server's CPUs | nothing |
 | L0 OS | `placement` | CPU topology, the planned CPU sets and priority, per-thread verification | nothing (Linux `above_normal` needs CAP_SYS_NICE) |
-| L0 bots | `loadgen`: bedboo fleet stats | join latency, tick-bound RTT, movement corrections, failures, **view metrics** (in-view columns, view T90 / TN, chunks per second), packet counts, loadgen self-check | nothing |
+| L0 agents | `bedperf agent` telemetry, once per second per agent | machine busy, bot and foreign cores, NIC throughput (Linux), saturation verdict; control-link RTT | remote bots only |
+| L0 bots | `loadgen`: bedboo fleet stats (per agent in `loadgen.agents`) | join latency, tick-bound RTT, movement corrections, failures, **view metrics** (in-view columns, view T90 / TN, chunks per second), packet counts, loadgen self-check | nothing |
 | L1 probe | `probe-addon`: Script API pack that logs `BEDPERF|{json}` to stdout | in-tick TPS, tick-interval distribution, ticks over 50/100 ms, players, entity counts | stable `@minecraft/server` only (no experiments) |
 | L1' counter | `bds-process` `GametimeSampler`: `time query gametime` on the console's priority lane, every `sampling.gametimeIntervalSec` (5 s; 1 s in `quick`) | **counter TPS**, a script-free second TPS source, plus its reply latency | nothing |
-| L2 (later) | LeviLamina profiler mod | true MSPT, per-phase breakdown | Windows + matching LeviLamina |
+| L2 (later) | LeviLamina profiler mod | true MSPT, per-phase breakdown | a LeviLamina flavor |
 
 ### Why main-thread utilisation
 
@@ -45,8 +48,8 @@ The probe records `Date.now()` at every tick (`system.runInterval(fn, 1)`). Each
 
 ## Headline metric: max players at 20 TPS
 
-1. Prepare a fresh instance from the pristine BDS build: fixed version, `server.properties` preset and world (a snapshot, or seed plus level type), with the probe pack installed.
-2. Start BDS under the placement plan. Run the scenario's `serverSetup` commands. Warm up.
+1. Prepare a fresh instance from the pristine server build (vanilla BDS or a modded flavor): fixed version, `server.properties` preset and world (a snapshot, or seed plus level type), with the probe pack installed.
+2. Start the server under the placement plan. Run the scenario's `serverSetup` commands. Warm up.
 3. **Ramp.** Begin at `ramp.start` bots. For each step: `scaleTo(n)`, settle, then measure for `ramp.holdSec`. Then raise n by `ramp.step`.
 4. Evaluate each step against the pass criteria and the gates. The first failing step ends the ramp.
 5. **Bisect** between the last passing and the first failing player count, down to `ramp.resolution`.
@@ -68,11 +71,15 @@ A pass criterion that is not met **fails** the step: that is a finding about the
 | gate | source | threshold (default) | outcome | config key |
 |---|---|---|---|---|
 | machine lock | CLI lock file | another `bedperf run` holds it | env-gate (exit 3) | `$BEDPERF_LOCK`, `--no-lock` |
-| idle gate | `sysmon` `idleCheck`, 15 s before each repeat, no server or bots running | foreign mean ≤ 0.25 cores, 10 s peak ≤ 1.5 cores, foreign on server CPUs ≤ 0.25 cores | env-gate (exit 3) | `gates.idleSec`, `gates.idleForeignMean`, `gates.idleForeignPeak10s`, `gates.idleServerSetForeignMean`; `--skip-idle-check` |
+| agents usable | orchestrator connects every `--agents` agent | an agent unreachable, denied (token, protocol, harness commit) or busy | env-gate (exit 3) | `--agents`, machine profile `agents`, `$BEDPERF_AGENT_TOKEN` |
+| idle gate | `sysmon` `idleCheck`, 15 s before each repeat, no server or bots running; on the server machine and on every agent | foreign mean ≤ 0.25 cores, 10 s peak ≤ 1.5 cores, foreign on server CPUs ≤ 0.25 cores (server machine only) | env-gate (exit 3) before the first repeat, repeat `invalid` later | `gates.idleSec`, `gates.idleForeignMean`, `gates.idleForeignPeak10s`, `gates.idleServerSetForeignMean`; `--skip-idle-check` |
 | placement plan | `placement` `planPlacement` | any `fail` check (`bot_cpus`, `server_cpus`, `too_few_cores`, `unknown_cpus`, `processor_group`) | env-gate (exit 3) | placement profile |
 | placement verify | `verifyPlacement` at ready, hold start and hold end | any violation (`process_affinity`, `thread_outside`, `priority`) | step invalid | placement profile |
 | interference | `sysmon` machine sampler over the hold | foreign mean > 0.25 cores, 10 s peak > 1.5 cores, or server-set foreign mean > 0.25 cores | step invalid | `gates.foreignMean`, `gates.foreignPeak10s`, `gates.serverSetForeignMean` (reason `interference`) |
-| loadgen saturation | fleet stats `loadgen.saturated` | worker event-loop lag p99 > 50 ms, JS-thread CPU > 85 %, or a silent worker | step invalid, run `loadgenLimited` | `loadgen.botsPerWorker` (indirectly) |
+| loadgen saturation | fleet stats `loadgen.saturated` | worker event-loop lag p99 > 50 ms, JS-thread CPU > 85 %, or a silent worker; or an agent reporting itself saturated (machine CPU > 90 % of its CPUs, or foreign load > 1 core) | step invalid, run `loadgenLimited` | `loadgen.botsPerWorker` (indirectly); agent `--saturation-busy`, `--saturation-foreign` |
+| agent interference | agent telemetry over the hold | an agent's foreign mean > 0.25 cores or 10 s peak > 1.5 cores | step invalid (`agent_interference`) | `gates.foreignMean`, `gates.foreignPeak10s` |
+| agent lost | the agent control link | dropped, or silent for 10 s, between the step start and the hold end | step invalid (`agent_lost`), repeat `invalid` | — |
+| agents reconnect | before a repeat after an agent was lost | an agent cannot be reconnected; or the reconnected agents are other machines (topology hash) | repeat `invalid` (`agent_lost`, `agent_topology_changed`) | — |
 | counter reply gap | `GametimeSampler` | no reply for > 60 s | step invalid | `gates.gametimeMaxGapSec` (reason `gametime_gap`) |
 | counter latency | `GametimeSampler` | reply latency p99 > 30 s | step invalid | `gates.gametimeLatencyP99Sec` (reason `gametime_latency`) |
 | counter monotonic | `GametimeSampler` | gametime decreases | step invalid | — (reason `gametime_non_monotonic`) |
@@ -86,12 +93,12 @@ Two flags are recorded without changing any status: `settleCapped` (the settle p
 
 ## Timeline of a run
 
-1. **Lock.** Take the machine lock before resolving or downloading BDS (R4).
+1. **Lock.** Take the machine lock before resolving or downloading BDS (R4). With remote bots, connect every agent; each holds its own machine's lock for the session.
 2. **Placement plan.** Read the topology and plan server, bot and harness CPU sets from the placement profile. An unusable plan stops the run (exit 3).
 3. For each repeat:
-   1. **Idle gate.** Sample the machine for 15 s with nothing of ours running. Failure stops the run (exit 3).
+   1. **Idle gate.** Sample the machine, and every agent machine, for 15 s with nothing of ours running. Failure before the first repeat stops the run (exit 3); before a later repeat it makes that repeat `invalid`. With remote bots, a lost agent is reconnected first.
    2. **Instance.** Create a fresh instance and world from the pristine build, install the probe pack (R5).
-   3. **Start and place.** Start BDS, apply the server CPU set and priority, wait for `Server started.`, then **verify** placement (mismatch → the repeat is invalid).
+   3. **Start and place.** Start the server (through its launcher for a modded flavor), find the game process, apply the server CPU set and priority, wait for `Server started.`, then **verify** placement (mismatch → the repeat is invalid).
    4. **Setup.** Send the scenario's `serverSetup` commands. These are the last non-probe commands of the repeat (R7).
    5. **Warmup.** Run for `warmupSec`. Start the gametime sampler; the counter must advance.
    6. **Ramp steps**, each:
@@ -113,18 +120,19 @@ Inside a step, an invalid result is retried once at the same player count. A sec
 |---|---|---|---|
 | `ok` | the search finished and every counted step was admissible | yes | no |
 | `server_failed` | the server crashed, stopped or could not take the load | no, but listed with its value and reason and counted in k/n | never |
-| `invalid` | the machine or harness failed: interference, placement, lost or disagreeing TPS source, a repeat that never ended | no | once |
+| `invalid` | the machine or harness failed: interference, placement, lost or disagreeing TPS source, a lost or changed bot agent, a repeat that never ended | no | once |
 
 | exit code | meaning |
 |---|---|
-| 0 | every repeat `ok` |
+| 0 | at least one repeat `ok`: there is a headline (k/n tells how many) |
+| 1 | any other error |
 | 2 | usage or config error, or a comparison refused as incomparable |
-| 3 | an environment gate refused to start or continue: machine lock, idle gate, unusable placement plan |
-| 4 | at least one repeat `server_failed` |
-| 5 | at least one repeat `invalid` after its rerun |
-| 130 | interrupted (second Ctrl+C) |
+| 3 | an environment gate refused to start: machine lock, idle gate before the first repeat, unusable placement plan, unusable bot agents |
+| 4 | no `ok` repeat, and every repeat `server_failed` |
+| 5 | no `ok` repeat, and at least one `invalid` after its rerun |
+| 130 | interrupted (second Ctrl+C, or SIGTERM) |
 
-The run exits with the worst code among its repeats.
+A session (`--configs`) exits 0 when every run exits 0, else 5 when any run exits 5, else 4.
 
 ## Comparing runs
 
@@ -149,7 +157,9 @@ Use at least 3 repeats per side for any claim, and 5 for small effects.
 
 `compare` refuses (exit 2) when a field is present in both runs and differs, unless `--force`, which renders the comparison under a prominent warning:
 
-- workload config (`configSha256`)
+- benchmark config (`benchConfigSha256`: the config without its `server` section; older runs: `configSha256`)
+- server (label and `server.specSha256`), server build (`server.buildSha256`) and effective loader config (hash of `server.loaderConfig`)
+- bot topology (`topology.sha256`; local runs compare with local runs only)
 - machine (`machine.fingerprint`)
 - BDS version and build (`bdsVersion`, BDS zip sha256)
 - analysis version (`analysisVersion`)
@@ -157,6 +167,8 @@ Use at least 3 repeats per side for any claim, and 5 for small effects.
 - bot protocol (`botVersion`)
 
 A field missing from either run is "cannot verify": noted, not refused, so older runs still compare.
+
+**Implementation comparisons (R13).** When the server label or spec hash differs, the runs form an implementation comparison. The server, server build, loader config and BDS zip fields may then differ (shown as `differs`). The benchmark config, BDS version, machine, topology and placement profile must still match, and a value that only one of the runs records refuses as well. `bedperf compare a b c ...` with three or more runs renders pairwise verdict matrices and a headline ranking, and refuses if any pair is incomparable. Comparisons also warn, without refusing, about a different allocator, Wine against native, different loader-config overrides, different harness or bedboo commits, different agent machines, troubled agents and unpublishable runs. See [server-flavors.md](server-flavors.md#running-an-implementation-comparison).
 
 ## Metric definitions
 
@@ -204,27 +216,30 @@ A field missing from either run is "cannot verify": noted, not refused, so older
 The run's `meta.json` records:
 
 - BDS build and bedboo commit, the BDS zip sha256 and the probe pack hash
-- the full config: properties, seed or snapshot hash, scenario parameters, and its `configSha256`
+- the server build (`server`): spec with pinned versions, every artifact with its sha256, `buildSha256`, allocator, effective loader config and notes ([server-flavors.md](server-flavors.md#provenance))
+- the full config: properties, seed or snapshot hash, scenario parameters, and its `configSha256`, plus `benchConfigSha256` (the same without `server`)
 - host CPU and RAM, and a machine fingerprint (OS family, CPU model, core counts, RAM) to tell whether two runs ran on the same hardware
 - the placement plan and its profile hash
 - the bedperf commit, whether the checkout was dirty, and the analysis version
-- whether the load generator was colocated with BDS
+- whether the load generator was colocated with the server, whether the bots dialled a loopback address (`network.loopback`), and the bot topology (`topology`: each agent's machine, harness, CPUs, weight, link RTT and placement, with addresses only as hashes; [distributed.md](distributed.md#topology-provenance-and-comparability))
 - sha256 and size of every file in the run dir (`files`), so a shared run can be checked for tampering or truncation
 
 `meta.json` and `config.json` are scrubbed: the run dir, cache, repo, temp and home paths become placeholders such as `<run>` and `<home>`, other private absolute paths keep only their file name, and user and host names become `<user>` and `<host>`. They can be shared. Raw logs (`samples.jsonl`, `bds*.log`) are **not** scrubbed: share them with care.
 
 Before a run:
 
-- pin BDS and the loadgen to separate cores, or better, separate hosts
+- pin the server and the loadgen to separate cores, or better, run the bots on other machines ([distributed.md](distributed.md))
 - disable `enable-lan-visibility`
 - close everything else on the machine; the idle gate will tell you if you did not
 
 ## Threats to validity
 
 - **One machine.** A result describes this hardware, OS and power plan. Runs on different machines are not comparable (the fingerprint check refuses them).
-- **Colocated load generator.** Bots on the same host compete for memory bandwidth, caches and the scheduler even on disjoint CPUs. Placement and the saturation gate limit this; they do not remove it. Use a separate bot host for headline numbers.
+- **Colocated load generator.** Bots on the same host compete for memory bandwidth, caches and the scheduler even on disjoint CPUs. Placement and the saturation gate limit this; they do not remove it. Use remote bot agents for headline numbers ([distributed.md](distributed.md)).
 - **Bots are not players.** bedboo bots run scripted scenarios with `viewDistance: 'tiny'` and no rendering. They do not reproduce real player behaviour, resource-pack downloads or client-side chunk caching (full chunk payloads are sent).
 - **Loopback.** With bots on `127.0.0.1` there is no real network: no latency, loss or MTU effects, and system NIC counters miss the traffic entirely.
+- **Remote network.** With bots on agents, the network between them and the server is part of every client-side metric. The topology check refuses different agent machines, but it cannot see the switch or the cabling.
+- **Server implementation.** A modded flavor is the whole stack: loader, mods, runtime and allocator. Endstone on Linux preloads mimalloc, and a Wine flavor includes Wine's translation cost. Differences between flavors are differences between these stacks, not between their loaders alone ([server-flavors.md](server-flavors.md#known-confounds)).
 - **Windows timer quantum.** BDS sleeps in ~15.6 ms quanta and thread CPU times are quantized to the same clock, which shapes the tick-interval distribution and the resolution of CPU metrics.
 - **vCPUs.** On VMs and WSL2 (`placementKind: vcpu`) core and SMT facts are unreliable and steal time counts as busy. Do not compare vCPU runs with physical ones.
 - **Server defaults.** Results depend on the `server.properties` preset (view distance, tick distance, max threads) and the world. They are recorded, not normalised.

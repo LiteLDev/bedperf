@@ -66,6 +66,8 @@ A step whose `invalidReasons` is non-empty is **invalid**: it says nothing about
 | longest stretch without a reply > `gates.gametimeMaxGapSec` (60) | `gametime_gap: ...` |
 | reply latency p99 > `gates.gametimeLatencyP99Sec` (30) | `gametime_latency: ...` |
 | counter went backwards | `gametime_non_monotonic` |
+| a remote agent's control link was lost between the step start and the hold end (`window.agentsLost`) | `agent_lost: <agent> (<reason>)` |
+| a remote agent's telemetry inside the hold above `gates.foreignMean` or `gates.foreignPeak10s` (`window.agentTelemetry`) | `agent_interference: <agent> <reasons>` |
 | tick-counter rate and probe tick counter (interpolated at the first and last reply) differ by more than `criteria.maxProbeCounterTpsDivergence` (0.5 TPS) over the same stretch | `tps_sources_disagree: probe x vs counter y TPS` |
 
 Measured per step besides the pass criteria: `counterTps` (first to last reply in the hold, which must span at least `1 - 2·interval/hold` of it, clamped to 50–90%), `counterTpsLow5` (lowest ≥ 4.5 s stretch), `gametimeMaxGapMs`, `gametimeLatencyMs`, `tickCpuMsPerTick` (tick-thread CPU between the first and last tick observation, from `mainThread.cpuMs` and the tick counter, falling back to the probe tick counter; a lower bound on tick cost, not MSPT) with `tickThreadSource`, `interference`, `placementVerified`, `settleSec` / `settleCapped` / `viewsIncomplete`, and the view-load metrics `inViewMedian`, `viewT90MsP50` (last fleet stats of the hold), `chunksPerSec` (mean) and `uniqChunksPerBot`.
@@ -100,7 +102,7 @@ Per repeat:
 **Repeat status.** Every repeat ends `ok`, `server_failed` or `invalid` (`RepeatOutcome.status`, `statusReasons`):
 
 - `server_failed`: the server crashed, did not start, or not all bots could join at the first measured step. It is a result about the server: never rerun.
-- `invalid`: idle gate failed, placement violated at ready, tick counter dead, or the search stopped on two invalid steps for an environment reason (or without any pass). The slot is rerun once on a fresh instance with a fresh index (so log names, usernames and seeds do not collide).
+- `invalid`: idle gate failed (here or on an agent), placement violated at ready, tick counter dead, a remote agent lost (`agent_lost`) or not reconnectable, the reconnected agents differ from the recorded topology (`agent_topology_changed`), or the search stopped on two invalid steps for an environment reason (or without any pass). The slot is rerun once on a fresh instance with a fresh index (so log names, usernames and seeds do not collide).
 - `ok`: otherwise, including a search stopped by loadgen saturation after passes (`loadgenLimited`, a lower bound).
 
 `RunResult.maxPlayers` lists every repeat by index; `maxPlayersMedian` is the median over the `ok` repeats only (mean of the middle two for an even count, 0 when none). `repeats: [{ index, status, statusReasons, maxPlayers, rerunOf? }]`, `kOk`, `n`, `invalidLimited` describe them. `capped` is set if an ok repeat hit `ramp.max`. `loadgenLimited` is set if **any step** was invalidated by saturation. Any other error stops the whole run: the run dir is still finalised (`orch.run.end` with `ok: false`, `meta.finishedAt`) and the error is rethrown.
@@ -140,6 +142,7 @@ Every step result is a pure function of the envelopes written before its `orch.s
 - `placement`: `{ profileSha256, label?, kind, mode?, method, serverCpus, botCpus, harnessCpus, priority, verified, verifications, checks }`; `verified` is false as soon as one server verification failed.
 - `gates`: the resolved gates and validity thresholds (`gates.*`, `minCounterTps`, `maxProbeCounterTpsDivergence`, `gametimeIntervalSec`) and which checks ran.
 - `network`: `{ loopback }`, true when the bots connect to a loopback address.
+- `topology`: where the bots ran (core `TopologyMeta`): `mode` `local` or `remote`, `botTargetHost`, per agent its name, `addressId` (sha256 prefix of the address), machine, harness, CPUs, weight, `maxBots`, link RTT and placement, and `sha256` over the mode and each agent's fingerprint, CPUs, weight and `maxBots`. See [docs/distributed.md](../../docs/distributed.md).
 
 The machine and harness blocks are computed once per process; `RunRecorder.create` takes `provenance` and `scrubber` for tests.
 
