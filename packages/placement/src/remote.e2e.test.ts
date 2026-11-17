@@ -3,7 +3,7 @@
 // on the real topology. Run with BEDPERF_E2E=1.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn, type ChildProcess } from 'node:child_process'
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { createSocket } from 'node:dgram'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -66,6 +66,16 @@ console.log('CHILD ' + c.pid)
 setInterval(() => {}, 1000)
 `
 
+/** GNU `nice -n -1 nice` prints -1 (relative to ours) only when a negative nice is allowed. */
+function canRaisePriority (): boolean {
+  try {
+    const base = Number(execFileSync('nice', [], { encoding: 'utf8' }).trim())
+    return Number(execFileSync('nice', ['-n', '-1', 'nice'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()) < base
+  } catch {
+    return false
+  }
+}
+
 function childPid (launcher: ChildProcess): Promise<number> {
   return new Promise((resolve, reject) => {
     let out = ''
@@ -82,8 +92,8 @@ test('launcher: the game child is placed (taskset wrapper on Linux, post-spawn a
   const topo = await readTopology()
   const plan = planPlacement(topo, defaultProfile(), { bots: 'remote' })
   assert.ok(planUsable(plan), JSON.stringify(plan.checks))
-  // above_normal needs CAP_SYS_NICE on Linux; root in the container has it
-  const priority = process.platform === 'win32' || process.getuid?.() === 0 ? 'above_normal' as const : 'normal' as const
+  // above_normal needs CAP_SYS_NICE on Linux (docker drops it unless --cap-add SYS_NICE): probe it
+  const priority = process.platform === 'win32' || canRaisePriority() ? 'above_normal' as const : 'normal' as const
   const placed = { ...plan, priority }
   const dir = mkdtempSync(join(tmpdir(), 'bedperf-launcher-'))
   const script = join(dir, 'launcher.cjs')
@@ -106,7 +116,7 @@ test('launcher: the game child is placed (taskset wrapper on Linux, post-spawn a
     await new Promise(resolve => setTimeout(resolve, 500)) // let the child start its worker threads
     const procs = { serverPid: child, launcherPid: launcher.pid! }
     const v = await verifyServerProcesses(placed, procs)
-    console.log(`launcher verify (${w.method}): ${JSON.stringify(v.checks)} threads ${v.server.threadCount}`)
+    console.log(`launcher verify (${w.method}, ${priority}): ${JSON.stringify(v.checks)} threads ${v.server.threadCount}`)
     assert.equal(v.verified, true, JSON.stringify(v.members.map(m => m.verification.violations)))
     assert.ok(v.server.threadCount > 1, `threads ${v.server.threadCount}`)
     assert.equal(v.server.priority, priority)
