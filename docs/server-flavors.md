@@ -12,10 +12,11 @@ bedperf runs the same benchmark against six server implementations. They are all
 | `levilamina` | `levilamina` | — | `native` | Windows | `levilamina` |
 | `levilamina-levioptimize` | `levilamina` | `levioptimize` | `native` | Windows | `levilamina+levioptimize` |
 | `endstone` | `endstone` | — | `native` | Windows, Linux | `endstone` |
+| `bds-wine` | `bds` | — | `wine` | Linux | `bds (wine)` |
 | `levilamina-wine` | `levilamina` | — | `wine` | Linux | `levilamina (wine)` |
 | `levilamina-levioptimize-wine` | `levilamina` | `levioptimize` | `wine` | Linux | `levilamina+levioptimize (wine)` |
 
-On the wrong host, `bedperf run` refuses a preset with a usage error (exit 2) that names the preset to use instead (`install` fails as well): LeviLamina is a Windows build, so on Linux it runs only under Wine, and `wine` on a Windows host is refused.
+On the wrong host, `bedperf run` refuses a preset with a usage error (exit 2) that names the preset to use instead (`install` fails as well): LeviLamina is a Windows build, so on Linux it runs only under Wine, and `wine` on a Windows host is refused. `bds-wine` runs vanilla BDS's Windows build under the same lip-installed Wine (`lip setup --no-loader`), so comparing it with `bds` isolates the cost of Wine, and comparing it with `levilamina-wine` isolates the loader.
 
 ### Pinned versions
 
@@ -161,7 +162,7 @@ A difference between two flavors is the difference between two complete stacks. 
 
 An implementation comparison is runs of the same benchmark that differ only in the server. To make one fair:
 
-1. **One machine and OS.** On Windows you can compare `bds`, `levilamina`, `levilamina-levioptimize` and `endstone`. On Linux you can compare `bds`, `endstone`, `levilamina-wine` and `levilamina-levioptimize-wine`. The same hardware under another OS has a different machine fingerprint and is refused.
+1. **One machine and OS.** On Windows you can compare `bds`, `levilamina`, `levilamina-levioptimize` and `endstone`. On Linux you can compare `bds`, `endstone`, `bds-wine`, `levilamina-wine` and `levilamina-levioptimize-wine`. The same hardware under another OS has a different machine fingerprint and is refused.
 2. **One BDS build.** Pin vanilla BDS to the modded flavors' build: `bdsVersion: "1.26.60.6"` (`--bds-version 1.26.60.6`). With `latest`, vanilla runs a newer build and `compare` refuses the BDS-version mismatch.
 3. **One benchmark config.** Everything but `server` must be identical, including `name`: `benchConfigSha256` must match. Use the same `--machine-profile` (placement profile) and the same bot topology (local, or the same agents).
 4. **Interleave the repeats.** Use a session, so drift over time (heat, background updates) does not line up with one server. Put the `server` section in each config file and do not pass `--server`, which would apply to every config:

@@ -71,7 +71,7 @@ This writes `runs/<id>/` (config, meta, samples.jsonl, steps.json, result.json, 
 | `bds` (default) | Windows, Linux |
 | `levilamina`, `levilamina-levioptimize` | Windows |
 | `endstone` | Windows, Linux (Python ≥ 3.11; on Linux also its shared libpython, e.g. `libpython3.11`) |
-| `levilamina-wine`, `levilamina-levioptimize-wine` | Linux (lip installs its own Wine) |
+| `bds-wine`, `levilamina-wine`, `levilamina-levioptimize-wine` | Linux (lip installs its own Wine) |
 
 ```bash
 corepack pnpm bedperf install --server levilamina-levioptimize --accept-eula   # optional: install ahead of the run

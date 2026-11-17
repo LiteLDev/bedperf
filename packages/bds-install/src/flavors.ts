@@ -76,7 +76,7 @@ export const MOD_PACKAGES: Record<ServerMod, string> = {
 export const LEVILAMINA_CONFIG_PATH = 'mods/LeviLamina/config/Config.json'
 
 /** Process names (Linux `comm`, truncated to 15 chars) of Wine's helper processes. */
-export const WINE_AUX_PROCESS_PATTERNS = ['^wineserver$', '^(services|winedevice|plugplay|explorer|rpcss|svchost)\\.exe$']
+export const WINE_AUX_PROCESS_PATTERNS = ['^wineserver$', '^(services|winedevice|plugplay|explorer|rpcss|svchost|lsass)\\.exe$']
 
 function isPlainObject (v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -204,7 +204,7 @@ export function vanillaLaunch (dir: string, platform: Platform, env: Record<stri
 }
 
 async function ensureVanilla (spec: ServerSpec, ctx: Ctx): Promise<InstalledServer> {
-  if (spec.runtime !== 'native') throw new Error(`vanilla BDS runs natively only (runtime '${spec.runtime}' is not supported)`)
+  if (spec.runtime === 'wine') return await ensureLipServer(spec, ctx)
   const r = await ensureBds(ctx.bdsVersion, { acceptEula: true, cacheRoot: ctx.bdsCacheRoot, platform: ctx.platform, fetch: ctx.opts.fetch })
   const sha256 = bdsZipSha256(r.version, { cacheRoot: ctx.bdsCacheRoot, platform: ctx.platform })
   const notes: string[] = []
@@ -234,15 +234,42 @@ export function lipGameVersion (bdsVersion: string): string {
   return bdsVersion.split('.').slice(0, 3).join('.')
 }
 
-/** The lip commands that set up a workspace for `spec` (each runs with cwd = the workspace). */
+/** Vanilla BDS's Windows executable (run under Wine by the `bds` flavor with `runtime: 'wine'`). */
+export const VANILLA_WIN_EXE = 'bedrock_server.exe'
+
+/** Executable lip leaves in the workspace for `spec`. */
+function lipExe (spec: ServerSpec): string {
+  return spec.flavor === 'bds' ? VANILLA_WIN_EXE : LEVILAMINA_EXE
+}
+
+/**
+ * The lip commands that set up a workspace for `spec` (each runs with cwd = the workspace).
+ * Vanilla BDS (`bds` under Wine) is set up without a loader.
+ */
 export function lipSetupCommands (spec: ServerSpec, bdsVersion: string): string[][] {
   const r = resolveServerSpec(spec)
+  if (r.flavor === 'bds') return [['setup', '--game', lipGameVersion(bdsVersion), '--no-loader', '--accept-eula']]
   const cmds = [['setup', '--game', lipGameVersion(bdsVersion), '--loader', `levilamina@${r.versions.levilamina!}`, '--accept-eula']]
   for (const m of r.mods) {
     const v = m === 'levioptimize' ? r.versions.levioptimize : undefined
     cmds.push(['install', `${MOD_PACKAGES[m]}${v !== undefined ? '@' + v : ''}`])
   }
   return cmds
+}
+
+/** LaunchSpec of vanilla BDS's Windows build in `dir` under lip's Wine. */
+export function vanillaWineLaunch (dir: string, wine: NonNullable<Marker['wine']>): LaunchSpec {
+  return {
+    command: wine.wineBin,
+    args: [join(dir, VANILLA_WIN_EXE)],
+    cwd: dir,
+    env: { WINEPREFIX: wine.prefix, WINEDEBUG: '-all' },
+    // Linux truncates comm to 15 chars: `bedrock_server.`.
+    serverProcess: { namePattern: '^bedrock_server(\\.(exe)?)?$' },
+    auxProcessPatterns: [...WINE_AUX_PROCESS_PATTERNS],
+    killTree: true,
+    wine: { prefix: wine.prefix, wineBin: wine.wineBin, wineserverBin: wine.wineserverBin, ...(wine.version !== undefined ? { version: wine.version } : {}) }
+  }
 }
 
 /** LaunchSpec of LeviLamina in `dir`: the PeEditor-patched exe, natively or with lip's Wine. */
@@ -278,27 +305,41 @@ async function ensureLeviLamina (spec: ServerSpec, ctx: Ctx): Promise<InstalledS
   if (spec.runtime === 'wine' && ctx.os === 'windows') {
     throw new Error('runtime \'wine\' runs the Windows build of LeviLamina on Linux; on Windows use runtime \'native\'')
   }
+  return await ensureLipServer(spec, ctx)
+}
+
+/** LeviLamina (+ mods), or vanilla BDS's Windows build under Wine: a lip workspace in the cache. */
+async function ensureLipServer (spec: ServerSpec, ctx: Ctx): Promise<InstalledServer> {
+  if (spec.flavor === 'bds' && ctx.os === 'windows') {
+    throw new Error('runtime \'wine\' runs the Windows build of BDS on Linux; on Windows use runtime \'native\'')
+  }
   const root = serverCacheDir(spec, ctx.bdsVersion, ctx.cacheRoot)
   const ws = join(root, 'server')
-  const effective = effectiveLoaderConfig(spec)
-  const instanceFiles = { [LEVILAMINA_CONFIG_PATH]: JSON.stringify(effective, null, 4) + '\n' }
+  const exe = lipExe(spec)
+  const vanilla = spec.flavor === 'bds'
+  const effective = vanilla ? undefined : effectiveLoaderConfig(spec)
 
   let marker = readMarker(root)
-  if (marker === undefined || !existsSync(join(ws, LEVILAMINA_EXE))) {
-    marker = await installLeviLamina(spec, ctx, root, ws)
+  if (marker === undefined || !existsSync(join(ws, exe))) {
+    marker = await installLipServer(spec, ctx, root, ws)
   } else {
     ctx.log(`using cached ${marker.build.label} at ${ws}`)
   }
   const wine = marker.wine
+  if (vanilla) {
+    if (wine === undefined) throw new Error(`cached ${marker.build.label} at ${ws} has no Wine recorded; delete ${root} to reinstall`)
+    return { build: withLoaderConfig(marker.build, spec), pristineDir: ws, launch: dir => vanillaWineLaunch(dir, wine) }
+  }
   return {
     build: withLoaderConfig(marker.build, spec, effective),
     pristineDir: ws,
     launch: dir => leviLaminaLaunch(dir, wine),
-    instanceFiles
+    instanceFiles: { [LEVILAMINA_CONFIG_PATH]: JSON.stringify(effective, null, 4) + '\n' }
   }
 }
 
-async function installLeviLamina (spec: ServerSpec, ctx: Ctx, root: string, ws: string): Promise<Marker> {
+async function installLipServer (spec: ServerSpec, ctx: Ctx, root: string, ws: string): Promise<Marker> {
+  const exe = lipExe(spec)
   rmSync(join(root, SERVER_COMPLETE_MARKER), { force: true })
   rmSync(ws, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   mkdirSync(ws, { recursive: true })
@@ -323,7 +364,7 @@ async function installLeviLamina (spec: ServerSpec, ctx: Ctx, root: string, ws: 
       }
     }
   }
-  if (!existsSync(join(ws, LEVILAMINA_EXE))) throw new Error(`lip setup did not create ${LEVILAMINA_EXE} in ${ws}`)
+  if (!existsSync(join(ws, exe))) throw new Error(`lip setup did not create ${exe} in ${ws}`)
 
   const state = readLipState(ws)
   const installed = lipBdsVersion(state)
@@ -340,9 +381,10 @@ async function installLeviLamina (spec: ServerSpec, ctx: Ctx, root: string, ws: 
     ...(lip.path !== undefined && existsSync(lip.path) ? { sha256: await sha256File(lip.path) } : {}),
     source: 'github.com/LiteLDev/lip'
   })
-  const notes = [
-    `LeviLamina config overrides written to ${LEVILAMINA_CONFIG_PATH} in each instance; LeviLamina fills in its defaults on first start`
-  ]
+  const what = spec.flavor === 'bds' ? 'vanilla BDS' : 'LeviLamina'
+  const notes = spec.flavor === 'bds'
+    ? ['Windows build of vanilla BDS set up by lip without a loader']
+    : [`LeviLamina config overrides written to ${LEVILAMINA_CONFIG_PATH} in each instance; LeviLamina fills in its defaults on first start`]
   let wine: Marker['wine']
   if (spec.runtime === 'wine') {
     const dataDir = ctx.opts.lipDataDir ?? lipDataDir(ctx.os)
@@ -352,13 +394,13 @@ async function installLeviLamina (spec: ServerSpec, ctx: Ctx, root: string, ws: 
     const version = /wine-?(\S+)/.exec(r.stdout.trim())?.[1] ?? (r.stdout.trim() || undefined)
     wine = { prefix: lipWinePrefix(ws), wineBin: found.wineBin, wineserverBin: found.wineserverBin, ...(version !== undefined ? { version } : {}) }
     artifacts.push({ name: 'wine', ...(version !== undefined ? { version } : {}), sha256: hashTree(found.buildDir), source: found.buildDir })
-    notes.push(`Windows build of LeviLamina run under Wine ${version ?? '?'} (lip's Kron4ek build); WINEPREFIX ${wine.prefix} is shared by all instances`)
+    notes.push(`Windows build of ${what} run under Wine ${version ?? '?'} (lip's Kron4ek build); WINEPREFIX ${wine.prefix} is shared by all instances`)
   }
   const build = finishBuild({
     spec: { flavor: spec.flavor, mods: spec.mods, runtime: spec.runtime, versions: spec.versions },
     bdsVersion: installed,
     binaryPlatform: 'win',
-    exeName: LEVILAMINA_EXE,
+    exeName: exe,
     artifacts,
     notes
   })

@@ -63,6 +63,7 @@ export const SERVER_PRESETS = {
   levilamina: { flavor: 'levilamina', mods: [], runtime: 'native', versions: {} },
   'levilamina-levioptimize': { flavor: 'levilamina', mods: ['levioptimize'], runtime: 'native', versions: {} },
   endstone: { flavor: 'endstone', mods: [], runtime: 'native', versions: {} },
+  'bds-wine': { flavor: 'bds', mods: [], runtime: 'wine', versions: {} },
   'levilamina-wine': { flavor: 'levilamina', mods: [], runtime: 'wine', versions: {} },
   'levilamina-levioptimize-wine': { flavor: 'levilamina', mods: ['levioptimize'], runtime: 'wine', versions: {} }
 } as const satisfies Record<string, ServerSpec>

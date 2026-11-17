@@ -159,7 +159,7 @@ function serverSpec (v: Validator, raw: Obj, P: string): ServerSpec | undefined 
 
   const runtime = s['runtime'] ?? 'native'
   if (!(SERVER_RUNTIMES as readonly unknown[]).includes(runtime)) v.fail(`${SP}.runtime`, `expected one of: ${SERVER_RUNTIMES.join(', ')}`, runtime)
-  else if (runtime === 'wine' && f !== undefined && f !== 'levilamina') v.fail(`${SP}.runtime`, `"wine" runs the Windows build of LeviLamina only (flavor ${f} runs natively)`)
+  else if (runtime === 'wine' && f === 'endstone') v.fail(`${SP}.runtime`, `"wine" runs a Windows build of BDS or LeviLamina (flavor ${f} runs natively)`)
 
   const mods: ServerMod[] = []
   const m = s['mods']
