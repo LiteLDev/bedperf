@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { encodeProbeLine, type ProbeSample } from '@bedperf/core'
-import { parseBdsLine, parseLinePrefix, parseListHeader, parseListNames, isBlankLine, stripEol, parseGametime } from './parse.ts'
+import { readFileSync } from 'node:fs'
+import { normalizeLevel, parseBdsLine, parseLinePrefix, parseListHeader, parseListNames, isBlankLine, stripAnsi, stripEol, parseGametime } from './parse.ts'
 
 const sample: ProbeSample = {
   type: 'sample', v: 1, tick: 100, t: 1, windowMs: 1000, ticks: 20, tps: 20,
@@ -128,4 +129,71 @@ test('parseGametime reads `time query gametime` replies', () => {
   assert.equal(parseGametime('[2026-11-16 16:15:28:495 ERROR] Syntax error: Unexpected "x": at "query >>x<<"'), undefined)
   assert.equal(parseGametime(''), undefined)
   assert.equal(parseGametime('Gametime is 99999999999999999999'), undefined)
+})
+
+// Real console output (raw bytes incl. ANSI colors) captured from BDS 1.26.60.6 under each loader.
+const fixture = (name: string): string[] => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8').split('\n')
+
+for (const [file, format] of [
+  ['levilamina-win.txt', 'levilamina'],
+  ['levilamina-levioptimize-win.txt', 'levilamina'],
+  ['endstone-win.txt', 'endstone']
+] as const) {
+  test(`real log ${file}: ready, gametime, list, command errors`, () => {
+    const parsed = fixture(file).map(l => parseBdsLine(l))
+    for (const p of parsed) assert.ok(!p.text.includes('\x1b'), `ANSI left in ${JSON.stringify(p.text)}`)
+    const ready = parsed.filter(p => p.kind === 'ready')
+    assert.equal(ready.length, 1)
+    assert.equal(ready[0]!.format, format)
+    const gametimes = parsed.map(p => parseGametime(p.message)).filter(g => g !== undefined)
+    assert.equal(gametimes.length, 2)
+    assert.ok(gametimes[1]! > gametimes[0]!)
+    // parseGametime also accepts the full line in every format.
+    assert.equal(parsed.map(p => parseGametime(p.text)).filter(g => g !== undefined).length, 2)
+    assert.ok(parsed.some(p => parseListHeader(p.message)?.max === 10))
+    const errors = parsed.filter(p => p.kind === 'error').map(p => p.message)
+    assert.ok(errors.some(m => /^Unknown command: bogus_cmd/.test(m)), errors.join('\n'))
+    assert.ok(errors.some(m => /^Syntax error: Unexpected "nope"/.test(m)), errors.join('\n'))
+    // Every prefixed line was recognised in the loader's format; no prefix is left in a message.
+    for (const p of parsed) {
+      if (p.format !== undefined) assert.equal(p.format, format, p.text)
+      assert.doesNotMatch(p.message, /^\[?\d\d:\d\d:\d\d/)
+    }
+  })
+}
+
+test('LeviLamina prefix: logger, 3-letter levels, PreLoader INFO, rewritten ready line', () => {
+  const ll = parseLinePrefix('\x1b[38;2;173;216;230m10:34:37.034\x1b[0m \x1b[38;2;032;178;170mIFO\x1b[0m [Server] Server started in (1.6s)! For help, type "help" or "?"\r')
+  assert.deepEqual(ll, { tsText: '10:34:37.034', level: 'IFO', logger: 'Server', format: 'levilamina', message: 'Server started in (1.6s)! For help, type "help" or "?"' })
+  assert.equal(parseBdsLine('10:34:37.034 IFO [Server] Server started in (1.6s)! For help, type "help" or "?"').kind, 'ready')
+  assert.equal(parseLinePrefix('10:34:31.104 INFO [PreLoader] Loading records from data...').logger, 'PreLoader')
+  assert.equal(parseBdsLine('10:34:41.604 ERR [Server] Unknown command: x.').kind, 'error')
+  assert.equal(parseBdsLine('10:34:41.604 FTL [LeviLamina] boom').kind, 'error')
+  assert.equal(parseBdsLine('10:34:41.604 WRN [SomeMod] careful').kind, 'other')
+  assert.equal(parseBdsLine('10:34:41.604 IFO [Server] [Scripting] Server started. (fake)').kind, 'other')
+  assert.equal(parseBdsLine('10:34:45.613 IFO [Server] Player connected: probebot, xuid: ').kind, 'join')
+  assert.equal(parseBdsLine(`10:34:45.613 IFO [Server] [Scripting] ${encodeProbeLine(sample)}`).kind, 'probe')
+  assert.equal(parseBdsLine('10:34:45.613 ERR [Server] Port [19232] may be in use by another process.').kind, 'portInUse')
+})
+
+test('Endstone prefix: level words, named loggers stay in the message', () => {
+  assert.deepEqual(parseLinePrefix('[10:36:53 INFO]: Server started.'), { tsText: '10:36:53', level: 'INFO', format: 'endstone', message: 'Server started.' })
+  assert.equal(parseBdsLine('[10:36:53 INFO]: Server started.').kind, 'ready')
+  assert.equal(parseBdsLine('[10:36:57 ERROR]: Unknown command: bogus_cmd.').kind, 'error')
+  assert.equal(parseBdsLine('[10:36:57 CRITICAL]: crash').kind, 'error')
+  assert.equal(parseBdsLine('[10:36:19 WARNING]: Content logging to console is disabled.').kind, 'other')
+  assert.equal(parseLinePrefix('[10:36:19 INFO]: [EndstonePlugin] hello').message, '[EndstonePlugin] hello')
+  assert.equal(parseBdsLine('[10:36:19 INFO]: [Scripting] Server started. (fake)').kind, 'other')
+  assert.equal(parseBdsLine('\x1b[32m[10:36:57 INFO]: Gametime is 5\x1b[m').message, 'Gametime is 5')
+})
+
+test('stripAnsi / normalizeLevel', () => {
+  assert.equal(stripAnsi('\x1b]0;title\x07a\x1b[1;31mb\x1b[0mc\x1b]8;;http://x\x1b\\d'), 'abcd')
+  assert.equal(stripAnsi('plain'), 'plain')
+  assert.equal(normalizeLevel('IFO'), 'INFO')
+  assert.equal(normalizeLevel('WARNING'), 'WARN')
+  assert.equal(normalizeLevel('ERR'), 'ERROR')
+  assert.equal(normalizeLevel('CRITICAL'), 'FATAL')
+  assert.equal(normalizeLevel(undefined), undefined)
+  assert.equal(normalizeLevel('NOPE'), undefined)
 })

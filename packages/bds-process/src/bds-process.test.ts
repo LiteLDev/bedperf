@@ -6,9 +6,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
-import { encodeProbeLine, type BdsInstance, type GametimeSample, type PlayerEvent, type ProbeRecord } from '@bedperf/core'
-import { BdsProcess, BdsStartError, BdsCommandError, affinityCommand, type BdsProcessOptions } from './bds-process.ts'
+import { encodeProbeLine, type BdsInstance, type GametimeSample, type LaunchSpec, type PlayerEvent, type ProbeRecord } from '@bedperf/core'
+import { BdsProcess, BdsStartError, BdsCommandError, affinityCommand, vanillaLaunchSpec, wineserverBin, type BdsProcessOptions } from './bds-process.ts'
 import { GametimeSampler } from './gametime-sampler.ts'
+import type { ProcessHost, ProcInfo } from './proctree.ts'
 
 const TS = '[2026-11-16 16:15:28:495 INFO]'
 
@@ -540,4 +541,270 @@ test('GametimeSampler over BdsProcess: replies pair with sends', async () => {
   assert.deepEqual(samples.map(s => s.gametime), samples.map((_, i) => 120 + 20 * i))
   for (const s of samples) assert.ok(s.latencyMs >= 0 && s.t === s.sentAt + s.latencyMs)
   await bds.stop()
+})
+
+// ---- Launchers (LaunchSpec): game-process resolution, tree kill, Wine cleanup ----
+
+class FakeHost implements ProcessHost {
+  readonly platform: NodeJS.Platform
+  procs: ProcInfo[] = []
+  live = new Set<number>()
+  signals: Array<[number, string]> = []
+  execs: Array<{ file: string, args: string[], env?: Record<string, string> }> = []
+  listCalls = 0
+  onExec: (file: string, args: string[]) => void = () => {}
+  constructor (platform: NodeJS.Platform) { this.platform = platform }
+  async list (): Promise<ProcInfo[]> { this.listCalls++; return this.procs }
+  async envVar (): Promise<string | undefined> { return undefined }
+  uid (): number { return 1000 }
+  alive (pid: number): boolean { return this.live.has(pid) }
+  signal (pid: number, sig: NodeJS.Signals): void { this.signals.push([pid, sig]); this.live.delete(pid) }
+  async exec (file: string, args: string[], env?: Record<string, string>): Promise<void> {
+    const e: { file: string, args: string[], env?: Record<string, string> } = { file, args }
+    if (env !== undefined) e.env = env
+    this.execs.push(e)
+    this.onExec(file, args)
+  }
+}
+
+const ES_SPEC: LaunchSpec = {
+  command: '/srv/es/venv/bin/endstone',
+  args: ['-y', '-s', '/srv/es/server', '--no-interactive'],
+  cwd: '/srv/es',
+  env: { FOO: '1' },
+  serverProcess: { namePattern: '^bedrock_server(\\.exe)?$' },
+  killTree: true,
+  stopCommand: 'stop'
+}
+
+function launcherSetup (platform: NodeJS.Platform, launch: LaunchSpec, opts: BdsProcessOptions = {}): { bds: BdsProcess, child: FakeChild, host: FakeHost, spawned: Array<{ cmd: string, args: readonly string[], opts: SpawnOptions }> } {
+  const child = new FakeChild()
+  const host = new FakeHost(platform)
+  host.procs = [{ pid: 4242, ppid: 1, name: 'endstone', start: 100 }]
+  host.live.add(4242)
+  const spawned: Array<{ cmd: string, args: readonly string[], opts: SpawnOptions }> = []
+  const bds = new BdsProcess(instance, {
+    serverPidPollMs: 2,
+    ...opts,
+    launch,
+    processHost: host,
+    spawn: (cmd, args, o) => { spawned.push({ cmd, args, opts: o }); return child as unknown as ChildProcess }
+  })
+  child.on('exit', () => { host.live.delete(4242) })
+  return { bds, child, host, spawned }
+}
+
+/** The launcher's grandchild (the game) appears. */
+function spawnGame (host: FakeHost, pid = 4300, name = 'bedrock_server'): void {
+  host.procs = [...host.procs, { pid: 4250, ppid: 4242, name: 'python3', start: 101 }, { pid, ppid: 4250, name, start: 102 }]
+  host.live.add(pid)
+}
+
+test('vanilla default: the spawned process is the game process, no process-table lookups', async () => {
+  const host = new FakeHost('linux')
+  const child = new FakeChild()
+  const pids: number[] = []
+  const bds = new BdsProcess(instance, { processHost: host, spawn: () => child as unknown as ChildProcess })
+  bds.on('serverPid', pid => { pids.push(pid) })
+  const p = bds.start()
+  assert.equal(bds.serverPid, 4242)
+  assert.equal(bds.launcherPid, 4242)
+  child.out(`${TS} Server started.`)
+  await p
+  assert.deepEqual(pids, [4242])
+  assert.equal(host.listCalls, 0)
+  assert.deepEqual(vanillaLaunchSpec(instance, {}), {
+    command: join('/srv/bds', 'bedrock_server'),
+    args: [],
+    cwd: '/srv/bds',
+    env: { LD_LIBRARY_PATH: '/srv/bds' },
+    serverProcess: { namePattern: '^bedrock_server(\\.exe)?$' },
+    killTree: false
+  })
+  await bds.stop()
+  assert.equal(bds.serverPid, undefined)
+  assert.deepEqual(host.signals, [])
+})
+
+test('launcher: spawns the spec, start waits for the game process, pid reports it', async () => {
+  const { bds, child, host, spawned } = launcherSetup('linux', ES_SPEC)
+  const events: number[] = []
+  bds.on('serverPid', pid => { events.push(pid) })
+  let done = false
+  const p = bds.start().then(() => { done = true })
+  assert.equal(bds.pid, 4242) // the launcher until the game process is known
+  assert.equal(bds.serverPid, undefined)
+  child.out('[10:36:53 INFO]: Server started.')
+  await new Promise(r => setTimeout(r, 20))
+  assert.equal(done, false, 'start must wait for the game process')
+  spawnGame(host)
+  await p
+  assert.deepEqual(events, [4300])
+  assert.equal(bds.pid, 4300)
+  assert.equal(bds.serverPid, 4300)
+  assert.equal(bds.launcherPid, 4242)
+  assert.equal(spawned[0]!.cmd, ES_SPEC.command)
+  assert.deepEqual(spawned[0]!.args, ES_SPEC.args)
+  assert.equal(spawned[0]!.opts.cwd, '/srv/es')
+  assert.equal(spawned[0]!.opts.detached, true)
+  assert.equal((spawned[0]!.opts.env as NodeJS.ProcessEnv).FOO, '1')
+
+  // Graceful stop: the game exits, then the launcher; only the (empty) process group is signalled.
+  child.onCommand = cmd => { if (cmd === 'stop') { host.live.delete(4300); child.quit() } }
+  const exits: boolean[] = []
+  bds.on('exit', x => { exits.push(x.expected) })
+  await bds.stop()
+  assert.deepEqual(exits, [true])
+  assert.deepEqual(child.received, ['stop'])
+  assert.deepEqual(host.signals, [[-4242, 'SIGKILL']])
+  assert.equal(bds.pid, undefined)
+})
+
+test('launcher: custom stopCommand; a Windows spawn is not detached', async () => {
+  const { bds, child, host, spawned } = launcherSetup('win32', { ...ES_SPEC, stopCommand: 'quit' })
+  const p = bds.start()
+  spawnGame(host, 4300, 'bedrock_server.exe')
+  child.out('[10:36:53 INFO]: Server started.')
+  await p
+  assert.equal(spawned[0]!.opts.detached, undefined)
+  child.onCommand = cmd => { if (cmd === 'quit') { host.live.delete(4300); child.quit() } }
+  await bds.stop()
+  assert.deepEqual(child.received, ['quit'])
+  assert.deepEqual(host.execs, [])
+})
+
+test('launcher: "Server started" but no matching process fails with noServerProcess and kills the tree', async () => {
+  const { bds, child, host } = launcherSetup('linux', ES_SPEC, { serverPidGraceMs: 30 })
+  const p = bds.start()
+  child.out('[10:36:53 INFO]: Server started.')
+  await assert.rejects(p, (err: unknown) => err instanceof BdsStartError && err.reason === 'noServerProcess' && /bedrock_server/.test(err.message))
+  assert.ok(host.signals.some(([pid]) => pid === -4242))
+  assert.deepEqual(child.killedWith, ['SIGKILL'])
+  assert.equal(bds.running, false)
+})
+
+test('launcher on Windows: kill() runs taskkill /T on the launcher and kills the game pid', async () => {
+  const { bds, child, host } = launcherSetup('win32', ES_SPEC)
+  host.onExec = (file) => { if (file === 'taskkill') child.quit(null, 'SIGKILL') }
+  const p = bds.start()
+  spawnGame(host, 4300, 'bedrock_server.exe')
+  child.out('[10:36:53 INFO]: Server started.')
+  await p
+  await bds.kill()
+  assert.deepEqual(host.execs, [{ file: 'taskkill', args: ['/PID', '4242', '/T', '/F'] }])
+  assert.deepEqual(host.signals, [[4300, 'SIGKILL']])
+})
+
+test('launcher exits while the game process still runs: the game is killed, exit is unexpected', async () => {
+  const { bds, child, host } = launcherSetup('linux', ES_SPEC)
+  const warnings: string[] = []
+  bds.on('warning', w => { warnings.push(w) })
+  const p = bds.start()
+  spawnGame(host)
+  child.out('[10:36:53 INFO]: Server started.')
+  await p
+  const exit = new Promise<{ expected: boolean }>(resolve => bds.once('exit', resolve))
+  child.quit(1)
+  assert.equal((await exit).expected, false)
+  assert.ok(host.signals.some(([pid, sig]) => pid === 4300 && sig === 'SIGKILL'))
+  assert.ok(warnings.some(w => /game process 4300 was still running/.test(w)), warnings.join('\n'))
+})
+
+test('graceful stop: a launcher exiting first does not kill the game while it saves', async () => {
+  const { bds, child, host } = launcherSetup('linux', ES_SPEC)
+  const p = bds.start()
+  spawnGame(host)
+  child.out('[10:36:53 INFO]: Server started.')
+  await p
+  child.onCommand = cmd => {
+    if (cmd !== 'stop') return
+    child.quit() // the launcher exits right away; the game needs a moment longer
+    setTimeout(() => { host.live.delete(4300) }, 300)
+  }
+  const exit = new Promise<{ expected: boolean }>(resolve => bds.once('exit', resolve))
+  await bds.stop()
+  assert.equal((await exit).expected, true)
+  assert.ok(!host.signals.some(([pid]) => pid === 4300), JSON.stringify(host.signals))
+  assert.ok(host.signals.some(([pid]) => pid === -4242))
+})
+
+test('graceful stop: a game outliving its launcher past the stop timeout is killed', async () => {
+  const { bds, child, host } = launcherSetup('linux', ES_SPEC)
+  const p = bds.start()
+  spawnGame(host)
+  child.out('[10:36:53 INFO]: Server started.')
+  await p
+  child.onCommand = cmd => { if (cmd === 'stop') child.quit() }
+  const exit = new Promise<{ expected: boolean }>(resolve => bds.once('exit', resolve))
+  await bds.stop(50)
+  assert.equal((await exit).expected, true)
+  assert.ok(host.signals.some(([pid, sig]) => pid === 4300 && sig === 'SIGKILL'))
+  assert.equal(host.live.has(4300), false)
+})
+
+test('launcher: the ready timeout stops counting once "Server started" was printed', async () => {
+  const { bds, child, host } = launcherSetup('linux', ES_SPEC, { readyTimeoutMs: 40, serverPidGraceMs: 500 })
+  const p = bds.start()
+  child.out('[10:36:53 INFO]: Server started.')
+  await new Promise(r => setTimeout(r, 80))
+  spawnGame(host)
+  await p
+  assert.equal(bds.serverPid, 4300)
+  child.onCommand = cmd => { if (cmd === 'stop') { host.live.delete(4300); child.quit() } }
+  await bds.stop()
+})
+
+test('listPlayers: loaders put their prefix on the names line too', async () => {
+  const { bds, child, host } = launcherSetup('win32', { ...ES_SPEC, command: 'C:\\ll\\bedrock_server_mod.exe', serverProcess: { namePattern: '^bedrock_server_mod\\.exe$' } })
+  const p = bds.start()
+  child.out('10:34:37.034 IFO [Server] Server started in (1.6s)! For help, type "help" or "?"')
+  await p
+  assert.equal(host.listCalls, 0)
+  child.onCommand = cmd => {
+    if (cmd === 'stop') child.quit()
+    else if (cmd === 'list') child.out('10:34:38.574 IFO [Server] There are 2/10 players online:', '10:34:38.574 IFO [Server] bot1, bot2')
+  }
+  assert.deepEqual(await bds.listPlayers(), { online: 2, max: 10, names: ['bot1', 'bot2'] })
+  await bds.stop()
+})
+
+test('game process dies while the launcher lives: the launcher is killed (crash detection)', async () => {
+  const { bds, child, host } = launcherSetup('linux', ES_SPEC, { orphanLauncherMs: 20 })
+  const p = bds.start()
+  spawnGame(host)
+  child.out('[10:36:53 INFO]: Server started.')
+  await p
+  const exit = new Promise<{ expected: boolean }>(resolve => bds.once('exit', resolve))
+  host.live.delete(4300)
+  assert.equal((await exit).expected, false)
+  assert.deepEqual(child.killedWith, ['SIGKILL'])
+  assert.ok(host.signals.some(([pid]) => pid === -4242))
+})
+
+test('wine: the game is the spawned process itself (argv0 match), wineserver -k on exit, auxPids', async () => {
+  const wine: LaunchSpec = {
+    command: '/opt/wine/bin/wine',
+    args: ['bedrock_server_mod.exe'],
+    cwd: '/srv/ll',
+    env: { WINEPREFIX: '/srv/ll/.lip/wine', WINEDEBUG: '-all' },
+    serverProcess: { namePattern: '^bedrock_server_mod\\.exe$' },
+    auxProcessPatterns: ['^wineserver$'],
+    killTree: true,
+    wine: { prefix: '/srv/ll/.lip/wine', wineBin: '/opt/wine/bin/wine' }
+  }
+  const { bds, child, host } = launcherSetup('linux', wine)
+  host.procs = [
+    { pid: 4242, ppid: 1, name: 'bedrock_server_', argv0: 'bedrock_server_mod.exe', start: 100, uid: 1000 },
+    { pid: 60, ppid: 1, name: 'wineserver', start: 101, uid: 1000 }
+  ]
+  const p = bds.start()
+  child.out('10:34:37.034 IFO [Server] Server started in (1.6s)! For help, type "help" or "?"')
+  await p
+  assert.equal(bds.serverPid, 4242)
+  assert.equal(bds.launcherPid, 4242)
+  assert.deepEqual(await bds.auxPids(), [60])
+  await bds.stop()
+  assert.deepEqual(host.execs, [{ file: '/opt/wine/bin/wineserver', args: ['-k'], env: { WINEPREFIX: '/srv/ll/.lip/wine' } }])
+  assert.equal(wineserverBin({ prefix: '/p', wineBin: 'wine' }), 'wineserver')
+  assert.equal(wineserverBin({ prefix: '/p', wineBin: '/w/wine', wineserverBin: '/x/ws' }), '/x/ws')
 })

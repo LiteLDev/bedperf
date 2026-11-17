@@ -23,12 +23,34 @@ await bds.opAll()                           // op @a
 await bds.stop()                            // `stop`, wait for exit, kill after timeout; idempotent
 ```
 
-- `start()` spawns `bedrock_server.exe` on Windows, or `bedrock_server` with `LD_LIBRARY_PATH=<dir>` on Linux. The cwd is the instance dir, stdin is piped and the window is hidden. It resolves on `Server started.`. It rejects with `BdsStartError` (`reason`: `timeout` | `exit` | `portInUse` | `spawn` | `stopped`, plus `tail`, the last ~30 lines). On port-in-use it rejects as soon as BDS prints the line, and kills the process instead of waiting about 10 s for BDS to exit by itself. You can call `start()` again after the process has exited.
+- `start()` spawns the server described by the `launch` option (a core `LaunchSpec`, see below). Without one it uses `vanillaLaunchSpec(instance)`: `bedrock_server.exe` on Windows, or `bedrock_server` with `LD_LIBRARY_PATH=<dir>` on Linux, cwd the instance dir. stdin is piped and the window is hidden. It resolves once the server printed `Server started` (any flavor) and the game process is known (see below). It rejects with `BdsStartError` (`reason`: `timeout` | `exit` | `portInUse` | `spawn` | `stopped`, plus `tail`, the last ~30 lines). On port-in-use it rejects as soon as BDS prints the line, and kills the process instead of waiting about 10 s for BDS to exit by itself. You can call `start()` again after the process has exited.
 - `command(cmd, until, timeoutMs)` calls are serialised through a queue. A command is written only after the previous one has finished (matched, timed out or failed). It collects every non-blank, non-probe line printed after the write, until a line matches `until`, and rejects with `BdsCommandError` (`lines`) on timeout or exit.
 - The queue has two lanes. A queued `priority` job runs before every queued `normal` job; the job already running is never interrupted. `sendQueued(cmd, { priority?, onSent? })` writes a command in queue order without waiting for output and resolves with the host time taken right before the write (`say()` uses it).
 - `exit` reports `{ code, signal, expected }`. `expected` is false unless the exit came from `stop()`/`kill()` or a failed `start()`, so crashes and external kills show up as `expected: false`. `exit` fires on the child's `close`, after stdout has drained, so `Quit correctly` is seen first.
 - `line` gets every line (stdout and stderr) with the trailing `\r` stripped, including blank lines. All other events and command collection ignore blank lines.
 - `warning` (an extension of `BdsServerEvents`) reports failed affinity/priority/log-file operations. The server keeps running.
+
+### Flavors and launchers (`LaunchSpec`)
+
+```ts
+const bds = new BdsProcess(instance, { launch })  // launch: LaunchSpec from @bedperf/bds-install
+bds.on('serverPid', pid => {})                     // the game process was identified
+await bds.start()
+bds.serverPid    // game process (bedrock_server[_mod].exe); undefined until identified
+bds.launcherPid  // the spawned process (wine, endstone/python, ...), may equal serverPid
+bds.pid          // serverPid once known, launcherPid before; always the game process after start()
+await bds.auxPids()  // helpers matching auxProcessPatterns, e.g. wineserver
+```
+
+- The spawn is `command args` in `cwd` with `process.env + options.env + spec.env`. The injectable `spawn` (used by the CLI's placement wrapper) gets that command line unchanged.
+- **Game process.** If the basename of `command` matches `serverProcess.namePattern` (case-insensitive), the spawned process is the game (vanilla, LeviLamina's `bedrock_server_mod.exe` launched directly). Otherwise the process table is polled every 250 ms for the first process in the launcher's tree (the launcher itself included, breadth first) whose image name matches: Windows reads `Win32_Process` through one PowerShell/CIM call (pid, parent, name, creation time); Linux scans `/proc/*/stat` (ppid, comm) and also matches the basename of argv[0] from `/proc/<pid>/cmdline`, because Wine truncates `comm` to 15 characters (`bedrock_server_`) and puts the Windows image name in argv[0]. A parent link is followed only when the child is not older than the parent, so a reused pid cannot adopt strangers. If the server prints `Server started` but no game process turns up within `serverPidGraceMs` (10 s), `start()` fails with reason `noServerProcess`. Affinity/priority (`affinity`, `priority`) are applied to the game process.
+- **Exit.** The run ends when the spawned process exits (Endstone's Python and wine exit with the game). If the launcher exits while the game process is still alive, the game is killed and a `warning` is emitted (the exit is unexpected unless a stop was requested). If the game process disappears while the launcher keeps running (for `orphanLauncherMs`, 5 s, with no stop in progress), the launcher is killed so the crash shows up as `exit { expected: false }`.
+- **Kill.** `kill()` and the stop timeout kill the whole tree when `killTree` is set: Windows `taskkill /PID <launcher> /T /F`, then the game pid if still alive; Linux spawns the launcher `detached` (its own process group) and sends SIGKILL to the group and to the game pid. With `wine` set, `<wineserver> -k` (next to `wineBin` unless `wineserverBin` is given) runs with `WINEPREFIX` after every run, graceful or not, so no wineserver or Wine helper (services.exe, winedevice.exe, ...) outlives the server.
+- `stop()` writes `stopCommand` (default `stop`).
+- `auxPids()` matches `auxProcessPatterns` anywhere in the process table (wineserver is reparented, not a descendant). On Linux only processes of the current uid count and, for Wine, only those whose `/proc/<pid>/environ` has the spec's `WINEPREFIX` (a process whose environment cannot be read is kept). On Windows the match is by name only.
+- The process-table helpers (`processTree`, `findServerProcess`, `findAuxProcesses`, `createProcessHost`, ...) are exported from `proctree.ts`; all OS calls go through a `ProcessHost`, which tests replace (`processHost` option).
+
+Verified (e2e, Windows, BDS 1.26.60.6): LeviLamina 26.60.7 and LeviLamina + LeviOptimize 0.18.0 launched directly (`bedrock_server_mod.exe` is the game process, with `conhost.exe` and LeviLamina's `CrashLogger.exe` as children), Endstone 0.11.15 (`endstone.exe` → `python.exe` → `python.exe` → `bedrock_server.exe`, plus `crashpad_handler.exe`): ready, game pid, gametime at ~20 TPS, the `MC_SERVER` thread visible to sysmon, `stop()` in ~0.4–1.2 s with no process of the tree left.
 
 ### Tick counter (gametime)
 
@@ -57,7 +79,15 @@ counterTps(sampler.samples, t0, t1)                      // undefined below 90 %
 
 ### Parser
 
-`parseBdsLine(line)` returns `{ text, ts?, tsText?, level?, message, kind, ... }` with `kind` one of `ready`, `join`/`leave` (`player: { name, xuid? }`), `probe` (`record`), `portInUse` (`port?`), `error` (level ERROR/FATAL) or `other`. `ts` is epoch ms, parsed as local time. `parseLinePrefix`, `parseListHeader`, `parseListNames` and `parseGametime` (the `Gametime is <n>` reply, with or without the log prefix) are exported too. None of them do any I/O, so they work on saved `bds.log` files.
+`parseBdsLine(line)` returns `{ text, ts?, tsText?, level?, logger?, format?, message, kind, ... }` with `kind` one of `ready`, `join`/`leave` (`player: { name, xuid? }`), `probe` (`record`), `portInUse` (`port?`), `error` (level ERROR/FATAL in any format) or `other`. ANSI escape sequences (CSI colors, OSC) are stripped first, also from `text` (and so from the `line` event and the log file). Three prefixes are recognised (`format`):
+
+| format | example | notes |
+|---|---|---|
+| `bds` | `[2026-11-16 16:15:28:495 INFO] Server started.` | `ts` is epoch ms, parsed as local time |
+| `levilamina` | `10:34:37.034 IFO [Server] Server started in (1.6s)! For help, type "help" or "?"` | colored; levels `TRC DBG IFO WRN ERR FTL` (the PreLoader prints `INFO`); `logger` = `Server`, `LeviLamina`, `PreLoader`, mod names; no date, so no `ts` |
+| `endstone` | `[10:36:53 INFO]: Server started.` | levels `INFO WARNING ERROR CRITICAL ...`; the server logger has no name, other loggers keep `[name]` in `message` |
+
+Ready is `/^Server started\b/` on the message (LeviLamina rewrites the line). `normalizeLevel` maps any printed level to `TRACE | DEBUG | INFO | WARN | ERROR | FATAL`; `stripAnsi` is exported. `src/fixtures/` holds real console captures of each flavor (raw bytes, colors included) that the tests parse. `parseLinePrefix`, `parseListHeader`, `parseListNames` and `parseGametime` (the `Gametime is <n>` reply, with or without the log prefix) are exported too. None of them do any I/O, so they work on saved `bds.log` files.
 
 ## Caveats
 
@@ -68,4 +98,4 @@ counterTps(sampler.samples, t0, t1)                      // undefined below 90 %
 
 ## Tests
 
-`node --test` runs the unit tests against a fake child process plus line fixtures. `BEDPERF_E2E=1 node --test src/bds-process.e2e.test.ts` runs the real-BDS tests on ports 19220/19221 and 19224/19225 (the gametime test takes about 40 s). It uses `@bedperf/testkit` by relative path.
+`node --test` runs the unit tests against a fake child process plus line fixtures. `BEDPERF_E2E=1 node --test src/bds-process.e2e.test.ts` runs the real-BDS tests on ports 19220/19221 and 19224/19225 (the gametime test takes about 40 s). It uses `@bedperf/testkit` by relative path. `src/flavors.e2e.test.ts` runs installed modded flavors (variables listed at its top: `BEDPERF_E2E_LEVILAMINA`, `BEDPERF_E2E_LEVIOPTIMIZE`, `BEDPERF_E2E_ENDSTONE_BIN`/`_DIR`, `BEDPERF_E2E_WINE_DIR`/`_BIN`/`_PREFIX`); it uses `@bedperf/sysmon` by relative path to check the `MC_SERVER` thread.
