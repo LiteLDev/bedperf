@@ -1,6 +1,6 @@
 # bedperf
 
-A performance benchmark harness for Minecraft Bedrock Edition. Phase 1 targets the **Bedrock Dedicated Server (BDS)** and runs on a stock, unmodded BDS. A LeviLamina-based deep profiler is planned as an optional later layer.
+A performance benchmark harness for Minecraft Bedrock Edition servers. It runs the **Bedrock Dedicated Server (BDS)** and five builds on top of it: LeviLamina, LeviLamina + LeviOptimize and Endstone, plus the two LeviLamina builds under Wine on Linux. The server runs alone on its machine, and the bots run on the same machine or on other machines. A LeviLamina-based deep profiler is planned as an optional later layer.
 
 The headline metric is **the largest number of players the server can hold while keeping 20 TPS**. The players are [bedboo](https://github.com/LiteLDev/bedboo) bots running a chosen scenario. Every run also records the scaling curve and secondary metrics. [docs/methodology.md](docs/methodology.md) defines all metrics and the pass criteria.
 
@@ -10,16 +10,17 @@ The headline metric is **the largest number of players the server can hold while
 |---|---|
 | `packages/core` | shared contracts: types, probe line codec, stats helpers |
 | `packages/testkit` | throwaway BDS launcher and bedboo bot helper, for tests and e2e checks |
-| `packages/bds-install` | resolve, download, cache and extract BDS; create instances, properties, packs and world snapshots |
-| `packages/bds-process` | BDS process control, stdout event parser, console command channel |
+| `packages/bds-install` | resolve, download, cache and extract BDS; install LeviLamina (lip) and Endstone (pip) builds; create instances, properties, packs and world snapshots |
+| `packages/bds-process` | server process control (direct or through a launcher: Wine, Endstone), console parser for the BDS, LeviLamina and Endstone formats, console command channel |
 | `packages/probe-addon` | Script API behavior pack reporting in-tick TPS, tick intervals and entity counts on stdout |
 | `packages/sysmon` | OS sampler: process and per-thread CPU (main-thread utilisation), memory, network |
 | `packages/placement` | CPU topology (P/E classes, SMT, VMs), server/bot/harness CPU placement planning, apply and per-thread verification |
 | `packages/loadgen` | multi-process bedboo bot fleet with `scaleTo(n)` and bot-side metrics |
+| `packages/agent` | `bedperf agent`: runs bot workers on other machines for the orchestrator (TCP control link, token auth, telemetry) |
 | `packages/scenarios` | workloads: idle, walk, explore, build, chat, mobs, entity-stress |
 | `packages/orchestrator` | benchmark config, step ramp and bisection, pass criteria, run recorder |
 | `packages/report` | run analysis and a self-contained HTML report and comparison |
-| `packages/cli` | the `bedperf` command (`run`, `report`, `analyze`, `compare`, `install`, `scenarios`) that wires everything together |
+| `packages/cli` | the `bedperf` command (`run`, `report`, `analyze`, `compare`, `install`, `agent`, `scenarios`) that wires everything together |
 | `vendor/bedboo` | git submodule. bedboo only works inside a pnpm workspace that carries its overrides and patches, so `scripts/sync-bedboo.mjs` generates our `pnpm-workspace.yaml` from its own |
 
 ## Setup
@@ -43,6 +44,8 @@ Tests and e2e checks start BDS from a pristine extracted build in a shared cache
 - Linux: `~/.cache/bedperf/bds/<version>/`
 - `BEDPERF_CACHE_DIR` overrides both and uses `<dir>/bds/<version>/`.
 
+Modded builds (`--server`) live next to it in `servers/<preset>-<hash>/`, and a lip downloaded by bedperf in `tools/` (see [docs/server-flavors.md](docs/server-flavors.md#cache-layout-and-markers)).
+
 Downloading BDS means you accept the [Minecraft EULA](https://www.minecraft.net/eula). To fetch a build by hand (`bds-install` automates this):
 
 ```bash
@@ -59,15 +62,56 @@ corepack pnpm bedperf run --scenario walk --set ramp.max=200 --set loadgen.botsP
 
 This writes `runs/<id>/` (config, meta, samples.jsonl, steps.json, result.json, bds.log) and `report.html`. See [packages/cli/README.md](packages/cli/README.md) for every option.
 
-`--server <preset>` runs another implementation of the same benchmark: `bds` (default), `levilamina`, `levilamina-levioptimize`, `endstone`, and on Linux `levilamina-wine`, `levilamina-levioptimize-wine`. [docker/README.md](docker/README.md) has a Linux image for the server machine.
+### Other server implementations
 
-Bots are expensive: about 0.16 cores and 60 MB each for `walk`. When the bots share a host with BDS, they saturate before a fast server does, and the result is then flagged `loadgenLimited`. To measure real capacity, run the bots on a separate machine.
+`--server <preset>` runs the same benchmark on another implementation:
+
+| preset | host |
+|---|---|
+| `bds` (default) | Windows, Linux |
+| `levilamina`, `levilamina-levioptimize` | Windows |
+| `endstone` | Windows, Linux (Python ≥ 3.11; on Linux also its shared libpython, e.g. `libpython3.11`) |
+| `levilamina-wine`, `levilamina-levioptimize-wine` | Linux (lip installs its own Wine) |
+
+```bash
+corepack pnpm bedperf install --server levilamina-levioptimize --accept-eula   # optional: install ahead of the run
+corepack pnpm bedperf run --server levilamina-levioptimize --scenario walk --accept-eula
+corepack pnpm bedperf run --server endstone --set server.versions.endstone=0.11.15 --accept-eula
+```
+
+Modded flavors run BDS 1.26.60.6 with LeviLamina 26.60.7, LeviOptimize 0.18.0 and Endstone 0.11.15 unless pinned otherwise. LeviLamina needs `lip` on PATH on Windows; on Linux bedperf downloads it. To compare implementations, run them on one machine with the same config and `bdsVersion: "1.26.60.6"`, interleaved in a session (`--configs`), then `bedperf compare a b c ...`. [docs/server-flavors.md](docs/server-flavors.md) explains what each preset installs, what is recorded, the confounds (Endstone's mimalloc on Linux, Wine, loader config) and how to compare implementations fairly.
+
+### Bots on other machines
+
+Bots are expensive: about 0.16 cores and 60 MB each for `walk`. When the bots share a machine with the server, they saturate before a fast server does, and the result is then flagged `loadgenLimited`. To measure real capacity, keep the server alone on its machine and run the bots on others with `bedperf agent`:
+
+```bash
+# on each bot machine (same bedperf commit)
+export BEDPERF_AGENT_TOKEN=<shared secret>
+corepack pnpm bedperf agent --listen 0.0.0.0:19260 --placement auto
+
+# on the server machine
+export BEDPERF_AGENT_TOKEN=<shared secret>
+corepack pnpm bedperf run --agents 10.0.0.21:19260,10.0.0.22:19260 --bot-target-host 10.0.0.10 --scenario walk
+```
+
+`--bot-target-host` is the address of the server machine that the bots dial (UDP, the run's `--port`, default 19200). The orchestrator dials the agents over TCP (default port 19260). Agents can also be listed in the machine profile (`agents`). [docs/distributed.md](docs/distributed.md) covers the protocol, networking, the gates that apply to agent machines, the recorded topology and a worked example.
+
+### Docker
+
+[docker/README.md](docker/README.md) has two images, built from the repository root with `vendor/bedboo` checked out:
+
+```bash
+docker build -f docker/agent.Dockerfile --build-arg BEDPERF_GIT=$(git rev-parse HEAD) -t bedperf-agent .          # a bot machine
+docker build -f docker/server-linux.Dockerfile --build-arg BEDPERF_GIT=$(git rev-parse HEAD) -t bedperf-server .   # a Linux server machine
+docker run --rm -e BEDPERF_AGENT_TOKEN=<secret> -p 19260:19260 bedperf-agent
+```
 
 ## Rigor
 
-A number is only reported when the measurement behind it can be trusted. bedperf follows numbered rules R1–R12 ([docs/methodology.md](docs/methodology.md#rules)): one config, bot source and CPU placement per comparison; one measured run per machine, with an idle gate before each repeat and interference sampling during every measured window; a fresh instance per repeat; no console commands inside measured windows except the probes; TPS from two independent per-tick sources (the BDS tick counter and the in-tick probe) that must agree; failures counted as results; capacity found by search; and comparisons that claim a difference only on complete separation across repeats.
+A number is only reported when the measurement behind it can be trusted. bedperf follows numbered rules R1–R14 ([docs/methodology.md](docs/methodology.md#rules)): one config, bot source and CPU placement per comparison; one measured run per machine, with an idle gate before each repeat and interference sampling during every measured window; a fresh instance per repeat; no console commands inside measured windows except the probes; TPS from two independent per-tick sources (the BDS tick counter and the in-tick probe) that must agree; failures counted as results; capacity found by search; comparisons that claim a difference only on complete separation across repeats; the server implementation pinned and recorded; and remote bot machines held to the same gates as the server machine.
 
-Each repeat ends `ok`, `invalid` (the machine or harness failed; rerun once) or `server_failed` (a result; never rerun), and the headline is the median [min, max] over ok repeats with k/n. `bedperf analyze runs/<id>` recomputes the analysis from the raw files byte for byte, and `bedperf compare` refuses runs with a different benchmark config, machine, BDS version, bot topology, analysis version or placement profile unless `--force`. Runs that differ only in the server (BDS, LeviLamina, LeviLamina + LeviOptimize, Endstone, on Wine or native) compare as an implementation comparison; `bedperf compare a b c ...` gives pairwise verdict matrices and a ranking. [docs/comparison-bedrock-bench.md](docs/comparison-bedrock-bench.md) credits the [bedrock-bench](https://github.com/EndstoneMC/bedrock-bench) ideas this builds on and compares the two harnesses.
+Each repeat ends `ok`, `invalid` (the machine or harness failed; rerun once) or `server_failed` (a result; never rerun), and the headline is the median [min, max] over ok repeats with k/n. `bedperf analyze runs/<id>` recomputes the analysis from the raw files byte for byte, and `bedperf compare` refuses runs with a different benchmark config, machine, BDS version, bot topology, analysis version or placement profile unless `--force`; agents that are lost, saturated or loaded by other work invalidate the steps they touch. Runs that differ only in the server (BDS, LeviLamina, LeviLamina + LeviOptimize and Endstone on Windows; BDS, Endstone and the Wine presets on Linux) compare as an implementation comparison; `bedperf compare a b c ...` gives pairwise verdict matrices and a ranking. [docs/comparison-bedrock-bench.md](docs/comparison-bedrock-bench.md) credits the [bedrock-bench](https://github.com/EndstoneMC/bedrock-bench) ideas this builds on and compares the two harnesses.
 
 ## Conventions
 
