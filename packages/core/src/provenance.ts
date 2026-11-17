@@ -51,6 +51,15 @@ export function sha256Json (v: unknown): string {
   return sha256Hex(canonicalJson(v))
 }
 
+/**
+ * sha256Json of a config without its `server` section: two runs with the same value ran the same
+ * benchmark, possibly on different server implementations.
+ */
+export function benchConfigSha256 (config: object): string {
+  const { server: _server, ...rest } = config as Record<string, unknown>
+  return sha256Json(rest)
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // OS / git calls (injectable)
 // ---------------------------------------------------------------------------------------------------------------

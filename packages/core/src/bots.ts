@@ -1,4 +1,5 @@
 import type { Summary } from './stats.ts'
+import type { AgentFleetSlice } from './topology.ts'
 
 /** Aggregate state + metrics of the bot fleet, emitted periodically by the load generator. */
 export interface BotFleetStats {
@@ -62,5 +63,7 @@ export interface BotFleetStats {
     saturated: boolean
     /** Sum over workers of whole-process CPU, in cores (load the fleet puts on its host). */
     totalCores?: number
+    /** Per-agent breakdown when workers run on remote agents; `saturated` above is the OR over them. */
+    agents?: AgentFleetSlice[]
   }
 }

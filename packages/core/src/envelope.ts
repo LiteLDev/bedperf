@@ -1,5 +1,5 @@
 /** Origin of a time-series record. */
-export type Source = 'probe' | 'sys' | 'bot' | 'bds' | 'orch'
+export type Source = 'probe' | 'sys' | 'bot' | 'bds' | 'orch' | 'agent'
 
 /**
  * One line of `samples.jsonl` in a run directory. Every collector wraps its
@@ -30,6 +30,10 @@ export const Kinds = {
   bdsEvent: 'bds.event',
   /** `GametimeSample` from the `time query gametime` tick-counter sampler. */
   bdsGametime: 'bds.gametime',
+  /** `AgentTelemetry` from a remote bot agent's machine. */
+  agentTelemetry: 'agent.telemetry',
+  /** `AgentLinkEvent`: agent connected / lost / link stats. */
+  agentLink: 'agent.link',
   stepStart: 'orch.step.start',
   stepEnd: 'orch.step.end',
   runStart: 'orch.run.start',

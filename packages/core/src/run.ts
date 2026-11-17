@@ -1,5 +1,7 @@
 import type { PlacementCheck, PlacementKind, PlacementPriority } from './placement.ts'
 import type { Summary } from './stats.ts'
+import type { ServerArtifact, ServerBuildInfo } from './server.ts'
+import type { TopologyMeta } from './topology.ts'
 
 /** Files inside `runs/<runId>/`. */
 export const RUN_FILES = {
@@ -33,6 +35,12 @@ export interface RunMeta {
   colocated: boolean
   /** sha256Json of config.json's content (as written, after scrubbing). */
   configSha256?: string
+  /** `benchConfigSha256`: the config without its `server` section (same benchmark, any server). */
+  benchConfigSha256?: string
+  /** The server implementation that ran (absent for old runs: vanilla BDS). */
+  server?: ServerBuildInfo
+  /** Where the bots ran (absent for old runs: local). */
+  topology?: TopologyMeta
   machine?: MachineInfo
   harness?: HarnessInfo
   artifacts?: RunArtifacts
@@ -101,6 +109,8 @@ export interface RunArtifacts {
   /** `hashTree` of the probe behavior pack directory. */
   probePackSha256?: string
   bedbooCommit?: string
+  /** Server build inputs (loader, mods, launcher, wine), see `ServerBuildInfo.artifacts`. */
+  server?: ServerArtifact[]
 }
 
 export interface FileDigest {
