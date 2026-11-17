@@ -2,10 +2,12 @@
  * Deterministic simulation of BDS + bot fleet + OS samplers + placement + idle gate on a virtual
  * clock, for tests and dry runs of the engine. Not a performance model of anything real.
  */
-import type {
-  AgentFleetSlice, AgentIdleCheckResult, AgentInfo, AgentLinkStats, AgentSpec, BdsInstance, BdsServer, BdsServerEvents, BotFleetStats,
-  GametimeSample, InterferenceSample, LoadGenerator, LoadGenOptions, PlacementPlan, PlacementVerification, ProbeSample, ProcessGroupName,
-  Sampler, SysSample
+import {
+  FLAVOR_BDS_VERSION, NEUTRAL_LOADER_CONFIG, resolveServerSpec, serverBuildSha256, serverLabel, serverSpecSha256, sha256Json,
+  type AgentFleetSlice, type AgentIdleCheckResult, type AgentInfo, type AgentLinkStats, type AgentSpec, type BdsInstance, type BdsServer,
+  type BdsServerEvents, type BotFleetStats, type GametimeSample, type InterferenceSample, type LoadGenerator, type LoadGenOptions, type PlacementPlan,
+  type PlacementVerification, type ProbeSample, type ProcessGroupName, type Sampler, type ServerArtifact, type ServerBuildInfo, type ServerSpec,
+  type SysSample
 } from '@bedperf/core'
 import { EngineAgents, type AgentEvents, type AgentHandleLike, type AgentPoolLike } from './agents.ts'
 import { HOLD_COMMAND_RE, silentLogger, type EngineDeps, type EnginePlacement, type IdleGateResult, type Logger, type MachineSamplerLike } from './engine.ts'
@@ -686,6 +688,48 @@ export function simAgents (world: SimWorld, opts: { idleCheck?: boolean } = {}):
   })
 }
 
+/**
+ * meta.server of a simulated server: the resolved spec, the pinned BDS build of a modded flavor and
+ * synthetic (deterministic) artifact hashes, so report and compare flows see a realistic build.
+ */
+export function simServerBuild (specIn: ServerSpec | undefined, bdsVersion?: string): ServerBuildInfo {
+  const spec = resolveServerSpec(specIn)
+  const bds = bdsVersion ?? (spec.flavor === 'bds' ? 'sim' : FLAVOR_BDS_VERSION[spec.flavor])
+  const levi = spec.flavor === 'levilamina'
+  const fake = (...parts: string[]): string => sha256Json(['sim', ...parts])
+  const artifacts: ServerArtifact[] = [{ name: 'bds', version: bds, sha256: fake('bds', bds) }]
+  const add = (name: string, version: string | undefined): void => { artifacts.push({ name, ...(version !== undefined ? { version } : {}), sha256: fake(name, version ?? '') }) }
+  if (levi) { add('levilamina', spec.versions.levilamina); add('lip', 'sim') }
+  for (const m of spec.mods) add(m, spec.versions[m])
+  if (spec.flavor === 'endstone') add('endstone', spec.versions.endstone)
+  if (spec.runtime === 'wine') add('wine', 'sim')
+  const info: ServerBuildInfo = {
+    spec,
+    label: serverLabel(spec),
+    specSha256: serverSpecSha256(spec),
+    bdsVersion: bds,
+    binaryPlatform: levi ? 'win' : 'linux',
+    exeName: levi ? 'bedrock_server_mod.exe' : 'bedrock_server',
+    artifacts,
+    buildSha256: serverBuildSha256(artifacts),
+    notes: ['simulated server']
+  }
+  if (levi) info.loaderConfig = mergeDeep(NEUTRAL_LOADER_CONFIG.levilamina, spec.loaderConfig ?? {})
+  return info
+}
+
+const isPlainObj = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === 'object' && !Array.isArray(x)
+
+/** Objects merge key by key, anything else in `over` replaces (as bds-install's `deepMerge`). */
+function mergeDeep (base: Record<string, unknown>, over: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = structuredClone(base)
+  for (const [k, v] of Object.entries(over)) {
+    const b = out[k]
+    out[k] = isPlainObj(b) && isPlainObj(v) ? mergeDeep(b, v) : structuredClone(v)
+  }
+  return out
+}
+
 export interface SimFeatures {
   placement?: boolean
   idleCheck?: boolean
@@ -693,8 +737,15 @@ export interface SimFeatures {
   gametime?: boolean
 }
 
-/** Engine deps wired to a fresh simulated world. Every feature (placement, idle gate, interference, tick counter) is on unless disabled. */
-export function createSimDeps (model: SimModel, runsDir: string, opts: { logger?: Logger, setup?: string[], features?: SimFeatures } = {}): { deps: EngineDeps, world: SimWorld } {
+/**
+ * Engine deps wired to a fresh simulated world. Every feature (placement, idle gate, interference, tick
+ * counter) is on unless disabled. `server`: the implementation the simulated server stands for (meta.server).
+ */
+export function createSimDeps (
+  model: SimModel,
+  runsDir: string,
+  opts: { logger?: Logger, setup?: string[], features?: SimFeatures, server?: ServerSpec } = {}
+): { deps: EngineDeps, world: SimWorld } {
   const world = createSimWorld(model)
   const f = { placement: true, idleCheck: true, interference: true, gametime: true, ...opts.features }
   const deps: EngineDeps = {
@@ -715,6 +766,7 @@ export function createSimDeps (model: SimModel, runsDir: string, opts: { logger?
       if (open) world.holds++
     }
   }
+  if (opts.server !== undefined) deps.serverBuild = simServerBuild(opts.server)
   if (f.placement) deps.placement = simPlacement(world, model.agents !== undefined ? SIM_REMOTE_PLAN : SIM_PLAN)
   if (f.idleCheck) {
     deps.idleCheck = async ({ durationSec, thresholds }): Promise<IdleGateResult> => {

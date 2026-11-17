@@ -3,7 +3,7 @@ import {
   type BdsServer, type BdsServerEvents, type BenchmarkConfig, type BotFleetStats, type Envelope, type ForeignProcess, type GametimeSample, type GatesConfig,
   type InterferenceSample, type InterferenceSummary, type InterferenceThresholds, type LoadGenerator, type LoadGenOptions, type PlacementPlan,
   type PlacementVerification, type ProbeRecord, type ProcessGroupName, type RepeatStatus, type RepeatSummary, type RunMeta,
-  type RunPlacementMeta, type RunResult, type Sampler, type StepResult, type SysSample, type AgentIdleCheckResult, type TopologyMeta
+  type RunPlacementMeta, type RunResult, type Sampler, type ServerBuildInfo, type StepResult, type SysSample, type AgentIdleCheckResult, type TopologyMeta
 } from '@bedperf/core'
 import { isLoopbackHost, localTopology, type EngineAgents } from './agents.ts'
 import { InvalidCodes, LOADGEN_SATURATED_REASON, stepOutcome } from './criteria.ts'
@@ -31,8 +31,11 @@ export interface EnginePlacement {
   plan: PlacementPlan
   /** How the server set is applied (`preexec`, `post-spawn`); recorded in meta.json. */
   method: string
-  /** Verify the server process against `plan.serverCpus` / `plan.priority`. */
-  verifyServer (pid: number): Promise<PlacementVerification>
+  /**
+   * Verify the server's game process (`pid`) against `plan.serverCpus` / `plan.priority`; `server` lets
+   * an implementation also check its launcher and helper processes.
+   */
+  verifyServer (pid: number, server?: BdsServer): Promise<PlacementVerification>
   /** Put a load-generator worker on the bot CPUs. */
   applyWorker? (pid: number): Promise<{ ok: boolean, error?: string }>
 }
@@ -88,6 +91,8 @@ export interface EngineDeps {
    * the bots dial `agents.botTargetHost`. Absent = bots on this machine.
    */
   agents?: EngineAgents
+  /** The server build `createServer` runs; recorded as meta.server (and meta.artifacts.server). */
+  serverBuild?: ServerBuildInfo
 }
 
 export interface RunOptions {
@@ -287,6 +292,20 @@ function resolvedGatesMeta (config: BenchmarkConfig, deps: EngineDeps): Record<s
   }
 }
 
+/**
+ * The machine sampler's `server` group: the game process, its launcher (with descendants, e.g.
+ * Endstone's Python chain) and helpers outside the tree (wineserver). Never throws.
+ */
+async function serverGroupPids (server: BdsServer): Promise<number[]> {
+  const pids = new Set<number>()
+  if (server.pid !== undefined) pids.add(server.pid)
+  if (server.launcherPid !== undefined) pids.add(server.launcherPid)
+  try {
+    for (const p of (await server.auxPids?.()) ?? []) pids.add(p)
+  } catch {}
+  return [...pids]
+}
+
 interface RepeatResources {
   server?: BdsServer
   sampler?: Sampler<SysSample>
@@ -331,7 +350,9 @@ export class BenchmarkRun {
       await connectAgentsGate(deps)
       topology = deps.agents.topology()
     }
+    const build = deps.serverBuild
     const meta: Partial<Omit<RunMeta, 'runId' | 'startedAt'>> = {
+      ...(build !== undefined ? { server: build } : {}),
       ...(deps.placement !== undefined ? { placement: placementMeta(deps.placement) } : {}),
       gates: resolvedGatesMeta(config, deps),
       network: { loopback: isLoopbackHost(botHost(deps)) },
@@ -340,6 +361,7 @@ export class BenchmarkRun {
       // bots on other machines are never colocated, whatever the caller assumed
       ...(deps.agents !== undefined ? { colocated: false } : {})
     }
+    if (build !== undefined) meta.artifacts = { ...meta.artifacts, server: build.artifacts }
     const rec = await RunRecorder.create({
       runsDir: deps.runsDir,
       config,
@@ -480,7 +502,7 @@ export class BenchmarkRun {
     let ok: boolean
     let issues: string[]
     try {
-      const v = await pl.verifyServer(pid)
+      const v = await pl.verifyServer(pid, server)
       ok = v.verified
       issues = v.violations.map(x => x.message)
     } catch (err) {
@@ -584,13 +606,16 @@ export class BenchmarkRun {
       if (reason === 'exit' || reason === 'timeout') return serverFailed(`server did not start: ${(err as Error).message.split('\n')[0]}`)
       throw err
     }
-    rec.record('bds', Kinds.bdsEvent, { event: 'ready', pid: server.pid })
+    // `pid` is the game process after start() (for a launcher-started flavor, not the launcher).
     const pid = server.pid
+    const launcherPid = server.launcherPid
+    rec.record('bds', Kinds.bdsEvent, { event: 'ready', pid, ...(launcherPid !== undefined && launcherPid !== pid ? { launcherPid } : {}) })
 
     const serverCpus = deps.placement?.plan.serverCpus
     if (deps.createMachineSampler !== undefined) {
       const m = res.machine = deps.createMachineSampler(serverCpus !== undefined ? { serverCpus } : {})
-      if (pid !== undefined) m.setGroup('server', [pid])
+      const group = await serverGroupPids(server)
+      if (group.length > 0) m.setGroup('server', group)
       await m.start(s => { rec.record('sys', Kinds.sysInterference, s) })
     }
 
@@ -728,6 +753,11 @@ export class BenchmarkRun {
       const lostInSettle = agentLost()
       if (lostInSettle !== undefined) return lostInSettle
 
+      // Helpers come and go (Wine starts services on demand): refresh the server group before each hold.
+      if (res.machine !== undefined) {
+        const group = await serverGroupPids(server)
+        if (group.length > 0) res.machine.setGroup('server', group)
+      }
       const v0 = await this.verify(server, r, 'hold_start', index)
       const markLabel = `step-${index}-start`
       this.setHold(true)

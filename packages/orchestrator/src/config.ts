@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import {
   DEFAULT_COOLDOWN_SEC, DEFAULT_CRITERIA, DEFAULT_GATES, DEFAULT_PLACEMENT, DEFAULT_SAMPLING, DEFAULT_SETTLE, DEFAULT_TPS_DIVERGENCE,
-  type BenchmarkConfig, type CpuSpec, type GatesConfig, type PassCriteria, type PlacementConfig, type RampConfig, type SettleConfig
+  resolveServerSpec, SERVER_FLAVORS, SERVER_MODS, SERVER_RUNTIMES,
+  type BenchmarkConfig, type CpuSpec, type GatesConfig, type PassCriteria, type PlacementConfig, type RampConfig, type ServerFlavor, type ServerMod,
+  type ServerSpec, type ServerVersions, type SettleConfig
 } from '@bedperf/core'
 
 /** Defaults applied to `ramp` fields that are omitted. */
@@ -108,7 +110,7 @@ class Validator {
 }
 
 const TOP_KEYS = [
-  '$schema', 'name', 'bdsVersion', 'botVersion', 'serverProperties', 'world', 'scenario', 'loadgen', 'ramp', 'criteria', 'repeats', 'warmupSec', 'seed',
+  '$schema', 'name', 'bdsVersion', 'botVersion', 'server', 'serverProperties', 'world', 'scenario', 'loadgen', 'ramp', 'criteria', 'repeats', 'warmupSec', 'seed',
   'placement', 'gates', 'sampling', 'cooldownSec'
 ] as const
 const RAMP_KEYS = ['start', 'step', 'max', 'settleSec', 'holdSec', 'resolution', 'settle'] as const
@@ -135,6 +137,68 @@ function cpuSpec (v: Validator, o: Obj, key: string, path: string, def: CpuSpec,
   v.fail(p, `expected "${keyword}", a CPU list string or a non-empty array of CPU indices`, val)
   return def
 }
+const SERVER_KEYS = ['flavor', 'mods', 'runtime', 'versions', 'loaderConfig'] as const
+const SERVER_VERSION_KEYS = ['levilamina', 'levioptimize', 'endstone'] as const
+/** The flavor a pinned component version applies to (`levioptimize`: a mod, so LeviLamina). */
+const VERSION_FLAVOR: Record<typeof SERVER_VERSION_KEYS[number], ServerFlavor> = { levilamina: 'levilamina', levioptimize: 'levilamina', endstone: 'endstone' }
+
+/**
+ * `server`: which implementation runs (absent: vanilla BDS). Checks what can be checked without the
+ * host: mods and Wine are LeviLamina-only, versions are non-empty strings, `loaderConfig` is an
+ * object (LeviLamina only). Whether the runtime fits the host is checked at run time.
+ */
+function serverSpec (v: Validator, raw: Obj, P: string): ServerSpec | undefined {
+  const s = v.obj(raw, 'server', P)
+  if (s === undefined) return undefined
+  const SP = `${P}.server`
+  v.unknownKeys(s, SP, SERVER_KEYS)
+  const flavor = s['flavor']
+  if (flavor === undefined) v.fail(`${SP}.flavor`, `required, one of: ${SERVER_FLAVORS.join(', ')}`)
+  else if (!(SERVER_FLAVORS as readonly unknown[]).includes(flavor)) v.fail(`${SP}.flavor`, `expected one of: ${SERVER_FLAVORS.join(', ')}`, flavor)
+  const f = (SERVER_FLAVORS as readonly unknown[]).includes(flavor) ? flavor as ServerFlavor : undefined
+
+  const runtime = s['runtime'] ?? 'native'
+  if (!(SERVER_RUNTIMES as readonly unknown[]).includes(runtime)) v.fail(`${SP}.runtime`, `expected one of: ${SERVER_RUNTIMES.join(', ')}`, runtime)
+  else if (runtime === 'wine' && f !== undefined && f !== 'levilamina') v.fail(`${SP}.runtime`, `"wine" runs the Windows build of LeviLamina only (flavor ${f} runs natively)`)
+
+  const mods: ServerMod[] = []
+  const m = s['mods']
+  if (m !== undefined) {
+    if (!Array.isArray(m)) v.fail(`${SP}.mods`, 'expected an array of mod names', m)
+    else {
+      for (const x of m) {
+        if ((SERVER_MODS as readonly unknown[]).includes(x)) mods.push(x as ServerMod)
+        else v.fail(`${SP}.mods`, `unknown mod (known: ${SERVER_MODS.join(', ')})`, x)
+      }
+      if (m.length > 0 && f !== undefined && f !== 'levilamina') v.fail(`${SP}.mods`, `mods need flavor levilamina (got ${f})`)
+    }
+  }
+
+  const versions: ServerVersions = {}
+  const vs = v.obj(s, 'versions', SP)
+  if (vs !== undefined) {
+    v.unknownKeys(vs, `${SP}.versions`, SERVER_VERSION_KEYS)
+    for (const k of SERVER_VERSION_KEYS) {
+      const val = v.str(vs, k, `${SP}.versions`)
+      if (val === undefined) continue
+      if (!/^[0-9A-Za-z][0-9A-Za-z.+-]*$/.test(val)) v.fail(`${SP}.versions.${k}`, 'expected a version like 1.2.3', val)
+      else if (f !== undefined && VERSION_FLAVOR[k] !== f) v.fail(`${SP}.versions.${k}`, `applies to flavor ${VERSION_FLAVOR[k]}, not ${f}`)
+      else if (k === 'levioptimize' && !mods.includes('levioptimize')) v.fail(`${SP}.versions.${k}`, 'set, but mods does not include levioptimize')
+      else versions[k] = val
+    }
+  }
+
+  let loaderConfig: Record<string, unknown> | undefined
+  const lc = s['loaderConfig']
+  if (lc !== undefined) {
+    if (!isObj(lc)) v.fail(`${SP}.loaderConfig`, 'expected an object', lc)
+    else if (f !== undefined && f !== 'levilamina') v.fail(`${SP}.loaderConfig`, `only LeviLamina takes a loader config (flavor ${f})`)
+    else loaderConfig = structuredClone(lc)
+  }
+  if (f === undefined) return undefined
+  return resolveServerSpec({ flavor: f, mods, runtime: runtime === 'wine' ? 'wine' : 'native', versions, ...(loaderConfig !== undefined ? { loaderConfig } : {}) })
+}
+
 const WORLD_KEYS = ['snapshot', 'seed', 'levelType'] as const
 const SCENARIO_KEYS = ['module', 'params'] as const
 const LOADGEN_KEYS = ['botsPerWorker', 'joinIntervalMs'] as const
@@ -153,6 +217,7 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
   if (name !== '' && !/^[A-Za-z0-9._-]+$/.test(name)) v.fail(`${P}.name`, 'may only contain letters, digits, ".", "_" and "-"', name)
   const bdsVersion = v.str(raw, 'bdsVersion', P, { def: 'latest' }) ?? 'latest'
   const botVersion = v.str(raw, 'botVersion', P)
+  const server = serverSpec(v, raw, P)
 
   // serverProperties
   const serverProperties: BenchmarkConfig['serverProperties'] = {}
@@ -300,6 +365,7 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
     name, bdsVersion, serverProperties, world, scenario, loadgen, ramp, criteria, repeats, warmupSec, seed, placement, gates, sampling, cooldownSec
   }
   if (botVersion !== undefined) cfg.botVersion = botVersion
+  if (server !== undefined) cfg.server = server
   return cfg
 }
 
