@@ -39,6 +39,11 @@ export interface AgentInfo {
   cpus: number
   /** Agent-side placement of workers, when it pinned them. */
   placement?: { botCpus: number[], verified: boolean }
+  /**
+   * CPUs its saturation and interference verdicts are restricted to (the agent runs inside a CPU
+   * allocation on a shared machine). Absent: the whole machine.
+   */
+  cpuScope?: number[]
 }
 
 /** Idle-check outcome an agent reports for its own machine (sysmon `IdleCheckResult` without raw samples). */
@@ -113,6 +118,8 @@ export interface TopologyMeta {
     maxBots?: number
     link?: AgentLinkStats
     placement?: { botCpus: number[], verified: boolean }
+    /** `AgentInfo.cpuScope`: the CPUs its saturation and interference verdicts covered. */
+    cpuScope?: number[]
   }>
   /** `topologySha256(...)`: identity used for comparability. */
   sha256: string

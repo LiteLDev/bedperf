@@ -349,3 +349,33 @@ test('agent ignores unknown frames and kills workers on link loss', async () => 
   await until(() => FakeWorker.all[0]!.killed)
   await a.close()
 })
+
+test('cpuScope: telemetry and the idle check only count the agent CPUs', async () => {
+  // Machine-wide: 2.05 cores foreign (another tenant on CPUs 2-3). Inside the scope [0,1]: 0.05.
+  const sample = { cpuBusy: [0.5, 0.5, 1, 1], busyCores: 3, groups: { server: 0, bots: 0.9, harness: 0.05 }, foreignCores: 2.05 }
+  const idleSample: InterferenceSample = { t: 1, intervalMs: 1000, cpuBusy: [0.05, 0, 1, 1], busyCores: 2.05, groups: { server: 0, bots: 0, harness: 0 }, foreignCores: 2.05 }
+  const mk = (cpuScope: AgentOptions['cpuScope']): Promise<AgentServer> => agent({
+    cpuScope,
+    createMachineSampler: fakeSampler(sample).factory,
+    idleCheck: async () => ({ ok: false, reasons: ['foreign load 2.05 cores > 0.25'], summary: { samples: 3, foreignMean: 2.05, foreignPeak10s: 2.05 }, top: [], samples: [idleSample, { ...idleSample, t: 2 }, { ...idleSample, t: 3 }] })
+  })
+  for (const [cpuScope, saturated, idleOk] of [[[0, 1], false, true], ['machine', true, false]] as const) {
+    const a = await mk(cpuScope as AgentOptions['cpuScope'])
+    assert.deepEqual(a.info.cpuScope, cpuScope === 'machine' ? undefined : [0, 1])
+    const tele: AgentTelemetry[] = []
+    const pool = await connectAgents([{ address: addr(a), name: 'x' }], { token: TOKEN, harnessGit: HARNESS.git!, log: () => {}, onTelemetry: t => tele.push(t) })
+    pool.startTelemetry(20)
+    await until(() => tele.length >= 1)
+    pool.startTelemetry(0)
+    assert.equal(tele[0]!.saturated, saturated, String(tele[0]!.reasons))
+    if (cpuScope !== 'machine') {
+      assert.equal(tele[0]!.logicalCpus, 2)
+      assert.ok(Math.abs(tele[0]!.foreignCores - 0.05) < 1e-9)
+    }
+    const idle = await pool.idleCheckAll({ durationSec: 1 })
+    assert.equal(idle['x']!.ok, idleOk, String(idle['x']!.reasons))
+    if (cpuScope !== 'machine') assert.ok(Math.abs(idle['x']!.summary.foreignMean - 0.05) < 1e-9)
+    await pool.close()
+    await a.close()
+  }
+})

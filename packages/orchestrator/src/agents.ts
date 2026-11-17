@@ -216,6 +216,7 @@ export class EngineAgents<P extends AgentPoolLike = AgentPoolLike> {
       const l = this.link[a.name]
       if (l !== undefined) x.link = l
       if (a.info.placement !== undefined) x.placement = a.info.placement
+      if (a.info.cpuScope !== undefined) x.cpuScope = a.info.cpuScope
       return x
     })
     return { mode: 'remote', botTargetHost: this.botTargetHost, agents, sha256: topologySha256({ mode: 'remote', agents }) }

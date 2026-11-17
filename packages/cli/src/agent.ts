@@ -54,6 +54,11 @@ export function agentOptionsFromArgs (args: ParsedArgs, env: Record<string, stri
   if (busy !== undefined || foreign !== undefined) {
     agent.saturation = { ...(busy !== undefined ? { busyFraction: busy } : {}), ...(foreign !== undefined ? { foreignCores: foreign } : {}) }
   }
+  const scope = flag(args, 'cpu-scope')
+  if (scope !== undefined) {
+    if (scope !== 'auto' && scope !== 'machine') throw new UsageError(`--cpu-scope expects auto or machine, got '${scope}'`)
+    agent.cpuScope = scope
+  }
   const placement = flag(args, 'placement') ?? 'off'
   if (placement !== 'auto' && placement !== 'off') throw new UsageError(`--placement expects auto or off, got '${placement}'`)
   if (!agent.token && !agent.insecure) throw new UsageError(`set ${AGENT_TOKEN_ENV} to the shared secret of the orchestrator and its agents`)
