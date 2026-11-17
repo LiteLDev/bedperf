@@ -1,8 +1,8 @@
 import { cpSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
-import type { BdsInstance, ServerProperties } from '@bedperf/core'
+import { dirname, join, relative, resolve, sep } from 'node:path'
+import type { BdsInstance, ServerBuildInfo, ServerProperties } from '@bedperf/core'
 import { hostPlatform, pristineDirOf, serverExeName, type Platform } from './platform.ts'
 import { instancePropertyLayers, mergeServerProperties, type PresetName } from './properties.ts'
 import { restoreWorldSnapshot } from './snapshot.ts'
@@ -13,15 +13,28 @@ export const INSTANCE_MARKER = '.bedperf-instance.json'
 // Large read-only parts are hard-linked to save ~300 MB and seconds per instance; anything the
 // server may write (properties, config, worlds, json lists) is copied. Never write through a link:
 // unlink the file first.
-const LINKABLE = new Set(['bedrock_server.exe', 'bedrock_server', 'behavior_packs', 'resource_packs', 'definitions', 'data'])
+const LINKABLE = new Set([
+  'bedrock_server.exe', 'bedrock_server', 'behavior_packs', 'resource_packs', 'definitions', 'data',
+  // LeviLamina (lip): the PeEditor-patched exe, the original kept as .bak, PreLoader, runtime data
+  'bedrock_server_mod.exe', 'bedrock_server.exe.bak', 'PreLoader.dll', 'PeEditor.exe', 'bedrock_runtime_data'
+])
 
-function linkTree (src: string, dst: string): void {
+// Loader dirs (LeviLamina mods/, Endstone plugins/) must be real directories: their binaries are
+// linked, everything else (configs the loader rewrites, data) is copied.
+const BINARY_DIRS = new Set(['mods', 'plugins'])
+const BINARY_FILE = /\.(dll|pdb|exe|so|pyd|whl)$/i
+
+// Never copied into an instance: the Wine prefix stays shared in the pristine dir (WINEPREFIX).
+const SKIP = new Set(['.lip/wine'])
+
+function linkTree (src: string, dst: string, linkFile: (name: string) => boolean = () => true): void {
   const st = statSync(src)
   if (st.isDirectory()) {
     mkdirSync(dst, { recursive: true })
-    for (const e of readdirSync(src)) linkTree(join(src, e), join(dst, e))
+    for (const e of readdirSync(src)) linkTree(join(src, e), join(dst, e), linkFile)
     return
   }
+  if (!linkFile(src)) { cpSync(src, dst); return }
   try { linkSync(src, dst) } catch { cpSync(src, dst) }
 }
 
@@ -31,7 +44,13 @@ export function copyPristine (pristine: string, dir: string): void {
   mkdirSync(dir, { recursive: true })
   for (const e of readdirSync(pristine)) {
     if (LINKABLE.has(e)) linkTree(join(pristine, e), join(dir, e))
-    else cpSync(join(pristine, e), join(dir, e), { recursive: true })
+    else if (BINARY_DIRS.has(e)) linkTree(join(pristine, e), join(dir, e), f => BINARY_FILE.test(f))
+    else {
+      cpSync(join(pristine, e), join(dir, e), {
+        recursive: true,
+        filter: src => !SKIP.has(relative(pristine, src).split(sep).join('/'))
+      })
+    }
   }
 }
 
@@ -74,13 +93,28 @@ export function installBehaviorPack (dir: string, packDir: string, levelName: st
   return { packId: uuid, version }
 }
 
+/** What `createInstance` needs of an installed server (an `InstalledServer` from `ensureServer` fits). */
+export interface InstanceSource {
+  pristineDir: string
+  build: Pick<ServerBuildInfo, 'exeName' | 'bdsVersion' | 'binaryPlatform'> & { spec?: Pick<ServerBuildInfo['spec'], 'runtime'> }
+  /** Instance-relative '/'-paths → content, written after the copy (e.g. the loader config). */
+  instanceFiles?: Record<string, string>
+}
+
 export interface CreateInstanceOptions {
-  /** Extracted version in the cache (run `ensureBds` first). */
-  version: string
+  /**
+   * Installed server to copy (from `ensureServer`). Supplies the pristine dir, executable name,
+   * BDS version and binary platform, so `version`/`platform`/`pristineDir`/`exeName` are not needed.
+   */
+  server?: InstanceSource
+  /** Extracted version in the cache (run `ensureBds` first). Required without `server`. */
+  version?: string
   platform?: Platform
   cacheRoot?: string
   /** Use this pristine dir instead of `<cacheRoot>/<version>`. */
   pristineDir?: string
+  /** Executable that must exist in the pristine dir. Default `bedrock_server[.exe]` for `platform`. */
+  exeName?: string
   /** Instance dir; must not exist or be empty. Default: a fresh `bedperf-bds-*` dir under the OS temp dir. */
   dir?: string
   /** IPv4 port. */
@@ -104,10 +138,19 @@ export interface CreateInstanceOptions {
  * merged with, in order: REQUIRED_BOT_PROPERTIES < presets < properties < port/portV6/levelName.
  */
 export async function createInstance (opts: CreateInstanceOptions): Promise<BdsInstance> {
-  const platform = opts.platform ?? hostPlatform()
-  const pristine = opts.pristineDir ?? pristineDirOf(opts.version, { cacheRoot: opts.cacheRoot, platform })
-  if (!existsSync(join(pristine, serverExeName(platform)))) {
-    throw new Error(`BDS ${opts.version} (${platform}) is not extracted at ${pristine}; run ensureBds first`)
+  const server = opts.server
+  const version = server?.build.bdsVersion ?? opts.version
+  if (version === undefined) throw new Error('createInstance needs `server` or `version`')
+  const platform = server?.build.binaryPlatform ?? opts.platform ?? hostPlatform()
+  const pristine = server?.pristineDir ?? opts.pristineDir ?? pristineDirOf(version, { cacheRoot: opts.cacheRoot, platform })
+  // BdsInstance.platform is the platform the server runs on (host-level tuning, process handling):
+  // a Windows build under Wine runs on Linux.
+  const runsOn: Platform = server?.build.spec?.runtime === 'wine' ? 'linux' : platform
+  const exeName = server?.build.exeName ?? opts.exeName ?? serverExeName(platform)
+  if (!existsSync(join(pristine, exeName))) {
+    throw new Error(server !== undefined
+      ? `${exeName} is missing in ${pristine}; run ensureServer first`
+      : `BDS ${version} (${platform}) is not extracted at ${pristine}; run ensureBds first`)
   }
   if (opts.dir !== undefined && existsSync(opts.dir) && readdirSync(opts.dir).length > 0) {
     throw new Error(`instance dir ${opts.dir} is not empty`)
@@ -115,15 +158,21 @@ export async function createInstance (opts: CreateInstanceOptions): Promise<BdsI
   const dir = resolve(opts.dir ?? mkdtempSync(join(tmpdir(), 'bedperf-bds-')))
   const instance: BdsInstance = {
     dir,
-    version: opts.version,
-    platform,
+    version,
+    platform: runsOn,
     port: opts.port,
     portV6: opts.portV6 ?? opts.port + 1,
     levelName: opts.levelName ?? 'bedperf'
   }
   try {
     copyPristine(pristine, dir)
-    writeFileSync(join(dir, INSTANCE_MARKER), JSON.stringify({ ...instance, pristine, createdAt: new Date().toISOString() }, null, 2))
+    writeFileSync(join(dir, INSTANCE_MARKER), JSON.stringify({ ...instance, pristine, exeName, createdAt: new Date().toISOString() }, null, 2))
+    for (const [rel, content] of Object.entries(server?.instanceFiles ?? {})) {
+      const file = resolve(dir, ...rel.split('/'))
+      if (!file.startsWith(dir + sep)) throw new Error(`instance file ${rel} escapes the instance dir`)
+      mkdirSync(dirname(file), { recursive: true })
+      replaceFile(file, content)
+    }
 
     const propsFile = join(dir, 'server.properties')
     const base = existsSync(propsFile) ? readFileSync(propsFile, 'utf8') : ''
