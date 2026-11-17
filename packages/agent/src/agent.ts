@@ -166,8 +166,8 @@ export async function startAgent (opts: AgentOptions): Promise<AgentServer> {
       if (f.protocol !== AGENT_PROTOCOL_VERSION) { deny(`protocol mismatch: agent ${AGENT_PROTOCOL_VERSION}, controller ${String(f.protocol)}`); return }
       if (!macMatches(opts.token, nonce, f.mac)) { deny('bad token'); return }
       const theirGit = typeof f.harnessGit === 'string' ? f.harnessGit : undefined
-      if (!opts.allowHarnessMismatch && theirGit !== undefined && harness.git !== undefined && theirGit !== harness.git) {
-        deny(`harness mismatch: agent runs bedperf ${harness.git.slice(0, 12)}, controller ${theirGit.slice(0, 12)} (use the same commit or allowHarnessMismatch)`)
+      if (!opts.allowHarnessMismatch && theirGit !== harness.git) {
+        deny(`harness mismatch: agent runs bedperf ${harness.git?.slice(0, 12) ?? '(unknown commit)'}, controller ${theirGit?.slice(0, 12) ?? '(unknown commit)'} (use the same commit or allowHarnessMismatch)`)
         return
       }
       authing = true
@@ -281,7 +281,7 @@ export async function startAgent (opts: AgentOptions): Promise<AgentServer> {
     function onTelemetry (intervalMs: number): void {
       const old = sampler
       sampler = undefined
-      void old?.stop()
+      old?.stop().catch(err => { log(`telemetry sampler stop failed: ${(err as Error)?.message}`) })
       if (!(intervalMs > 0)) return
       let prevNet = netCounters()
       let prevAt = performance.now()

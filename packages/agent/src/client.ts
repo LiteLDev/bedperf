@@ -17,7 +17,7 @@ export interface ConnectAgentsOptions {
   timeoutMs?: number
   /** Our bedperf git commit, checked by agents. Default `harnessInfo().git` of this checkout. */
   harnessGit?: string
-  /** Heartbeat ping period, ms. Default 2000. */
+  /** Heartbeat ping period, ms. Default 2000. Keep it well below the agents' controllerTimeoutMs (default 15000). */
   heartbeatMs?: number
   /** An agent silent this long is declared lost (its workers exit), ms. Default 10000. */
   lostAfterMs?: number
@@ -67,16 +67,19 @@ class RemoteWorker implements WorkerLink {
   readonly agent: string
   private readonly conn: AgentConn | undefined
   readonly wire: number
+  /** Fleet worker id (for log lines). */
+  readonly fleetId: number
   private msgCbs: Array<(m: WorkerMessage) => void> = []
   private exitCbs: Array<(code: number | null) => void> = []
   private buffered: WorkerMessage[] = []
   exited = false
   private exitCode: number | null = null
 
-  constructor (agent: string, conn: AgentConn | undefined, wire: number) {
+  constructor (agent: string, conn: AgentConn | undefined, wire: number, fleetId: number) {
     this.agent = agent
     this.conn = conn
     this.wire = wire
+    this.fleetId = fleetId
   }
 
   send (msg: ControllerMessage): void {
@@ -92,7 +95,8 @@ class RemoteWorker implements WorkerLink {
   }
 
   onExit (cb: (code: number | null) => void): void {
-    if (this.exited) { const c = this.exitCode; setImmediate(() => cb(c)); return }
+    // synchronous for an already-dead link, so the fleet never sees it alive
+    if (this.exited) { cb(this.exitCode); return }
     this.exitCbs.push(cb)
   }
 
@@ -154,7 +158,13 @@ type Frame = { type: string } & Record<string, unknown>
 function handshake (
   spec: AgentSpec, o: Required<Pick<ConnectAgentsOptions, 'token' | 'timeoutMs'>> & { harnessGit: string | undefined, connect: (h: string, p: number) => Socket }
 ): Promise<{ info: AgentInfo, link: FrameLink, setHandlers (onFrame: (f: Frame) => void, onClose: (r: string) => void): void }> {
-  const { host, port } = parseAddress(spec.address, DEFAULT_AGENT_PORT)
+  let host: string
+  let port: number
+  try {
+    ({ host, port } = parseAddress(spec.address, DEFAULT_AGENT_PORT))
+  } catch (err) {
+    return Promise.reject(err)
+  }
   return new Promise((resolve, reject) => {
     let frameHandler: ((f: Frame) => void) | undefined
     let closeHandler: ((r: string) => void) | undefined
@@ -222,6 +232,8 @@ export async function connectAgents (specs: readonly AgentSpec[], opts: ConnectA
   const conns: AgentConn[] = []
   const used = new Set<string>()
   let nextId = 1
+  /** Wire worker ids, unique per pool (several fleets may share one pool). */
+  let nextWire = 1
   results.forEach((r, i) => {
     if (r.status !== 'fulfilled') return
     const c = new AgentConn(specs[i]!, r.value.info, r.value.link)
@@ -247,7 +259,11 @@ export async function connectAgents (specs: readonly AgentSpec[], opts: ConnectA
         if (w) { c.remote.delete(w.wire); w.fireExit(typeof f.code === 'number' ? f.code : null) }
         break
       }
-      case 'log': log(`${c.name}${f.workerId !== undefined ? ` w${String(f.workerId)}` : ''}: ${String(f.line)}`); break
+      case 'log': {
+        const w = f.workerId !== undefined ? c.remote.get(Number(f.workerId)) : undefined
+        log(`${c.name}${w ? ` w${w.fleetId}` : ''}: ${String(f.line)}`)
+        break
+      }
       case 'idleCheck': {
         const p = c.idles.get(Number(f.id))
         if (p) { c.idles.delete(Number(f.id)); clearTimeout(p.timer); p.resolve(f.result as AgentIdleCheckResult) }
@@ -345,7 +361,6 @@ export async function connectAgents (specs: readonly AgentSpec[], opts: ConnectA
       for (const c of conns) c.send({ type: 'telemetry', intervalMs })
     },
     workerFactory () {
-      let wire = 1
       return (workerId: number, fo: BotFleetOptions): WorkerLink => {
         const bpw = Math.max(1, fo.botsPerWorker)
         let pick: AgentConn | undefined
@@ -360,11 +375,11 @@ export async function connectAgents (specs: readonly AgentSpec[], opts: ConnectA
         }
         if (!pick) {
           log(`no agent available for worker ${workerId} (all lost or at capacity)`)
-          const dead = new RemoteWorker('none', undefined, 0)
+          const dead = new RemoteWorker('none', undefined, 0, workerId)
           dead.fireExit(null)
           return dead
         }
-        const w = new RemoteWorker(pick.name, pick, wire++)
+        const w = new RemoteWorker(pick.name, pick, nextWire++, workerId)
         pick.remote.set(w.wire, w)
         if (!pick.send({ type: 'spawn', workerId: w.wire })) {
           pick.remote.delete(w.wire)
@@ -377,14 +392,12 @@ export async function connectAgents (specs: readonly AgentSpec[], opts: ConnectA
       if (closed) return
       closed = true
       clearInterval(heartbeat)
-      for (const c of conns) {
-        if (!c.alive) continue
+      await Promise.all(conns.map(async c => {
+        if (!c.alive) return
         c.closing = true
         c.send({ type: 'bye' })
-      }
-      // give the byes a moment to flush, then close
-      await new Promise(resolve => setTimeout(resolve, 50))
-      for (const c of conns) c.link.close('pool closed')
+        await c.link.end('pool closed')
+      }))
     }
   }
 }

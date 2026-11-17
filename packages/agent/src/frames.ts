@@ -3,6 +3,9 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import { isIP } from 'node:net'
 import type { Socket } from 'node:net'
 
+/** Outgoing bytes a peer may leave unread before the link is closed (it is not keeping up). */
+export const MAX_WRITE_BACKLOG = 64 * 1024 * 1024
+
 /** Longest accepted frame (one line), UTF-16 code units (about bytes for JSON). A peer sending more without a newline is cut off. */
 export const MAX_FRAME_BYTES = 8 * 1024 * 1024
 
@@ -21,8 +24,10 @@ export function macMatches (token: string, nonce: string, mac: unknown): boolean
 
 export interface FrameLink {
   send (frame: object): boolean
-  /** Close with a reason (logged by the caller's onClose). Idempotent. */
+  /** Close at once with a reason (logged by the caller's onClose); unsent frames are dropped. Idempotent. */
   close (reason: string): void
+  /** Flush what was sent, then close (forcibly after `graceMs`, default 1000). Resolves once closed. */
+  end (reason: string, graceMs?: number): Promise<void>
   readonly closed: boolean
 }
 
@@ -55,6 +60,7 @@ export function frameLink (socket: Socket, opts: FrameLinkOptions): FrameLink {
   const link: FrameLink = {
     send (frame) {
       if (closed || socket.destroyed || !socket.writable) return false
+      if (socket.writableLength > MAX_WRITE_BACKLOG) { link.close(`peer not reading (${socket.writableLength} bytes unsent)`); return false }
       try {
         socket.write(JSON.stringify(frame) + '\n')
         return true
@@ -67,6 +73,14 @@ export function frameLink (socket: Socket, opts: FrameLinkOptions): FrameLink {
       closeReason ??= reason
       socket.destroy()
       finish(reason)
+    },
+    end (reason, graceMs = 1000) {
+      if (closed) return Promise.resolve()
+      closeReason ??= reason
+      const done = new Promise<void>(resolve => socket.once('close', () => resolve()))
+      socket.end()
+      setTimeout(() => link.close(reason), graceMs).unref()
+      return done
     },
     get closed () { return closed }
   }
