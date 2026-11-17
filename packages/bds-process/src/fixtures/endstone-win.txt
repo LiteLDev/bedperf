@@ -1,0 +1,40 @@
+[10:36:51 INFO]: setting up server logging...
+[10:36:51 INFO]: Starting Server
+[10:36:51 INFO]: Version: 1.26.60.6
+[10:36:51 INFO]: Session ID: ef6e0015-783c-4c51-894f-4f4e261c93d7
+[10:36:51 INFO]: Build ID: 52886189
+[10:36:51 INFO]: Branch: r/26_u6
+[10:36:51 INFO]: Commit ID: 41512d4dd85848ccc1661436a414f90f617bb630
+[10:36:51 INFO]: Configuration: Publish
+[10:36:51 INFO]: Level Name: Bedrock level
+[10:36:51 INFO]: Profiler config ('bootstrap.json') load result: success=1, errorMessage=(null)
+[10:36:51 INFO]: No CDN config file found at: cdn_config.json for dedicated server
+[10:36:51 INFO]: Game mode: 0 Survival
+[10:36:51 INFO]: Difficulty: 1 EASY
+[10:36:51 INFO]: Content logging to console is enabled.
+[10:36:51 INFO]: #####################################################
+[10:36:51 INFO]: #                                                   #
+[10:36:51 INFO]: #               LOADING VANILLA WORLD               #
+[10:36:51 INFO]: #                                                   #
+[10:36:51 INFO]: #####################################################
+[10:36:51 INFO]: This server is running Endstone version: 0.11.15 (Minecraft: 26.60)
+[10:36:52 INFO]: Pack Stack - None
+[10:36:52 INFO]: Signed in to signaling service successfully
+[10:36:53 INFO]: IPv4 supported, port: 19334: Used for gameplay
+[10:36:53 INFO]: IPv6 not supported
+[10:36:53 INFO]: Server started.
+[10:36:53 INFO]: ================ TELEMETRY MESSAGE ===================
+[10:36:53 INFO]: Server Telemetry is currently not enabled. 
+[10:36:53 INFO]: Enabling this telemetry helps us improve the game.
+[10:36:53 INFO]: To enable this feature, add the line 'emit-server-telemetry=true'
+[10:36:53 INFO]: to the server.properties file in the handheld/src-server directory
+[10:36:53 INFO]: ======================================================
+[10:36:53 INFO]: Packet limit config updated
+[10:36:54 INFO]: There are 0/10 players online:
+[10:36:56 INFO]: Gametime is 212
+[10:36:57 ERROR]: Unknown command: bogus_cmd. Please check that the command exists and that you have permission to use it.
+[10:36:59 ERROR]: Syntax error: Unexpected "nope": at "/gamerule >>nope<< 1"
+[10:37:00 INFO]: Gametime is 303
+[10:37:02 INFO]: Server stop requested.
+[10:37:02 INFO]: Stopping server...
+Quit correctly
