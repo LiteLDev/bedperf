@@ -1,4 +1,7 @@
-import type { PlacementCheck, PlacementPlan, PlacementPriority, PlacementVerification, PlacementViolation } from '@bedperf/core'
+import type {
+  PlacementCheck, PlacementPlan, PlacementPriority, PlacementSetMember, PlacementSetVerification, PlacementVerification, PlacementViolation
+} from '@bedperf/core'
+import { serverProcessList, type ServerProcesses } from './apply.ts'
 import { formatCpuList, maskToCpus, normalizeCpus, sameCpus } from './cpus.ts'
 import { addTypeStatement, createNodeRunner, runPowerShellJson, type PlacementRunner } from './runner.ts'
 import { cpusAllowedFromStatus } from './topology.ts'
@@ -171,4 +174,56 @@ export async function verifyPlacement (
   const cpus = opts.cpus ?? plan.serverCpus
   const priority = opts.priority === null ? undefined : (opts.priority ?? plan.priority)
   return judgePlacement(pid, cpus, priority, await observeProcess(pid, runner))
+}
+
+/**
+ * Verify a launched server's process set against the plan's server CPUs. The game process
+ * (`serverPid`) is verified fully: process affinity, every thread and the priority. The launcher and
+ * helper processes (e.g. wineserver) are verified for process and thread affinity only, since
+ * whether their priority is raised does not affect the measurement; one that has exited is
+ * recorded as info, not a failure. Works for a game under Wine on Linux (a Linux process whose
+ * threads are in /proc/<pid>/task) and for Endstone's `bedrock_server.exe` child on Windows.
+ */
+export async function verifyServerProcesses (
+  plan: Pick<PlacementPlan, 'serverCpus' | 'priority'>,
+  procs: ServerProcesses & { serverPid: number },
+  opts: { cpus?: readonly number[], priority?: PlacementPriority | null, runner?: PlacementRunner } = {}
+): Promise<PlacementSetVerification> {
+  const runner = opts.runner ?? createNodeRunner()
+  const members: PlacementSetMember[] = []
+  const checks: PlacementCheck[] = []
+  let verified = true
+  let server: PlacementVerification | undefined
+  const list = serverProcessList(procs)
+  // In parallel: on Windows each observation is a PowerShell launch.
+  const observed = await Promise.all(list.map(async ({ role, pid }) => role === 'server'
+    ? await verifyPlacement(pid, plan, { ...opts, runner })
+    : await verifyPlacement(pid, plan, { cpus: opts.cpus, priority: null, runner })))
+  for (const [i, { role, pid }] of list.entries()) {
+    const v = observed[i]!
+    if (role === 'server') {
+      server = v
+      members.push({ role, verification: server })
+      if (!server.verified) verified = false
+      checks.push(server.verified
+        ? { id: 'server', level: 'ok', summary: `server process ${pid}: ${server.threadCount} threads inside the plan` }
+        : { id: 'server', level: 'fail', summary: `server process ${pid}: ${server.violations.map(v => v.message).join('; ')}` })
+      continue
+    }
+    members.push({ role, verification: v })
+    if (v.violations.some(x => x.kind === 'process_gone')) {
+      checks.push({ id: `${role}_gone`, level: 'info', summary: `${role} process ${pid} has exited` })
+    } else if (!v.verified) {
+      verified = false
+      checks.push({ id: `${role}_placement`, level: 'fail', summary: `${role} process ${pid}: ${v.violations.map(x => x.message).join('; ')}` })
+    } else {
+      checks.push({ id: `${role}_placement`, level: 'ok', summary: `${role} process ${pid} inside the plan` })
+    }
+  }
+  return { verified, server: server!, members, checks }
+}
+
+/** Verify one bot worker against the plan's bot CPUs at normal priority. */
+export async function verifyBotWorker (pid: number, plan: Pick<PlacementPlan, 'botCpus'>, opts: { runner?: PlacementRunner } = {}): Promise<PlacementVerification> {
+  return await verifyPlacement(pid, { serverCpus: plan.botCpus, priority: 'normal' }, { runner: opts.runner })
 }
