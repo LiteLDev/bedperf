@@ -3,9 +3,10 @@ import {
   type BdsServer, type BdsServerEvents, type BenchmarkConfig, type BotFleetStats, type Envelope, type ForeignProcess, type GametimeSample, type GatesConfig,
   type InterferenceSample, type InterferenceSummary, type InterferenceThresholds, type LoadGenerator, type LoadGenOptions, type PlacementPlan,
   type PlacementVerification, type ProbeRecord, type ProcessGroupName, type RepeatStatus, type RepeatSummary, type RunMeta,
-  type RunPlacementMeta, type RunResult, type Sampler, type StepResult, type SysSample
+  type RunPlacementMeta, type RunResult, type Sampler, type StepResult, type SysSample, type AgentIdleCheckResult, type TopologyMeta
 } from '@bedperf/core'
-import { LOADGEN_SATURATED_REASON, stepOutcome } from './criteria.ts'
+import { isLoopbackHost, localTopology, type EngineAgents } from './agents.ts'
+import { InvalidCodes, LOADGEN_SATURATED_REASON, stepOutcome } from './criteria.ts'
 import { RunRecorder } from './recorder.ts'
 import { REPEAT_END_KIND, REPEAT_START_KIND, STEP_FACTS_KIND, stepFromEnvelopes, type StepFacts } from './recompute.ts'
 import { planNext, searchBounds, type SearchDone, type SearchStep } from './search.ts'
@@ -43,6 +44,8 @@ export interface IdleGateResult {
   summary: InterferenceSummary
   /** Busiest foreign processes. */
   top: ForeignProcess[]
+  /** Per-agent results when the bots run on remote agents. */
+  agents?: Record<string, AgentIdleCheckResult>
 }
 
 /** Machine-level interference sampler (see @bedperf/sysmon `createMachineSampler`). */
@@ -79,6 +82,12 @@ export interface EngineDeps {
   createGametimeSampler? (server: BdsServer, intervalMs: number): Sampler<GametimeSample> | undefined
   /** Told when a hold window opens and closes (the simulation enforces R7 with it). */
   onHold? (open: boolean): void
+  /**
+   * Remote bot agents (distributed run): connected before the run, idle-checked with the server machine,
+   * their telemetry and link events recorded. `createLoadGen` must then place its workers on `agents.pool`;
+   * the bots dial `agents.botTargetHost`. Absent = bots on this machine.
+   */
+  agents?: EngineAgents
 }
 
 export interface RunOptions {
@@ -170,8 +179,27 @@ export function aggregateRepeats (runId: string, configName: string, repeats: re
   }
 }
 
-/** Run the idle gate; throws `EnvGateError` when the machine is busy. No-op without `deps.idleCheck` or with `gates.idleSec = 0`. */
+/**
+ * Connect the remote agents (no-op without `deps.agents`); throws `EnvGateError` naming the agent and the
+ * reason when one cannot be reached or refuses the session.
+ */
+export async function connectAgentsGate (deps: EngineDeps): Promise<void> {
+  if (deps.agents === undefined) return
+  try {
+    await deps.agents.ensure()
+  } catch (err) {
+    const msg = (err as Error)?.message ?? String(err)
+    ;(deps.logger ?? consoleLogger).error(`bot agents: ${msg}`)
+    throw new EnvGateError(`bot agents not usable: ${msg}`, msg.split('\n').map(x => x.trim()).filter(x => x !== ''))
+  }
+}
+
+/**
+ * Run the idle gate (this machine and every agent); throws `EnvGateError` when a machine is busy or an
+ * agent cannot be connected. No-op without `deps.idleCheck` / agents or with `gates.idleSec = 0`.
+ */
 export async function initialIdleGate (config: BenchmarkConfig, deps: EngineDeps): Promise<IdleGateResult | undefined> {
+  await connectAgentsGate(deps)
   const res = await runIdleCheck(config, deps)
   if (res !== undefined && !res.ok) {
     const log = deps.logger ?? consoleLogger
@@ -184,13 +212,45 @@ export async function initialIdleGate (config: BenchmarkConfig, deps: EngineDeps
 
 async function runIdleCheck (config: BenchmarkConfig, deps: EngineDeps): Promise<IdleGateResult | undefined> {
   const g = resolveGates(config)
-  if (deps.idleCheck === undefined || !(g.idleSec > 0)) return undefined
+  const agents = deps.agents?.idleCheck === true ? deps.agents : undefined
+  if ((deps.idleCheck === undefined && agents === undefined) || !(g.idleSec > 0)) return undefined
   const serverCpus = deps.placement?.plan.serverCpus
-  return await deps.idleCheck({
-    durationSec: g.idleSec,
-    ...(serverCpus !== undefined ? { serverCpus } : {}),
-    thresholds: { foreignMean: g.idleForeignMean, foreignPeak10s: g.idleForeignPeak10s, serverSetForeignMean: g.idleServerSetForeignMean }
-  })
+  const thresholds = { foreignMean: g.idleForeignMean, foreignPeak10s: g.idleForeignPeak10s, serverSetForeignMean: g.idleServerSetForeignMean }
+  const [local, remote] = await Promise.all([
+    deps.idleCheck?.({ durationSec: g.idleSec, ...(serverCpus !== undefined ? { serverCpus } : {}), thresholds }),
+    agents !== undefined ? agentsIdleCheck(agents, g.idleSec, thresholds) : undefined
+  ])
+  if (remote === undefined) return local
+  if (local === undefined) return remote
+  return {
+    ok: local.ok && remote.ok,
+    reasons: [...local.reasons, ...remote.reasons],
+    summary: local.summary,
+    top: [...local.top, ...remote.top].sort((a, b) => b.cores - a.cores),
+    ...(remote.agents !== undefined ? { agents: remote.agents } : {})
+  }
+}
+
+/** The idle check on every agent machine (reconnecting lost agents first); reasons and processes are prefixed with the agent. */
+async function agentsIdleCheck (agents: EngineAgents, durationSec: number, thresholds: InterferenceThresholds): Promise<IdleGateResult> {
+  const failed = (reason: string): IdleGateResult => ({ ok: false, reasons: [reason], summary: { samples: 0, foreignMean: 0, foreignPeak10s: 0 }, top: [] })
+  let res: Record<string, AgentIdleCheckResult>
+  try {
+    const pool = await agents.ensure()
+    // serverSetForeignMean means nothing on an agent machine (no server CPU set)
+    res = await pool.idleCheckAll({ durationSec, thresholds: { foreignMean: thresholds.foreignMean, foreignPeak10s: thresholds.foreignPeak10s } })
+  } catch (err) {
+    return failed(`agents: ${(err as Error)?.message ?? String(err)}`)
+  }
+  const entries = Object.entries(res)
+  const worst = entries.map(([, r]) => r.summary).sort((a, b) => b.foreignMean - a.foreignMean)[0]
+  return {
+    ok: entries.every(([, r]) => r.ok),
+    reasons: entries.flatMap(([name, r]) => r.ok ? [] : r.reasons.map(x => `agent ${name}: ${x}`)),
+    summary: worst ?? { samples: 0, foreignMean: 0, foreignPeak10s: 0 },
+    top: entries.flatMap(([name, r]) => r.top.map(p => ({ ...p, name: `${name}/${p.name}` }))).sort((a, b) => b.cores - a.cores),
+    agents: res
+  }
 }
 
 /** Console commands allowed while a hold window is open (R7): probe marks / pings only. */
@@ -208,6 +268,7 @@ function placementMeta (p: EnginePlacement): RunPlacementMeta {
     verifications: 0,
     checks: p.plan.checks
   }
+  if (p.plan.mode !== undefined) m.mode = p.plan.mode
   if (p.plan.profileSha256 !== undefined) m.profileSha256 = p.plan.profileSha256
   if (p.plan.label !== undefined) m.label = p.plan.label
   return m
@@ -232,6 +293,8 @@ interface RepeatResources {
   machine?: MachineSamplerLike
   gametime?: Sampler<GametimeSample>
   loadgen?: LoadGenerator
+  /** Stops recording agent events into this repeat. */
+  agentEvents?: () => void
 }
 
 /**
@@ -263,11 +326,19 @@ export class BenchmarkRun {
 
   /** Create the run dir and record `orch.run.start`. */
   static async open (config: BenchmarkConfig, deps: EngineDeps, opts: RunOptions = {}): Promise<BenchmarkRun> {
+    let topology: TopologyMeta = localTopology()
+    if (deps.agents !== undefined) {
+      await connectAgentsGate(deps)
+      topology = deps.agents.topology()
+    }
     const meta: Partial<Omit<RunMeta, 'runId' | 'startedAt'>> = {
       ...(deps.placement !== undefined ? { placement: placementMeta(deps.placement) } : {}),
       gates: resolvedGatesMeta(config, deps),
-      network: { loopback: /^(127\.|localhost$|::1$)/.test(deps.loadGenOptions?.host ?? '127.0.0.1') },
-      ...opts.meta
+      network: { loopback: isLoopbackHost(botHost(deps)) },
+      topology,
+      ...opts.meta,
+      // bots on other machines are never colocated, whatever the caller assumed
+      ...(deps.agents !== undefined ? { colocated: false } : {})
     }
     const rec = await RunRecorder.create({
       runsDir: deps.runsDir,
@@ -372,7 +443,13 @@ export class BenchmarkRun {
   private skippedRepeat (r: number, reasons: string[], gate: IdleGateResult | undefined, rerunOf: number | undefined): RepeatOutcome {
     this.rec.retain()
     this.rec.record('orch', REPEAT_START_KIND, { repeat: r, ...(rerunOf !== undefined ? { rerunOf } : {}) })
-    if (gate !== undefined) this.rec.record('orch', 'orch.idle', { repeat: r, ok: gate.ok, reasons: gate.reasons, summary: gate.summary, top: gate.top.slice(0, 10) })
+    this.recordPendingAgentLinks()
+    if (gate !== undefined) {
+      this.rec.record('orch', 'orch.idle', {
+        repeat: r, ok: gate.ok, reasons: gate.reasons, summary: gate.summary, top: gate.top.slice(0, 10),
+        ...(gate.agents !== undefined ? { agents: Object.fromEntries(Object.entries(gate.agents).map(([n, a]) => [n, { ok: a.ok, reasons: a.reasons, summary: a.summary }])) } : {})
+      })
+    }
     const out: RepeatOutcome = { done: true, repeat: r, maxPlayers: 0, capped: false, loadgenLimited: false, invalidLimited: false, status: 'invalid', statusReasons: reasons }
     if (rerunOf !== undefined) out.rerunOf = rerunOf
     this.rec.record('orch', REPEAT_END_KIND, { repeat: r, outcome: out })
@@ -383,6 +460,11 @@ export class BenchmarkRun {
   private send (server: BdsServer, command: string): void {
     if (this.holdOpen && !HOLD_COMMAND_RE.test(command)) throw new Error(`R7: console command '${command}' sent inside a hold window`)
     server.send(command)
+  }
+
+  /** Agent link events from while no repeat was recording (connects, link stats, losses between repeats). */
+  private recordPendingAgentLinks (): void {
+    for (const e of this.deps.agents?.takePending() ?? []) this.rec.record('orch', Kinds.agentLink, e)
   }
 
   private setHold (open: boolean): void {
@@ -420,7 +502,7 @@ export class BenchmarkRun {
     rec.retain()
     rec.record('orch', REPEAT_START_KIND, { repeat: r, ...(rerunOf !== undefined ? { rerunOf } : {}) })
     const res: RepeatResources = {}
-    const ctx = { crashed: undefined as string | undefined }
+    const ctx = { crashed: undefined as string | undefined, agentLost: undefined as string | undefined }
     const onProbe: BdsServerEvents['probe'] = (p: ProbeRecord) => { rec.record('probe', `probe.${p.type}`, p) }
     const onExit: BdsServerEvents['exit'] = info => {
       rec.record('bds', Kinds.bdsEvent, { event: 'exit', ...info })
@@ -434,6 +516,10 @@ export class BenchmarkRun {
       this.setHold(false)
       const warn = (what: string) => (err: unknown) => { this.log.warn(`${what} stop failed: ${String(err)}`) }
       if (res.loadgen !== undefined) await res.loadgen.stop().catch(warn('loadgen'))
+      if (res.agentEvents !== undefined) {
+        this.deps.agents?.pool?.startTelemetry(0)
+        res.agentEvents()
+      }
       if (res.gametime !== undefined) await res.gametime.stop().catch(warn('gametime sampler'))
       if (res.sampler !== undefined) await res.sampler.stop().catch(warn('sampler'))
       if (res.server !== undefined) {
@@ -450,7 +536,7 @@ export class BenchmarkRun {
   private async repeatBody (
     r: number,
     res: RepeatResources,
-    ctx: { crashed: string | undefined },
+    ctx: { crashed: string | undefined, agentLost: string | undefined },
     onProbe: BdsServerEvents['probe'],
     onExit: BdsServerEvents['exit']
   ): Promise<RepeatOutcome> {
@@ -467,6 +553,24 @@ export class BenchmarkRun {
       const o = done('server_failed', [reason], { aborted: reason })
       if (o.firstFail === undefined && failedAt !== undefined) o.firstFail = failedAt
       return o
+    }
+
+    this.recordPendingAgentLinks()
+    if (deps.agents !== undefined) {
+      // reconnects every agent when one was lost before this repeat
+      try {
+        await deps.agents.ensure()
+      } catch (err) {
+        return done('invalid', [`${InvalidCodes.agentLost}: could not reconnect the agents: ${(err as Error)?.message ?? String(err)}`])
+      } finally {
+        this.recordPendingAgentLinks()
+      }
+      // a reconnect may reach other machines than the run recorded: those repeats are not comparable
+      const now = deps.agents.topology().sha256
+      const recorded = rec.meta.topology?.sha256
+      if (recorded !== undefined && now !== recorded) {
+        return done('invalid', [`${InvalidCodes.agentTopologyChanged}: the reconnected agents differ from the run's topology (${recorded.slice(0, 12)} → ${now.slice(0, 12)})`])
+      }
     }
 
     const server = res.server = await deps.createServer(r)
@@ -517,6 +621,34 @@ export class BenchmarkRun {
     }
 
     const loadgen = res.loadgen = deps.createLoadGen(r)
+    const agents = deps.agents
+    let signalLost: () => void = () => {}
+    const lostSignal = new Promise<void>(resolve => { signalLost = resolve })
+    const markLost = (agent: string, reason: string | undefined): void => {
+      ctx.agentLost ??= `${agent}${reason !== undefined ? ` (${reason})` : ''}`
+      loadgen.setExternalSaturation?.(agent, [])
+      signalLost()
+    }
+    if (agents !== undefined) {
+      res.agentEvents = agents.subscribe({
+        telemetry: t => {
+          rec.record('agent', Kinds.agentTelemetry, t)
+          loadgen.setExternalSaturation?.(t.agent, t.saturated ? t.reasons : [])
+        },
+        link: e => {
+          rec.record('orch', Kinds.agentLink, e)
+          if (e.event === 'lost') {
+            markLost(e.agent, e.reason)
+            log.warn(`repeat ${r}: agent ${e.agent} lost${e.reason !== undefined ? `: ${e.reason}` : ''}`)
+          }
+        }
+      })
+      // an agent lost while the server started (nobody subscribed yet)
+      this.recordPendingAgentLinks()
+      for (const l of agents.lost()) markLost(l.name, l.reason)
+      agents.pool?.startTelemetry(1000)
+    }
+    const agentLost = (): RepeatOutcome | undefined => ctx.agentLost !== undefined ? done('invalid', [`${InvalidCodes.agentLost}: ${ctx.agentLost}`]) : undefined
     loadgen.onStats(s => {
       botStats.push(s)
       if (botStats.length > 4096) botStats.splice(0, 2048)
@@ -535,7 +667,7 @@ export class BenchmarkRun {
       }
     })
     const lgOpts: LoadGenOptions = {
-      host: '127.0.0.1',
+      host: botHost(deps),
       port: server.instance.port,
       version: config.botVersion ?? config.bdsVersion,
       scenarioModule: config.scenario.module,
@@ -553,6 +685,8 @@ export class BenchmarkRun {
     const warmStart = now()
     await sleep(config.warmupSec * 1000)
     if (ctx.crashed !== undefined) return serverFailed(ctx.crashed)
+    const lostInWarmup = agentLost()
+    if (lostInWarmup !== undefined) return lostInWarmup
 
     // Idle-advance check: the tick counter must answer and move while the server idles.
     if (gametimeIntervalMs !== undefined && config.warmupSec * 1000 >= 2 * gametimeIntervalMs) {
@@ -565,6 +699,9 @@ export class BenchmarkRun {
     for (let index = 0; ; index++) {
       opts.signal?.throwIfAborted()
       if (ctx.crashed !== undefined) return serverFailed(ctx.crashed)
+      // An agent lost in an earlier step took its bots with it: the rest of the repeat measures nothing.
+      const lostBefore = agentLost()
+      if (lostBefore !== undefined) return lostBefore
       const plan = planNext({ ramp: config.ramp, history })
       if (plan.done) return this.searchOutcome(r, plan, history)
       const { players, phase } = plan
@@ -576,13 +713,20 @@ export class BenchmarkRun {
       rec.retainFrom([...(baselineEnv !== undefined ? [baselineEnv] : []), rec.retained.at(-1)!])
 
       const added = Math.max(0, players - prevPlayers)
-      await loadgen.scaleTo(players, opts.scaleTimeoutMs ?? 60_000 + added * config.loadgen.joinIntervalMs)
+      // a lost agent's bots never arrive: stop waiting for them
+      const scaling = loadgen.scaleTo(players, opts.scaleTimeoutMs ?? 60_000 + added * config.loadgen.joinIntervalMs)
+      scaling.catch(() => {})
+      await Promise.race([scaling, lostSignal])
+      const lostInScale = agentLost()
+      if (lostInScale !== undefined) return lostInScale
       prevPlayers = players
-      const st = await settle(config.ramp, { now, sleep, stats: () => botStats, stop: () => ctx.crashed !== undefined, ...(opts.signal !== undefined ? { signal: opts.signal } : {}) })
+      const st = await settle(config.ramp, { now, sleep, stats: () => botStats, stop: () => ctx.crashed !== undefined || ctx.agentLost !== undefined, ...(opts.signal !== undefined ? { signal: opts.signal } : {}) })
       if (ctx.crashed !== undefined) return serverFailed(ctx.crashed, players)
       const views = viewsIncomplete(botStats.at(-1))
       rec.record('orch', 'orch.settle', { repeat: r, index, ...st, ...(views !== undefined ? { viewsIncomplete: views } : {}) })
       if (st.settleCapped) log.warn(`repeat ${r} step ${index}: settle capped at ${st.settleSec.toFixed(0)}s (views still loading)`)
+      const lostInSettle = agentLost()
+      if (lostInSettle !== undefined) return lostInSettle
 
       const v0 = await this.verify(server, r, 'hold_start', index)
       const markLabel = `step-${index}-start`
@@ -617,6 +761,10 @@ export class BenchmarkRun {
       rec.record('orch', Kinds.stepEnd, step)
       await rec.writeSteps(this.steps)
       const why = [...step.failReasons, ...(step.invalidReasons ?? []).filter(x => !step.failReasons.includes(x))]
+      if (step.loadgenSaturated) {
+        const by = saturatedAgents(botStats.filter(s => s.t >= startT && s.t <= endT))
+        if (by.length > 0) why.push(`saturated agent(s): ${by.join(', ')}`)
+      }
       log.info(`repeat ${r} step ${index} [${phase}] ${players} players: ${outcome} tps=${step.tps.mean.toFixed(2)}${step.counterTps !== undefined ? ` counter=${step.counterTps.toFixed(2)}` : ''} settle=${st.settleSec.toFixed(0)}s${why.length > 0 ? ` (${why.join('; ')})` : ''}`)
 
       if (ctx.crashed !== undefined) return serverFailed(ctx.crashed, players)
@@ -643,6 +791,22 @@ export class BenchmarkRun {
     }
     return out
   }
+}
+
+/** Agents that reported saturation in these fleet stats (per-agent slices), with their reasons when known. */
+function saturatedAgents (stats: readonly BotFleetStats[]): string[] {
+  const out = new Map<string, string[]>()
+  for (const s of stats) {
+    const ext = (s.loadgen as { externalSaturation?: Record<string, string[]> }).externalSaturation ?? {}
+    for (const [a, reasons] of Object.entries(ext)) out.set(a, reasons)
+    for (const a of s.loadgen.agents ?? []) if (a.saturated && !out.has(a.agent)) out.set(a.agent, [])
+  }
+  return [...out].map(([a, reasons]) => reasons.length > 0 ? `${a} (${reasons.join('; ')})` : a)
+}
+
+/** Address the bots dial:the agents' bot target, else loopback (both overridable through `loadGenOptions.host`). */
+function botHost (deps: EngineDeps): string {
+  return deps.loadGenOptions?.host ?? deps.agents?.botTargetHost ?? '127.0.0.1'
 }
 
 /**

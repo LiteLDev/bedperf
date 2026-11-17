@@ -1,4 +1,4 @@
-import type { PlacementCheck, PlacementKind, PlacementPriority } from './placement.ts'
+import type { PlacementCheck, PlacementKind, PlacementMode, PlacementPriority } from './placement.ts'
 import type { Summary } from './stats.ts'
 import type { ServerArtifact, ServerBuildInfo } from './server.ts'
 import type { TopologyMeta } from './topology.ts'
@@ -65,6 +65,8 @@ export interface RunPlacementMeta {
   profileSha256?: string
   label?: string
   kind: PlacementKind
+  /** What the plan placed on the server machine (absent for old runs: `local`). */
+  mode?: PlacementMode
   /** How the server set was applied: `preexec` (Linux taskset), `post-spawn` (Windows). */
   method: string
   serverCpus: number[]

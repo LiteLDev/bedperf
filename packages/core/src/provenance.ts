@@ -170,11 +170,20 @@ export interface HarnessDeps {
   repo?: string
   exec?: ExecFn
   nodeVersion?: string
+  /** Environment (for `HARNESS_GIT_ENV`). Default `process.env`. */
+  env?: Record<string, string | undefined>
 }
 
 /**
+ * Commit of a checkout without git metadata (e.g. the `bedperf agent` container image, built with
+ * `--build-arg BEDPERF_GIT=$(git rev-parse HEAD)`): used only when git cannot tell, and `dirty` is then unknown.
+ */
+export const HARNESS_GIT_ENV = 'BEDPERF_HARNESS_GIT'
+
+/**
  * bedperf's own identity: version, git commit and whether tracked files under packages/ or scripts/ differ
- * from it (`dirty`), and the Node version. `git`/`dirty` are omitted when git is unavailable.
+ * from it (`dirty`), and the Node version. `git`/`dirty` are omitted when git is unavailable (unless
+ * `HARNESS_GIT_ENV` names the commit).
  */
 export async function harnessInfo (deps: HarnessDeps): Promise<HarnessInfo> {
   const exec = deps.exec ?? defaultExec
@@ -188,6 +197,8 @@ export async function harnessInfo (deps: HarnessDeps): Promise<HarnessInfo> {
       out.dirty = status.trim() !== ''
     }
   } catch {}
+  const pinned = (deps.env ?? process.env)[HARNESS_GIT_ENV]?.trim().toLowerCase()
+  if (out.git === undefined && pinned !== undefined && /^[0-9a-f]{40,64}$/.test(pinned)) out.git = pinned
   return out
 }
 

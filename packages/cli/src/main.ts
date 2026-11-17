@@ -3,14 +3,16 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { BenchmarkConfig, RunResult } from '@bedperf/core'
+import { AGENT_TOKEN_ENV, type AgentSpec, type BenchmarkConfig, type RunResult } from '@bedperf/core'
 import { ensureBds, hostPlatform, resolveVersion } from '@bedperf/bds-install'
 import {
-  ConfigError, EnvGateError, ExitCodes, exitCodeOf, GATES_KEYS, loadConfig, parseConfig, parseOrder, PRESET_NAMES, preset, type PresetName
+  consoleLogger, ConfigError, EnvGateError, ExitCodes, exitCodeOf, GATES_KEYS, loadConfig, parseAgentSpecs, parseConfig, parseOrder, PRESET_NAMES,
+  preset, resolveBotTargetHost, type PresetName
 } from '@bedperf/orchestrator'
 import { SCENARIOS } from '@bedperf/scenarios'
 import { IncomparableRunsError, writeCompare, writeCompareMatrix, writeReport } from '@bedperf/report'
 import { applySets, bool, flag, intFlag, parseArgs, UsageError, type ParsedArgs } from './args.ts'
+import { agentCommand } from './agent.ts'
 import { analyzeCommand } from './analyze.ts'
 import { LockHeldError } from './lock.ts'
 import { runCommand, runSessionCommand, type RunCommandOptions } from './run.ts'
@@ -24,8 +26,14 @@ commands:
               --configs <a.json,b.json,...>      A/B session: one run dir per config under runs/<session>/,
                                                  repeats interleaved (see --order), plus session.json
               --order rotate|sequential|seeded:N repeat order of a session (default rotate)
-              --machine-profile <file.json>      placement profile ({label, placement, gates}) merged
-                                                 into the config's placement / gates
+              --machine-profile <file.json>      placement profile ({label, placement, gates, agents}) merged
+                                                 into the config's placement / gates (agents: see --agents)
+              --agents <host:port,...>           run the bots on these bedperf agents (other machines); the
+                                                 shared secret comes from ${'$'}BEDPERF_AGENT_TOKEN. Overrides the
+                                                 machine profile's agents. Recorded in meta.json topology, not
+                                                 in config.json
+              --bot-target-host <addr>           address of this machine the agents' bots dial (required with
+                                                 agents on other machines; never a loopback address then)
               --skip-idle-check                  do not run the idle gate before repeats
               --scenario <name>                  override scenario.module (${Object.keys(SCENARIOS).join(', ')})
               --set <path>=<value>               override any config field, e.g. --set ramp.max=60
@@ -47,6 +55,18 @@ commands:
                                                  write a comparison report (3+ runs: pairwise matrix and ranking)
               --force                            compare even when config, machine, BDS build, ... differ
                                                  (otherwise exits 2 listing the mismatches)
+  agent     run bot workers for distributed runs on this machine (token: ${'$'}BEDPERF_AGENT_TOKEN)
+              --listen <host:port>               default 0.0.0.0:19260
+              --name <n>                         name reported to the orchestrator (default agent-<fingerprint>)
+              --max-workers <n>                  most concurrent bot workers
+              --placement auto|off               pin workers to a bots-only CPU set (default off)
+              --saturation-busy <fraction>       report saturation above this machine CPU share (default 0.9)
+              --saturation-foreign <cores>       report saturation above this foreign load (default 1)
+              --no-lock                          do not take the machine lock while a session is active
+                                                 (needed for agents on the server machine itself)
+              --allow-harness-mismatch           accept an orchestrator on another bedperf commit
+              --insecure                         allow an empty token (loopback --listen only)
+              runs until SIGINT / SIGTERM
   install   [latest|preview|x.y.z.w] --accept-eula   download BDS into the cache
   scenarios                                      list built-in scenarios
 `
@@ -58,7 +78,8 @@ commands:
 export function applyMachineProfile (raw: Record<string, unknown>, profile: unknown, source = 'machine profile'): void {
   if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) throw new UsageError(`${source}: expected a JSON object`)
   const p = profile as Record<string, unknown>
-  for (const k of Object.keys(p)) if (!['label', 'placement', 'gates'].includes(k)) throw new UsageError(`${source}: unknown key '${k}'`)
+  for (const k of Object.keys(p)) if (!['label', 'placement', 'gates', 'agents'].includes(k)) throw new UsageError(`${source}: unknown key '${k}'`)
+  // `agents` describes where the bots run, not the benchmark: it never enters the config (see `agentsFromArgs`).
   const placement = { ...(raw['placement'] as Record<string, unknown> | undefined) }
   if (typeof p['label'] === 'string') placement['label'] = p['label']
   if (p['placement'] !== undefined) {
@@ -83,6 +104,38 @@ async function machineProfile (args: ParsedArgs): Promise<{ profile: unknown, fi
     return { profile: JSON.parse(await readFile(resolve(file), 'utf8')), file }
   } catch (err) {
     throw new UsageError(`--machine-profile ${file}: ${(err as Error).message}`)
+  }
+}
+
+/**
+ * The remote agents of `run` (`--agents`, else the machine profile's `agents`) and the address their bots dial
+ * (`--bot-target-host`), or undefined for local bots. Throws `UsageError` on bad specs, a missing token, or a
+ * missing / loopback bot target with agents on other machines.
+ */
+export async function agentsFromArgs (args: ParsedArgs, env: Record<string, string | undefined> = process.env): Promise<{ specs: AgentSpec[], botTargetHost: string } | undefined> {
+  let specs: AgentSpec[] | undefined
+  try {
+    const list = flag(args, 'agents')
+    if (list !== undefined) specs = parseAgentSpecs(list, '--agents')
+    else {
+      const mp = await machineProfile(args)
+      const raw = (mp?.profile as Record<string, unknown> | undefined)?.['agents']
+      if (raw !== undefined) specs = parseAgentSpecs(raw, `${mp!.file}: agents`)
+    }
+  } catch (err) {
+    if (err instanceof UsageError) throw err
+    throw new UsageError((err as Error).message)
+  }
+  const target = flag(args, 'bot-target-host')
+  if (specs === undefined || specs.length === 0) {
+    if (target !== undefined) throw new UsageError('--bot-target-host needs --agents (or agents in the machine profile)')
+    return undefined
+  }
+  if (!(env[AGENT_TOKEN_ENV] ?? '')) throw new UsageError(`set ${AGENT_TOKEN_ENV} to the shared secret of the agents`)
+  try {
+    return { specs, botTargetHost: resolveBotTargetHost(specs, target) }
+  } catch (err) {
+    throw new UsageError((err as Error).message)
   }
 }
 
@@ -147,6 +200,7 @@ async function main (argv: string[]): Promise<number> {
         process.stdout.write(`${JSON.stringify(session ? configs : configs[0], null, 2)}\n`)
         return 0
       }
+      const agents = await agentsFromArgs(args)
       const ac = new AbortController()
       let interrupts = 0
       process.on('SIGINT', () => {
@@ -164,7 +218,8 @@ async function main (argv: string[]): Promise<number> {
         noReport: bool(args, 'no-report'),
         lock: !bool(args, 'no-lock'),
         skipIdleCheck: bool(args, 'skip-idle-check'),
-        signal: ac.signal
+        signal: ac.signal,
+        ...(agents !== undefined ? { agents } : {})
       }
       try {
         if (session) {
@@ -185,6 +240,8 @@ async function main (argv: string[]): Promise<number> {
         throw err
       }
     }
+    case 'agent':
+      return await agentCommand(args, consoleLogger)
     case 'analyze': {
       const dir = rest[0]
       if (dir === undefined) throw new UsageError('analyze needs a run directory')

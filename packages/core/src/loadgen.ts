@@ -11,6 +11,8 @@ export interface LoadGenOptions {
    */
   scenarioModule: string
   scenarioParams?: Record<string, unknown>
+  /** Registry name of the scenario, when it is a built-in one (lets remote agents use their own copy). */
+  scenarioName?: string
   /** Bots per worker process. */
   botsPerWorker: number
   /** Delay between successive joins, ms. */
@@ -38,4 +40,9 @@ export interface LoadGenerator {
   pids? (): number[]
   /** Called with the pid of every worker process the generator starts, including re-forks (optional). */
   onWorkerSpawn? (listener: (pid: number) => void): void
+  /**
+   * Mark the fleet saturated because of `source` (e.g. a remote agent's machine) with `reasons`; an empty list
+   * clears it (optional).
+   */
+  setExternalSaturation? (source: string, reasons: readonly string[]): void
 }

@@ -6,7 +6,7 @@ export interface ParsedArgs {
 }
 
 /** Flags that never take a value. */
-const BOOLEAN_FLAGS = new Set(['accept-eula', 'keep-instances', 'no-report', 'no-lock', 'help', 'h', 'dry-run', 'preview', 'force', 'skip-idle-check', 'write'])
+const BOOLEAN_FLAGS = new Set(['accept-eula', 'keep-instances', 'no-report', 'no-lock', 'help', 'h', 'dry-run', 'preview', 'force', 'skip-idle-check', 'write', 'insecure', 'allow-harness-mismatch'])
 
 /** Bad command line (exit code 2). */
 export class UsageError extends Error {

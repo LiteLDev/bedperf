@@ -62,7 +62,11 @@ test('harnessInfo: commit, dirty, node; tolerates missing git', async () => {
   assert.ok(seen.some(s => s.includes('status --porcelain --untracked-files=no -- packages scripts')))
   const clean: ExecFn = async (_c, args) => (args.includes('rev-parse') ? sha : '')
   assert.equal((await harnessInfo({ version: '1', exec: clean })).dirty, false)
-  assert.deepEqual(await harnessInfo({ version: '1', exec: async () => { throw new Error('ENOENT') }, nodeVersion: 'v24' }), { version: '1', node: 'v24' })
+  assert.deepEqual(await harnessInfo({ version: '1', exec: async () => { throw new Error('ENOENT') }, nodeVersion: 'v24', env: {} }), { version: '1', node: 'v24' })
+  // no git metadata (container image): the commit pinned at build time, dirty unknown
+  const pinned = 'ab'.repeat(20)
+  assert.deepEqual(await harnessInfo({ version: '1', exec: async () => { throw new Error('ENOENT') }, nodeVersion: 'v24', env: { BEDPERF_HARNESS_GIT: pinned } }), { version: '1', git: pinned, node: 'v24' })
+  assert.equal((await harnessInfo({ version: '1', exec, repo: '/r', env: { BEDPERF_HARNESS_GIT: pinned } })).git, sha)
 })
 
 function scrubber (roots: Record<string, string> = {}): Scrubber {
