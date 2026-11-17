@@ -7,6 +7,8 @@ import { createWindowsBackend } from './windows.ts'
 
 export interface ProcessSamplerOptions extends ComputeOptions {
   intervalMs?: number
+  /** Whole-machine CPU time reader (default `readSysCpu`); injectable so tests are deterministic. */
+  sysCpu?: () => { busyMs: number, totalMs: number }
   /** Sample system-wide NIC counters (default true). */
   net?: boolean
   /**
@@ -117,7 +119,7 @@ export function createProcessSampler (opts: ProcessSamplerOptions): ProcessSampl
       if (res?.kind === 'exited') { endReason = 'exited'; break }
       if (res) {
         const cur = res.raw
-        cur.sysCpu = readSysCpu()
+        cur.sysCpu = (opts.sysCpu ?? readSysCpu)()
         if (prev) {
           const s = computeSample(prev, cur, state)
           if (s) {

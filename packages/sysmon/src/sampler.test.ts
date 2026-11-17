@@ -27,8 +27,11 @@ const reading = (t: number, cpu: number): BackendResult => ({
 test('driver emits one sample per reading after the first, then stops on exit', async () => {
   const be = fakeBackend([reading(0, 0), reading(100, 50), reading(200, 60), { kind: 'exited' }, reading(300, 70)])
   const samples: SysSample[] = []
+  // Real OS CPU counters may not advance between two reads 5 ms apart (Linux counts in 10 ms ticks).
+  let sys = 0
+  const sysCpu = (): { busyMs: number, totalMs: number } => { sys += 100; return { busyMs: sys / 4, totalMs: sys } }
   const ended = new Promise<string>(resolve => {
-    const s = createProcessSampler({ pid: 7, intervalMs: 5, backend: be, onEnd: r => resolve(r) })
+    const s = createProcessSampler({ pid: 7, intervalMs: 5, backend: be, sysCpu, onEnd: r => resolve(r) })
     void s.start(x => samples.push(x))
   })
   assert.equal(await ended, 'exited')
@@ -36,7 +39,7 @@ test('driver emits one sample per reading after the first, then stops on exit', 
   assert.equal(be.reads, 4) // nothing read after exit
   assert.deepEqual(samples.map(s => s.cpuPct), [50, 10])
   assert.equal(samples[0]!.mainThread!.util, 0.5)
-  assert.equal(typeof samples[0]!.systemCpuPct, 'number')
+  assert.equal(samples[0]!.systemCpuPct, 25)
 })
 
 test('driver tolerates transient errors, reports persistent ones via onEnd', async () => {
