@@ -5,16 +5,17 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
-import type { BdsInstance, BdsServer, BenchmarkConfig, GametimeSample, PlacementPlan, Sampler } from '@bedperf/core'
+import { AGENT_TOKEN_ENV, type AgentSpec, type BdsInstance, type BdsServer, type BenchmarkConfig, type GametimeSample, type PlacementPlan, type Sampler } from '@bedperf/core'
 import { bdsZipSha256, createInstance, destroyInstance, ensureBds, hashTree, hostPlatform, pristineDirOf, resolveVersion, serverExeName } from '@bedperf/bds-install'
 import { BdsProcess, GametimeSampler, type SpawnFn } from '@bedperf/bds-process'
 import { packDir } from '@bedperf/probe-addon'
 import { createMachineSampler, createProcessSampler, idleCheck } from '@bedperf/sysmon'
 import { applyToPid, parseProfile, planPlacement, planUsable, readTopology, verifyPlacement, wrapSpawn } from '@bedperf/placement'
 import { BotFleet } from '@bedperf/loadgen'
+import { connectAgents, type AgentPool } from '@bedperf/agent'
 import { loadScenario } from '@bedperf/scenarios'
 import {
-  consoleLogger, EnvGateError, runBenchmark, runSession,
+  consoleLogger, EngineAgents, EnvGateError, runBenchmark, runSession,
   type BenchmarkOutcome, type EngineDeps, type EnginePlacement, type Logger, type RepeatOrder, type SessionOutcome
 } from '@bedperf/orchestrator'
 import { writeReport } from '@bedperf/report'
@@ -44,6 +45,17 @@ export interface RunCommandOptions {
   lockPath?: string
   /** Do not run the idle gate before repeats. */
   skipIdleCheck?: boolean
+  /**
+   * Run the bots on remote `bedperf agent`s (distributed run). Not part of config.json: the topology is
+   * recorded in meta.json `topology`.
+   */
+  agents?: {
+    specs: AgentSpec[]
+    /** Address of this machine the agents' bots dial (see orchestrator `resolveBotTargetHost`). */
+    botTargetHost: string
+    /** Shared secret. Default `$BEDPERF_AGENT_TOKEN`. */
+    token?: string
+  }
 }
 
 export interface RunCommandResult extends BenchmarkOutcome {
@@ -110,14 +122,14 @@ function pickBotVersion (config: BenchmarkConfig, bdsVersion: string): string {
  * Plan the CPU placement of a config (once per run). Throws `EnvGateError` when a check fails (unless
  * `placement.enabled` is false, which returns undefined).
  */
-export async function planRunPlacement (config: BenchmarkConfig, log: Logger): Promise<PlacementPlan | undefined> {
+export async function planRunPlacement (config: BenchmarkConfig, log: Logger, o: { bots?: 'local' | 'remote' } = {}): Promise<PlacementPlan | undefined> {
   const pc = config.placement
   if (pc === undefined || !pc.enabled) return undefined
   const profile = parseProfile({
     ...(pc.label !== undefined ? { label: pc.label } : {}),
     placement: { serverCpus: pc.serverCpus, botCpus: pc.botCpus, harnessCpus: pc.harnessCpus, priority: pc.priority }
   })
-  const plan = planPlacement(await readTopology(), profile)
+  const plan = planPlacement(await readTopology(), profile, { bots: o.bots ?? 'local' })
   for (const c of plan.checks) {
     if (c.level === 'warn') log.warn(`placement: ${c.summary}`)
     else if (c.level === 'info') log.info(`placement: ${c.summary}`)
@@ -126,7 +138,7 @@ export async function planRunPlacement (config: BenchmarkConfig, log: Logger): P
     const fails = plan.checks.filter(c => c.level === 'fail').map(c => c.summary)
     throw new EnvGateError(`CPU placement is not usable: ${fails.join('; ')} (set placement.enabled=false to run without placement)`, fails)
   }
-  log.info(`placement (${plan.kind}): server CPUs ${plan.serverCpus.join(',')}, bots ${plan.botCpus.join(',')}, harness ${plan.harnessCpus.join(',')}, priority ${plan.priority}`)
+  log.info(`placement (${plan.kind}${plan.mode !== undefined && plan.mode !== 'local' ? `, ${plan.mode}` : ''}): server CPUs ${plan.serverCpus.join(',')}, bots ${plan.botCpus.length > 0 ? plan.botCpus.join(',') : 'remote'}, harness ${plan.harnessCpus.join(',')}, priority ${plan.priority}`)
   return plan
 }
 
@@ -224,10 +236,10 @@ function artifactsMeta (bdsVersion: string): { artifacts: Record<string, string>
 
 function makeDeps (
   p: Prepared,
-  ctx: { runsDir: string, runDir: string, port: number, plan: PlacementPlan | undefined, instances: BdsInstance[], log: Logger, opts: RunCommandOptions }
+  ctx: { runsDir: string, runDir: string, port: number, plan: PlacementPlan | undefined, instances: BdsInstance[], log: Logger, opts: RunCommandOptions, agents?: EngineAgents<AgentPool> | undefined }
 ): EngineDeps {
   const { config } = p
-  const { log, plan } = ctx
+  const { log, plan, agents } = ctx
   return {
     runsDir: ctx.runsDir,
     createServer: async repeat => {
@@ -246,16 +258,46 @@ function makeDeps (
       proc.on('warning', msg => log.warn(`bds: ${msg}`))
       return proc
     },
-    createLoadGen: () => new BotFleet(),
+    createLoadGen: () => {
+      if (agents === undefined) return new BotFleet()
+      // the engine connects (or reconnects) the agents before every repeat
+      const pool = agents.pool
+      if (pool === undefined) throw new Error('bot agents are not connected')
+      return new BotFleet({ spawnWorker: pool.workerFactory() })
+    },
     createSampler: pid => createProcessSampler({ pid }),
     scenarioSetup: () => p.setup,
-    loadGenOptions: { version: config.botVersion ?? config.bdsVersion, scenarioModule: p.scenario.module },
+    loadGenOptions: {
+      version: config.botVersion ?? config.bdsVersion,
+      scenarioModule: p.scenario.module,
+      // the engine points the bots at agents.botTargetHost
+      ...(p.scenario.name !== undefined ? { scenarioName: p.scenario.name } : {})
+    },
     logger: log,
     ...(plan !== undefined ? { placement: enginePlacement(plan) } : {}),
     ...(ctx.opts.skipIdleCheck === true ? {} : { idleCheck: o => idleCheck(o) }),
     createMachineSampler: o => createMachineSampler(o.serverCpus !== undefined ? { serverCpus: o.serverCpus } : {}),
-    createGametimeSampler: gametimeSampler
+    createGametimeSampler: gametimeSampler,
+    ...(agents !== undefined ? { agents } : {})
   }
+}
+
+/** The remote agents of a distributed run (connected lazily by the engine), or undefined for local bots. */
+function openAgents (opts: RunCommandOptions, log: Logger): EngineAgents<AgentPool> | undefined {
+  const a = opts.agents
+  if (a === undefined || a.specs.length === 0) return undefined
+  const token = a.token ?? process.env[AGENT_TOKEN_ENV] ?? ''
+  return new EngineAgents<AgentPool>({
+    specs: a.specs,
+    botTargetHost: a.botTargetHost,
+    idleCheck: opts.skipIdleCheck !== true,
+    connect: async events => {
+      log.info(`connecting to ${a.specs.length} bot agent(s): ${a.specs.map(s => s.address).join(', ')}`)
+      const pool = await connectAgents(a.specs, { token, onTelemetry: events.telemetry, onLink: events.link, log: line => { log.info(`agents: ${line}`) } })
+      for (const h of pool.agents) log.info(`agent ${h.name}: ${h.info.machine.cpuModel}, ${h.info.cpus} CPUs, weight ${h.weight}${h.maxBots !== undefined ? `, max ${h.maxBots} bots` : ''}`)
+      return pool
+    }
+  })
 }
 
 async function withLock<T> (opts: RunCommandOptions, fn: (lock: MachineLock | undefined) => Promise<T>): Promise<T> {
@@ -290,7 +332,8 @@ export async function runCommand (input: BenchmarkConfig, opts: RunCommandOption
   instanceProperties(input, resolveScenario(input.scenario.module))
   return await withLock(opts, async lock => {
     const p = await prepare(input, opts, log)
-    const plan = await planRunPlacement(p.config, log)
+    const agents = openAgents(opts, log)
+    const plan = await planRunPlacement(p.config, log, { bots: agents !== undefined ? 'remote' : 'local' })
     if (plan !== undefined) await applyHarness(plan, log)
     const runsDir = resolve(opts.runsDir ?? join(REPO_ROOT, 'runs'))
     const runId = freshId(runsDir, p.config.name)
@@ -298,10 +341,10 @@ export async function runCommand (input: BenchmarkConfig, opts: RunCommandOption
     const instances: BdsInstance[] = []
     const { artifacts, commit } = artifactsMeta(p.config.bdsVersion)
     try {
-      const deps = makeDeps(p, { runsDir, runDir: join(runsDir, runId), port: opts.port ?? 19200, plan, instances, log, opts })
+      const deps = makeDeps(p, { runsDir, runDir: join(runsDir, runId), port: opts.port ?? 19200, plan, instances, log, opts, agents })
       const outcome = await runBenchmark(p.config, deps, {
         runId,
-        meta: { bdsVersion: p.config.bdsVersion, botVersion: p.config.botVersion!, colocated: true, artifacts, ...(commit !== undefined ? { bedbooCommit: commit } : {}) },
+        meta: { bdsVersion: p.config.bdsVersion, botVersion: p.config.botVersion!, colocated: agents === undefined, artifacts, ...(commit !== undefined ? { bedbooCommit: commit } : {}) },
         ...(opts.signal !== undefined ? { signal: opts.signal } : {})
       })
       let report: string | undefined
@@ -311,6 +354,7 @@ export async function runCommand (input: BenchmarkConfig, opts: RunCommandOption
       }
       return { ...outcome, ...(report !== undefined ? { report } : {}) }
     } finally {
+      await agents?.close().catch(err => { log.warn(`closing the bot agents failed: ${String(err)}`) })
       await destroyAll(instances, opts, log)
     }
   })
@@ -327,8 +371,9 @@ export async function runSessionCommand (inputs: readonly BenchmarkConfig[], ord
   return await withLock(opts, async lock => {
     const prepared: Prepared[] = []
     for (const c of inputs) prepared.push(await prepare(c, opts, log))
+    const agents = openAgents(opts, log)
     const plans: Array<PlacementPlan | undefined> = []
-    for (const p of prepared) plans.push(await planRunPlacement(p.config, log))
+    for (const p of prepared) plans.push(await planRunPlacement(p.config, log, { bots: agents !== undefined ? 'remote' : 'local' }))
     const first = plans.find(x => x !== undefined)
     if (first !== undefined) {
       if (plans.some(x => x !== undefined && x.harnessCpus.join(',') !== first.harnessCpus.join(','))) {
@@ -348,8 +393,8 @@ export async function runSessionCommand (inputs: readonly BenchmarkConfig[], ord
         const { artifacts, commit } = artifactsMeta(p.config.bdsVersion)
         return {
           config: p.config,
-          deps: makeDeps(p, { runsDir: dir, runDir: join(dir, runId), port: opts.port ?? 19200, plan: plans[i], instances, log, opts }),
-          opts: { runId, meta: { bdsVersion: p.config.bdsVersion, botVersion: p.config.botVersion!, colocated: true, artifacts, ...(commit !== undefined ? { bedbooCommit: commit } : {}) } }
+          deps: makeDeps(p, { runsDir: dir, runDir: join(dir, runId), port: opts.port ?? 19200, plan: plans[i], instances, log, opts, agents }),
+          opts: { runId, meta: { bdsVersion: p.config.bdsVersion, botVersion: p.config.botVersion!, colocated: agents === undefined, artifacts, ...(commit !== undefined ? { bedbooCommit: commit } : {}) } }
         }
       })
       const out = await runSession(entries, { sessionId, dir, order, ...(opts.signal !== undefined ? { signal: opts.signal } : {}) })
@@ -363,6 +408,7 @@ export async function runSessionCommand (inputs: readonly BenchmarkConfig[], ord
       }
       return { ...out, reports }
     } finally {
+      await agents?.close().catch(err => { log.warn(`closing the bot agents failed: ${String(err)}`) })
       await destroyAll(instances, opts, log)
     }
   })

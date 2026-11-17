@@ -1,7 +1,7 @@
 import {
   counterTps, DEFAULT_GATES, DEFAULT_TPS_DIVERGENCE, latencySummary, lowTps, maxGap, monotonic, summarize,
-  type BotFleetStats, type GametimeSample, type GatesConfig, type InterferenceSample, type PassCriteria, type ProbeSample, type StepResult,
-  type Summary, type SysSample
+  type AgentLinkEvent, type AgentTelemetry, type BotFleetStats, type GametimeSample, type GatesConfig, type InterferenceSample, type PassCriteria,
+  type ProbeSample, type StepResult, type Summary, type SysSample
 } from '@bedperf/core'
 import { checkInterference, mainThreadCpuSeries, summarizeInterference, tickCpuMsPerTick, type TickPoint } from '@bedperf/sysmon'
 
@@ -39,6 +39,16 @@ export interface MeasuredWindow {
   probeAround?: readonly ProbeSample[]
   /** Invalid reasons established outside the window data (e.g. `placement_mismatch`), listed after loadgen saturation. */
   extraInvalid?: readonly string[]
+  /**
+   * Remote agents whose control link was lost between the step start and the hold end (`agent.link` `lost`
+   * events): their bots are gone, so the step is invalid.
+   */
+  agentsLost?: readonly AgentLinkEvent[]
+  /**
+   * Telemetry of the remote agents whose interval lies inside the hold, with its receive time. Foreign load on
+   * an agent machine over the interference gates makes the step invalid.
+   */
+  agentTelemetry?: ReadonlyArray<{ t: number, data: AgentTelemetry }>
 }
 
 /** Thresholds `evaluateStep` takes besides the pass criteria. */
@@ -68,7 +78,13 @@ export const InvalidCodes = {
   gametimeMissing: 'gametime_missing',
   gametimeGap: 'gametime_gap',
   gametimeLatency: 'gametime_latency',
-  gametimeNonMonotonic: 'gametime_non_monotonic'
+  gametimeNonMonotonic: 'gametime_non_monotonic',
+  /** A remote bot agent's control link was lost (its bots went with it). */
+  agentLost: 'agent_lost',
+  /** Foreign load on a remote agent's machine over the interference gates. */
+  agentInterference: 'agent_interference',
+  /** Agents reconnected between repeats are other machines than the run recorded. */
+  agentTopologyChanged: 'agent_topology_changed'
 } as const
 
 /** Probe tick counter at `t`, linearly interpolated between the samples around it (no extrapolation). */
@@ -252,6 +268,21 @@ export function evaluateStep (window: MeasuredWindow, criteria: PassCriteria, op
     }
     const chk = checkInterference(sum, { foreignMean: gates.foreignMean, foreignPeak10s: gates.foreignPeak10s, serverSetForeignMean: gates.serverSetForeignMean })
     if (!chk.ok) invalid.push(`${InvalidCodes.interference}: ${chk.reasons.join('; ')}`)
+  }
+
+  // --- remote agents ---
+  const lostNames = new Map<string, string | undefined>()
+  for (const e of window.agentsLost ?? []) if (e.event === 'lost' && !lostNames.has(e.agent)) lostNames.set(e.agent, e.reason)
+  for (const [name, why] of lostNames) invalid.push(`${InvalidCodes.agentLost}: ${name}${why !== undefined ? ` (${why})` : ''}`)
+  const byAgent = new Map<string, InterferenceSample[]>()
+  for (const { t, data } of window.agentTelemetry ?? []) {
+    // only `t` and `foreignCores` feed the summary
+    const s = { t, intervalMs: data.intervalMs, foreignCores: data.foreignCores } as InterferenceSample
+    byAgent.set(data.agent, [...(byAgent.get(data.agent) ?? []), s])
+  }
+  for (const [name, xs] of byAgent) {
+    const chk = checkInterference(summarizeInterference(xs), { foreignMean: gates.foreignMean, foreignPeak10s: gates.foreignPeak10s })
+    if (!chk.ok) invalid.push(`${InvalidCodes.agentInterference}: ${name} ${chk.reasons.join('; ')}`)
   }
 
   // --- tick counter (time query gametime) ---

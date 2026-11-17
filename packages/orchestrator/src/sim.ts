@@ -3,9 +3,11 @@
  * clock, for tests and dry runs of the engine. Not a performance model of anything real.
  */
 import type {
-  BdsInstance, BdsServer, BdsServerEvents, BotFleetStats, GametimeSample, InterferenceSample, LoadGenerator, LoadGenOptions, PlacementPlan,
-  PlacementVerification, ProbeSample, ProcessGroupName, Sampler, SysSample
+  AgentFleetSlice, AgentIdleCheckResult, AgentInfo, AgentLinkStats, AgentSpec, BdsInstance, BdsServer, BdsServerEvents, BotFleetStats,
+  GametimeSample, InterferenceSample, LoadGenerator, LoadGenOptions, PlacementPlan, PlacementVerification, ProbeSample, ProcessGroupName,
+  Sampler, SysSample
 } from '@bedperf/core'
+import { EngineAgents, type AgentEvents, type AgentHandleLike, type AgentPoolLike } from './agents.ts'
 import { HOLD_COMMAND_RE, silentLogger, type EngineDeps, type EnginePlacement, type IdleGateResult, type Logger, type MachineSamplerLike } from './engine.ts'
 
 /** Virtual clock: `sleep` advances time instantly, firing due timers in order. */
@@ -91,6 +93,23 @@ export interface SimModel {
   viewDriftPerBot?: number
   /** Placement verification calls (0-based, counted over the whole simulation) that fail. */
   placementFailAt?: readonly number[]
+  /** Run the bots on simulated remote agents (distributed run). */
+  agents?: SimAgentsModel
+}
+
+/** Simulated remote bot agents. Agent `i` is named `sim-agent-<i>`. */
+export interface SimAgentsModel {
+  count: number
+  /** Agent `agent` reports itself saturated while more than `above` players are online. */
+  saturate?: { agent: number, above: number }
+  /** Agent `agent`'s link is lost during hold window number `atHold` (1-based, over the whole simulation), once. */
+  drop?: { agent: number, atHold: number }
+  /** Foreign load on the agent machines, cores. Default 0.02. */
+  foreign?: number | ((ctx: SimKnobContext & { agent: number }) => number)
+  /** Foreign load the agents' idle checks see, cores. Default 0.02. */
+  idleForeign?: number
+  /** Connecting fails with this error message. */
+  connectFail?: string
 }
 
 /** Shared mutable state between the simulated server, fleet and samplers. */
@@ -109,6 +128,10 @@ export interface SimWorld {
   holds: number
   idleChecks: number
   verifications: number
+  /** Simulated agent pools connected so far. */
+  agentConnects: number
+  /** `agents.drop` happened. */
+  agentDropped: boolean
 }
 
 function mulberry32 (seed: number): () => number {
@@ -134,7 +157,9 @@ export function createSimWorld (model: SimModel): SimWorld {
     holding: false,
     holds: 0,
     idleChecks: 0,
-    verifications: 0
+    verifications: 0,
+    agentConnects: 0,
+    agentDropped: false
   }
 }
 
@@ -274,6 +299,8 @@ export class SimLoadGen implements LoadGenerator {
   /** Join time of each live bot, ms. */
   private joins: number[] = []
   private lastUniq: number | undefined
+  /** `setExternalSaturation` sources currently saturated. */
+  private readonly external = new Map<string, readonly string[]>()
 
   constructor (world: SimWorld, basePid = 20_000) {
     this.world = world
@@ -296,7 +323,7 @@ export class SimLoadGen implements LoadGenerator {
 
   private emitStats (intervalMs: number): void {
     const now = this.world.clock.now()
-    const sat = this.world.model.saturateAbove !== undefined && this.target > this.world.model.saturateAbove
+    const sat = (this.world.model.saturateAbove !== undefined && this.target > this.world.model.saturateAbove) || this.external.size > 0
     const rtt = 1000 / simTps(this.world, this.world.players)
     const per = this.joins.map(j => this.uniqOf(j, now)).sort((a, b) => a - b)
     const uniq = per.reduce((a, b) => a + b, 0)
@@ -314,6 +341,18 @@ export class SimLoadGen implements LoadGenerator {
       chunksPerSec: this.lastUniq === undefined ? 0 : Math.max(0, uniq - this.lastUniq) / (intervalMs / 1000),
       uniqChunks: uniq,
       loadgen: { workers: Math.max(1, Math.ceil(this.target / 50)), eventLoopLagP99Ms: sat ? 250 : 5, maxWorkerCpuPct: sat ? 100 : 20, saturated: sat, totalCores: this.world.players * 0.01 }
+    }
+    const n = this.world.model.agents?.count ?? 0
+    if (n > 0) {
+      s.loadgen.agents = Array.from({ length: n }, (_, i): AgentFleetSlice => ({
+        agent: simAgentName(i),
+        workers: Math.ceil(s.loadgen.workers / n),
+        bots: Math.floor(this.world.players / n) + (i < this.world.players % n ? 1 : 0),
+        totalCores: this.world.players * 0.01 / n,
+        eventLoopLagP99Ms: 5,
+        maxWorkerCpuPct: 20,
+        saturated: this.external.has(simAgentName(i))
+      }))
     }
     if (per.length > 0) {
       s.inView = { min: per[0]!, median: med, max: per.at(-1)!, halfMedianFrac: per.filter(v => v >= 0.5 * med).length / per.length }
@@ -351,7 +390,13 @@ export class SimLoadGen implements LoadGenerator {
   }
 
   onWorkerSpawn (listener: (pid: number) => void): void {
-    this.spawnListeners.push(listener)
+    // remote workers have no local pid
+    if (this.world.model.agents === undefined) this.spawnListeners.push(listener)
+  }
+
+  setExternalSaturation (source: string, reasons: readonly string[]): void {
+    if (reasons.length > 0) this.external.set(source, [...reasons])
+    else this.external.delete(source)
   }
 
   async stop (): Promise<void> {
@@ -474,9 +519,12 @@ export const SIM_PLAN: PlacementPlan = {
   profileSha256: '0'.repeat(64)
 }
 
-export function simPlacement (world: SimWorld): EnginePlacement {
+/** The simulated server-machine plan of a distributed run: no bot set, the harness on CPUs 4-5. */
+export const SIM_REMOTE_PLAN: PlacementPlan = { ...SIM_PLAN, botCpus: [], harnessCpus: [4, 5], mode: 'remote-bots' }
+
+export function simPlacement (world: SimWorld, plan: PlacementPlan = SIM_PLAN): EnginePlacement {
   return {
-    plan: SIM_PLAN,
+    plan,
     method: 'sim',
     async verifyServer (pid: number): Promise<PlacementVerification> {
       const n = world.verifications++
@@ -497,6 +545,145 @@ export function simPlacement (world: SimWorld): EnginePlacement {
       return { ok: true }
     }
   }
+}
+
+export function simAgentName (i: number): string {
+  return `sim-agent-${i}`
+}
+
+class SimAgentHandle implements AgentHandleLike {
+  readonly name: string
+  readonly spec: AgentSpec
+  readonly info: AgentInfo
+  readonly weight = 1
+  readonly maxBots = undefined
+  alive = true
+  lostReason: string | undefined
+  readonly index: number
+
+  constructor (index: number, spec: AgentSpec) {
+    this.index = index
+    this.name = simAgentName(index)
+    this.spec = spec
+    this.info = {
+      name: this.name,
+      protocol: 1,
+      machine: { fingerprint: `${index.toString(16).padStart(2, '0')}5133a9e17bd0c0`, os: 'linux', cpuModel: 'Sim CPU', logical: 8, physical: 4, ramGiB: 16 },
+      harness: { version: '0.0.0', node: 'v24.0.0' },
+      cpus: 8
+    }
+  }
+}
+
+/** A simulated agent pool on the virtual clock: link stats, idle checks, telemetry, saturation and a dropped link. */
+export class SimAgentPool implements AgentPoolLike {
+  readonly agents: SimAgentHandle[]
+  private readonly world: SimWorld
+  private readonly events: AgentEvents
+  private cancel: (() => void) | undefined
+
+  constructor (world: SimWorld, specs: readonly AgentSpec[], events: AgentEvents) {
+    this.world = world
+    this.events = events
+    this.agents = specs.map((s, i) => new SimAgentHandle(i, s))
+    for (const a of this.agents) events.link({ agent: a.name, event: 'connected' })
+  }
+
+  async measureLink (n = 10): Promise<Record<string, AgentLinkStats>> {
+    const out: Record<string, AgentLinkStats> = {}
+    for (const a of this.agents) {
+      if (!a.alive) continue
+      const stats: AgentLinkStats = { rttMs: { min: 0.2 + a.index * 0.1, median: 0.3 + a.index * 0.1, max: 0.6 + a.index * 0.1, n }, clockOffsetMs: 0 }
+      out[a.name] = stats
+      this.events.link({ agent: a.name, event: 'stats', stats })
+    }
+    return out
+  }
+
+  async idleCheckAll (o: { durationSec?: number, thresholds?: Record<string, number> } = {}): Promise<Record<string, AgentIdleCheckResult>> {
+    const foreign = this.world.model.agents?.idleForeign ?? 0.02
+    const limit = o.thresholds?.['foreignMean'] ?? 0.25
+    const out: Record<string, AgentIdleCheckResult> = {}
+    for (const a of this.agents) {
+      if (!a.alive) continue
+      const ok = foreign <= limit
+      out[a.name] = {
+        ok,
+        reasons: ok ? [] : [`foreign load ${foreign.toFixed(2)} cores > ${limit}`],
+        summary: { samples: o.durationSec ?? 15, foreignMean: foreign, foreignPeak10s: foreign },
+        top: ok ? [] : [{ pid: 777, name: 'sim-agent-hog', cores: foreign }]
+      }
+    }
+    return out
+  }
+
+  startTelemetry (intervalMs: number): void {
+    this.cancel?.()
+    this.cancel = undefined
+    if (intervalMs > 0) this.cancel = this.world.clock.every(intervalMs, () => { this.tick(intervalMs) })
+  }
+
+  private tick (intervalMs: number): void {
+    const m = this.world.model.agents
+    const players = this.world.players
+    for (const a of this.agents) {
+      if (!a.alive) continue
+      const drop = m?.drop
+      if (drop !== undefined && drop.agent === a.index && !this.world.agentDropped && this.world.holding && this.world.holds === drop.atHold) {
+        this.world.agentDropped = true
+        this.lose(a, 'sim: agent dropped')
+        continue
+      }
+      const f = m?.foreign
+      const foreign = f === undefined ? 0.02 : typeof f === 'number' ? f : f({ t: this.world.clock.now(), holds: this.world.holds, holding: this.world.holding, players, agent: a.index })
+      const reasons = m?.saturate !== undefined && m.saturate.agent === a.index && players > m.saturate.above ? [`sim: machine CPU busy with ${players} players`] : []
+      const bots = players * 0.01 / this.agents.length
+      this.events.telemetry({
+        agent: a.name,
+        intervalMs,
+        busyCores: bots + foreign + 0.05,
+        botCores: bots,
+        foreignCores: foreign,
+        logicalCpus: 8,
+        saturated: reasons.length > 0,
+        reasons
+      })
+    }
+  }
+
+  private lose (a: SimAgentHandle, reason: string): void {
+    a.alive = false
+    a.lostReason = reason
+    this.events.link({ agent: a.name, event: 'lost', reason })
+  }
+
+  async close (): Promise<void> {
+    this.cancel?.()
+    this.cancel = undefined
+    for (const a of this.agents) {
+      if (!a.alive) continue
+      a.alive = false
+      a.lostReason = 'pool closed'
+      this.events.link({ agent: a.name, event: 'closed', reason: 'pool closed' })
+    }
+  }
+}
+
+/** Engine agents backed by `SimAgentPool`s (one per (re)connect). */
+export function simAgents (world: SimWorld, opts: { idleCheck?: boolean } = {}): EngineAgents<SimAgentPool> {
+  const m = world.model.agents
+  if (m === undefined || !(m.count > 0)) throw new Error('simAgents: model.agents.count must be > 0')
+  const specs: AgentSpec[] = Array.from({ length: m.count }, (_, i) => ({ address: `10.0.1.${i + 1}:19260` }))
+  return new EngineAgents({
+    specs,
+    botTargetHost: '10.0.0.10',
+    ...(opts.idleCheck !== undefined ? { idleCheck: opts.idleCheck } : {}),
+    connect: async events => {
+      world.agentConnects++
+      if (m.connectFail !== undefined) throw new Error(`could not connect to 1 of ${m.count} agent(s):\n  agent ${specs[0]!.address}: ${m.connectFail}`)
+      return new SimAgentPool(world, specs, events)
+    }
+  })
 }
 
 export interface SimFeatures {
@@ -528,7 +715,7 @@ export function createSimDeps (model: SimModel, runsDir: string, opts: { logger?
       if (open) world.holds++
     }
   }
-  if (f.placement) deps.placement = simPlacement(world)
+  if (f.placement) deps.placement = simPlacement(world, model.agents !== undefined ? SIM_REMOTE_PLAN : SIM_PLAN)
   if (f.idleCheck) {
     deps.idleCheck = async ({ durationSec, thresholds }): Promise<IdleGateResult> => {
       const n = world.idleChecks++
@@ -546,5 +733,6 @@ export function createSimDeps (model: SimModel, runsDir: string, opts: { logger?
   }
   if (f.interference) deps.createMachineSampler = ({ serverCpus }) => new SimMachineSampler(world, serverCpus)
   if (f.gametime) deps.createGametimeSampler = (server, intervalMs) => server instanceof SimServer ? new SimGametimeSampler(world, server, intervalMs) : undefined
+  if (model.agents !== undefined) deps.agents = simAgents(world, { idleCheck: f.idleCheck })
   return { deps, world }
 }

@@ -1,0 +1,7 @@
+# .git stays: a clone's agent image reports its own commit (see docker/README.md)
+**/node_modules
+runs
+.cache
+.claude
+*.log
+*.tsbuildinfo

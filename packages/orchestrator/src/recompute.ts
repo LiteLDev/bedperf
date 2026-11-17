@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   Kinds, RUN_FILES,
-  type BenchmarkConfig, type BotFleetStats, type Envelope, type GametimeSample, type InterferenceSample, type ProbeSample, type RunMeta,
+  type AgentLinkEvent, type AgentTelemetry, type BenchmarkConfig, type BotFleetStats, type Envelope, type GametimeSample, type InterferenceSample, type ProbeSample, type RunMeta,
   type StepResult, type SysSample
 } from '@bedperf/core'
 import { evaluateStep } from './criteria.ts'
@@ -83,6 +83,8 @@ export function stepFromEnvelopes (envs: readonly Envelope[], facts: StepFacts, 
   const bots: BotFleetStats[] = []
   const gametime: GametimeSample[] = []
   const interference: InterferenceSample[] = []
+  const agentsLost: AgentLinkEvent[] = []
+  const agentTelemetry: Array<{ t: number, data: AgentTelemetry }> = []
   for (let i = Math.max(0, startPos); i < envs.length; i++) {
     const e = envs[i]!
     switch (e.kind) {
@@ -112,6 +114,17 @@ export function stepFromEnvelopes (envs: readonly Envelope[], facts: StepFacts, 
         if (s.t - s.intervalMs >= startT && s.t <= endT) interference.push(s)
         break
       }
+      case Kinds.agentLink: {
+        // lost anywhere from the step start (scale, settle) to the hold end
+        const l = e.data as AgentLinkEvent
+        if (startPos >= 0 && l?.event === 'lost' && e.t <= endT) agentsLost.push(l)
+        break
+      }
+      case Kinds.agentTelemetry: {
+        const a = e.data as AgentTelemetry
+        if (typeof a?.foreignCores === 'number' && e.t - (a.intervalMs ?? 0) >= startT && e.t <= endT) agentTelemetry.push({ t: e.t, data: a })
+        break
+      }
     }
   }
   const evalRes = evaluateStep({
@@ -127,6 +140,9 @@ export function stepFromEnvelopes (envs: readonly Envelope[], facts: StepFacts, 
     gametime,
     ...(facts.gametimeIntervalMs !== undefined ? { gametimeIntervalMs: facts.gametimeIntervalMs } : {}),
     ...(facts.interference === true ? { interference } : {}),
+    ...(agentsLost.length > 0 ? { agentsLost } : {}),
+    // agent foreign load is gated like this machine's: only when the interference gate ran
+    ...(facts.interference === true && agentTelemetry.length > 0 ? { agentTelemetry } : {}),
     ...(facts.placementVerified === false ? { extraInvalid: [`placement_mismatch${facts.placementIssues?.length ? `: ${facts.placementIssues.join('; ')}` : ''}`] } : {})
   }, config.criteria, config.gates !== undefined ? { gates: config.gates } : {})
   if (facts.crashed !== undefined) {
