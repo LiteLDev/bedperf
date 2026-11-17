@@ -1,6 +1,7 @@
 import type { StepResult } from '@bedperf/core'
 import { downsample, linreg, mean, median, num } from './math.ts'
-import { provenanceOf, threatsOf } from './provenance.ts'
+import { provenanceOf, serverViewOf, threatsOf } from './provenance.ts'
+import { topologyViewOf } from './topology.ts'
 import { CURVE_METRICS } from './types.ts'
 import type { Analysis, Curve, CurveMetric, CurvePoint, Derived, Headline, RepeatInfo, RepeatStatus, RunData, StepBand, StepMarkData, StepRow, Timeline } from './types.ts'
 
@@ -17,7 +18,7 @@ const TIMELINE_POINTS_PER_REPEAT = 600
  *    tick CPU per tick, interference and view-load curves; tick CPU per player fit; repeat
  *    statuses from result.json `repeats[]`.
  */
-export const ANALYSIS_VERSION = 2
+export const ANALYSIS_VERSION = 3
 
 /** A step the orchestrator marked invalid (`invalidReasons`), or loadgen-saturated (older runs). */
 function invalidStep (s: StepResult): boolean {
@@ -479,7 +480,10 @@ export function analyze (run: RunData): Analysis {
   if (other.length > 0) notes.push(`Ignored envelope kinds: ${other.map(([k, n]) => `${k} (${n})`).join(', ')}.`)
 
   const provenance = provenanceOf(run.meta)
-  const threats = threatsOf(run, headline, steps, provenance)
+  const timeline = timelineOf(run, steps)
+  const server = serverViewOf(run.meta)
+  const topology = topologyViewOf(run, steps, timeline.t0)
+  const threats = threatsOf(run, headline, steps, provenance, server, topology)
   return {
     analysisVersion: ANALYSIS_VERSION,
     name: String(run.config.name ?? run.result?.config ?? ''),
@@ -493,8 +497,10 @@ export function analyze (run: RunData): Analysis {
     derived: derivedOf(fitRows),
     repeatDerived: okRepeats.map((r) => ({ repeat: r, derived: derivedOf(valid.filter((s) => s.repeat === r)) })),
     okRepeats,
-    timeline: timelineOf(run, steps),
+    timeline,
     provenance,
+    server,
+    topology,
     threats,
     publishable: !threats.some((t) => t.level === 'bad'),
     notes

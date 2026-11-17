@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>bedperf: bds vs levilamina vs levilamina+levioptimize vs endstone</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #75736d;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --good: #0ca30c; --good-ink: #006300; --warn: #fab219; --warn-ink: #8a5a00; --bad: #d03b3b; --bad-ink: #b02a2a;
+  --band-pass: rgba(12,163,12,0.09); --band-fail: rgba(208,59,59,0.13); --band-invalid: rgba(250,178,25,0.20); --band-unknown: rgba(137,135,129,0.10);}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #8f8d86;
+  --grid: #2c2c2a; --axis: #4a4a46; --border: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  --good: #0ca30c; --good-ink: #3fc23f; --warn: #fab219; --warn-ink: #fab219; --bad: #d03b3b; --bad-ink: #ef7a7a;
+  --band-pass: rgba(12,163,12,0.14); --band-fail: rgba(208,59,59,0.22); --band-invalid: rgba(250,178,25,0.20); --band-unknown: rgba(137,135,129,0.14);} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #8f8d86;
+  --grid: #2c2c2a; --axis: #4a4a46; --border: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  --good: #0ca30c; --good-ink: #3fc23f; --warn: #fab219; --warn-ink: #fab219; --bad: #d03b3b; --bad-ink: #ef7a7a;
+  --band-pass: rgba(12,163,12,0.14); --band-fail: rgba(208,59,59,0.22); --band-invalid: rgba(250,178,25,0.20); --band-unknown: rgba(137,135,129,0.14);}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1160px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; overflow-wrap: anywhere; }
+h2 { font-size: 1.15rem; margin: 0 0 12px; }
+h3 { font-size: 0.95rem; margin: 0 0 6px; font-weight: 600; }
+.sub { color: var(--ink-2); margin: 0 0 20px; overflow-wrap: anywhere; }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin: 0 0 18px; min-width: 0; }
+.headline { display: flex; flex-wrap: wrap; gap: 18px 32px; align-items: flex-end; }
+.hero .label { color: var(--ink-2); font-size: 0.95rem; }
+.hero .value { font-size: 3.2rem; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.hero .detail { color: var(--ink-2); font-size: 0.9rem; }
+.hero .value.delta { font-size: 2rem; }
+.flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.flag { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 0.82rem; }
+.flag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.flag.ok::before { background: var(--good); } .flag.warn::before { background: var(--warn); } .flag.bad::before { background: var(--bad); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; flex: 1 1 420px; }
+.tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.tile .k { color: var(--ink-2); font-size: 0.8rem; }
+.tile .v { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .n { color: var(--muted); font-size: 0.75rem; }
+dl.meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 20px; margin: 0; }
+dl.meta div { min-width: 0; }
+dl.meta dt { color: var(--ink-2); font-size: 0.8rem; }
+dl.meta dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+details { margin-top: 12px; } summary { cursor: pointer; color: var(--ink-2); }
+code { font: 0.85em ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere; }
+pre.json { font: 0.8rem ui-monospace, "Cascadia Mono", Consolas, monospace; overflow: auto; max-height: 360px; margin: 8px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+table.matrix td, table.matrix th { white-space: nowrap; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
+figure { margin: 0; min-width: 0; }
+.chart { display: block; width: 100%; height: auto; }
+.chart text { font-size: 13px; }
+.chart .plot-bg { fill: none; }
+.chart .grid line { stroke: var(--grid); stroke-width: 1; }
+.chart .tick text { fill: var(--muted); }
+.chart .tick-mark, .chart .axis { stroke: var(--axis); stroke-width: 1; }
+.chart .axis-label { fill: var(--ink-2); }
+.chart .empty { fill: var(--muted); }
+.chart .ref { stroke: var(--ink-2); stroke-width: 1.25; stroke-dasharray: 5 4; }
+.chart .ref-label { fill: var(--ink-2); font-size: 12px; }
+.chart path.series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart path.series.dash { stroke-dasharray: 6 4; stroke-width: 1.5; }
+.chart .markers circle { stroke: var(--surface); stroke-width: 2; }
+.chart .band { stroke: none; }
+.band-pass { fill: var(--band-pass); background: var(--band-pass); }
+.band-fail { fill: var(--band-fail); background: var(--band-fail); }
+.band-invalid { fill: var(--band-invalid); background: var(--band-invalid); }
+.band-unknown { fill: var(--band-unknown); background: var(--band-unknown); }
+.s1 { stroke: var(--s1); fill: var(--s1); color: var(--s1); }
+.s2 { stroke: var(--s2); fill: var(--s2); color: var(--s2); }
+.s3 { stroke: var(--s3); fill: var(--s3); color: var(--s3); }
+.s4 { stroke: var(--s4); fill: var(--s4); color: var(--s4); }
+.s5 { stroke: var(--s5); fill: var(--s5); color: var(--s5); }
+.s6 { stroke: var(--s6); fill: var(--s6); color: var(--s6); }
+.s7 { stroke: var(--s7); fill: var(--s7); color: var(--s7); }
+.s8 { stroke: var(--s8); fill: var(--s8); color: var(--s8); }
+.sm { stroke: var(--muted); fill: var(--muted); color: var(--muted); }
+path.sm, path.s1, path.s2, path.s3, path.s4, path.s5, path.s6, path.s7, path.s8 { fill: none; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 6px; padding: 0; font-size: 0.82rem; color: var(--ink-2); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.sw.line { width: 18px; height: 0; border-top: 2px solid currentColor; }
+.sw.line.dash { border-top-style: dashed; }
+.sw.box { width: 14px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }
+.repeat + .repeat { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--grid); }
+.panels { display: grid; gap: 4px; }
+.panels .chart { min-width: 560px; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+td.l, th.l { text-align: left; }
+td.reasons { white-space: normal; min-width: 220px; text-align: left; color: var(--ink-2); }
+.st { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.st::before { content: ""; width: 8px; height: 8px; border-radius: 50%; }
+.st.pass { color: var(--good-ink); } .st.pass::before { background: var(--good); }
+.st.fail { color: var(--bad-ink); } .st.fail::before { background: var(--bad); }
+.st.invalid { color: var(--warn-ink); } .st.invalid::before { background: var(--warn); }
+.better { color: var(--good-ink); font-weight: 600; } .worse { color: var(--bad-ink); font-weight: 600; } .same { color: var(--ink-2); }
+.vn, .rng { color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+.rs { font-weight: 600; } .rs.server_failed { color: var(--bad-ink); } .rs.invalid { color: var(--warn-ink); }
+.hero .detail.verdict { max-width: 34ch; }
+details.repeats { margin-top: 10px; }
+details.repeats table { margin-top: 6px; }
+.banner { border: 2px solid var(--bad); background: var(--band-fail); color: var(--ink); border-radius: 12px; padding: 14px 18px; margin: 0 0 18px; overflow-wrap: anywhere; }
+.banner b { color: var(--bad-ink); }
+.foot { color: var(--ink-2); font-size: 0.85rem; }
+.foot ul { padding-left: 18px; }
+.threats { border-left: 4px solid var(--warn); }
+.threats.unpub { border-left-color: var(--bad); }
+.threats h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.threats ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 6px; }
+.threats li { overflow-wrap: anywhere; }
+.threats .lvl { display: inline-block; min-width: 9.5em; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+.threats li.bad .lvl { color: var(--bad-ink); } .threats li.warn .lvl { color: var(--warn-ink); } .threats li.info .lvl { color: var(--muted); }
+h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
+.cmp-warn { border: 2px solid var(--warn); background: var(--band-invalid); border-radius: 12px; padding: 12px 18px; margin: 0 0 18px; overflow-wrap: anywhere; }
+.vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; align-items: end; }
+@media (max-width: 520px) {
+  main { padding: 16px 16px 32px; }
+  section { padding: 14px 12px; border-radius: 10px; }
+  .hero .value { font-size: 2.6rem; }
+  .chart text { font-size: 15px; }
+  .chart .ref-label { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>bedperf comparison: 4 runs</h1>
+<p class="sub">Runs are labelled by server. Each matrix cell compares the row run against the column run (the baseline) between medians over ok repeats: a verdict, the change of the medians, m v n ok repeats and the chance of complete separation with no real difference.</p>
+<p class="sub" id="implementation">Implementation comparison: the same benchmark config, BDS version, machine, bot topology and CPU placement, run on different server implementations. Differences are the server implementation (loader, mods, runtime and their allocator), not the setup.</p>
+</header>
+
+<section id="headline" aria-label="Headline">
+<h2>Max players @ 20 TPS</h2>
+<div class="vs">
+<div class="hero">
+<div class="label"><span class="sw line s1" style="display:inline-block;vertical-align:middle"></span> bds: walk-default</div>
+<div class="value">40</div>
+<div class="detail"><b>3/3 repeats ok</b>, range [37, 42], spread 5: 37 · 40 · 42</div>
+<div class="detail">Server <b>bds</b> (build <code>84ea18b52e7e</code>) · bots local</div>
+<div class="detail">Run 20260104-000000-fixture · BDS 1.26.60.6 · @bedperf/scenarios/walk · AMD Ryzen 9 7950X 16-Core Processor</div>
+<div class="flags"><span class="flag ok">no flags</span></div>
+</div>
+<div class="hero">
+<div class="label"><span class="sw line s2" style="display:inline-block;vertical-align:middle"></span> levilamina: walk-default</div>
+<div class="value">38</div>
+<div class="detail"><b>3/3 repeats ok</b>, range [37, 40], spread 3: 37 · 38 · 40</div>
+<div class="detail">Server <b>levilamina</b> (build <code>eb0dfd1e93b3</code>) · bots local</div>
+<div class="detail">Run 20260104-000001-fixture · BDS 1.26.60.6 · @bedperf/scenarios/walk · AMD Ryzen 9 7950X 16-Core Processor</div>
+<div class="flags"><span class="flag ok">no flags</span></div>
+</div>
+<div class="hero">
+<div class="label"><span class="sw line s3" style="display:inline-block;vertical-align:middle"></span> levilamina+levioptimize: walk-default</div>
+<div class="value">52</div>
+<div class="detail"><b>3/3 repeats ok</b>, range [50, 53], spread 3: 50 · 52 · 53</div>
+<div class="detail">Server <b>levilamina+levioptimize</b> (build <code>9a17372d17b6</code>) · bots local</div>
+<div class="detail">Run 20260104-000002-fixture · BDS 1.26.60.6 · @bedperf/scenarios/walk · AMD Ryzen 9 7950X 16-Core Processor</div>
+<div class="flags"><span class="flag ok">no flags</span></div>
+</div>
+<div class="hero">
+<div class="label"><span class="sw line s4" style="display:inline-block;vertical-align:middle"></span> endstone: walk-default</div>
+<div class="value">37</div>
+<div class="detail"><b>3/3 repeats ok</b>, range [35, 40], spread 5: 35 · 37 · 40</div>
+<div class="detail">Server <b>endstone</b> (build <code>a8163bcc4d8a</code>) · bots local</div>
+<div class="detail">Run 20260104-000003-fixture · BDS 1.26.60.6 · @bedperf/scenarios/walk · AMD Ryzen 9 7950X 16-Core Processor</div>
+<div class="flags"><span class="flag ok">no flags</span></div>
+</div>
+</div>
+</section>
+<section id="ranking" aria-label="Ranking">
+<h2>Ranking: max players @ 20 TPS</h2>
+<p class="foot">Ordered by median. A run is only established above another when every ok repeat of it beats every ok repeat of the other (complete separation); neighbours that are not separated are not ranked against each other.</p>
+<div class="scroll"><table>
+<thead><tr><th>#</th><th class="l">run</th><th>median [min, max]</th><th>ok</th><th class="l">separated above</th><th class="l">separated below</th></tr></thead>
+<tbody><tr><td>1</td><td class="l">levilamina+levioptimize</td><td>52 <span class="rng">[50, 53]</span></td><td>3/3</td><td class="l better">bds, levilamina, endstone</td><td class="l worse">–</td></tr>
+<tr><td>2</td><td class="l">bds</td><td>40 <span class="rng">[37, 42]</span></td><td>3/3</td><td class="l better">–</td><td class="l worse">levilamina+levioptimize</td></tr>
+<tr><td>3</td><td class="l">levilamina</td><td>38 <span class="rng">[37, 40]</span></td><td>3/3</td><td class="l better">–</td><td class="l worse">levilamina+levioptimize</td></tr>
+<tr><td>4</td><td class="l">endstone</td><td>37 <span class="rng">[35, 40]</span></td><td>3/3</td><td class="l better">–</td><td class="l worse">levilamina+levioptimize</td></tr></tbody>
+</table></div>
+</section>
+<section id="comparability" aria-label="Comparability">
+<h2>Comparability</h2>
+<div class="scroll"><table>
+<thead><tr><th class="l">field</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th><th class="l">status</th></tr></thead>
+<tbody><tr><td class="l">benchmark config hash</td><td class="l"><code>c55f661ee9171178f93cb8b489c30fc891484c8587fc103b44bc69392ac8838d</code></td><td class="l"><code>c55f661ee9171178f93cb8b489c30fc891484c8587fc103b44bc69392ac8838d</code></td><td class="l"><code>c55f661ee9171178f93cb8b489c30fc891484c8587fc103b44bc69392ac8838d</code></td><td class="l"><code>c55f661ee9171178f93cb8b489c30fc891484c8587fc103b44bc69392ac8838d</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">server</td><td class="l"><code>bds 3307802674a565b7ce5cee821eebd1617d67f52fd30a631277abacb6f1006e2b</code></td><td class="l"><code>levilamina aef1557f857d1737bf913e6f77eb53537624e2867f1317e415bc716b9b6af593</code></td><td class="l"><code>levilamina+levioptimize d973d64bc1474b9573d23c8364eeb2e28a1bbe91edb91d393c6caa165a36fc8e</code></td><td class="l"><code>endstone 92773a6175a10081d26671c72639cbe9729978a0b6dddadcfa5e4d21598b632c</code></td><td class="l"><span class="st pass">differs (implementation comparison)</span></td></tr>
+<tr><td class="l">server build hash</td><td class="l"><code>84ea18b52e7e73cf023e0af0e3f2154e66028913cfe6b4c77a0dec3d377a3576</code></td><td class="l"><code>eb0dfd1e93b3ca94d161d0f750a9c9deb883ae5d645cae3ca8469753d5512972</code></td><td class="l"><code>9a17372d17b6c3ada254aa31f010b6fdbca3f2b083a4b8b5dd9e6eca727c28b4</code></td><td class="l"><code>a8163bcc4d8acbc28678b127a74f8caeb2f864aed5a16f5606abfe72e94c2e93</code></td><td class="l"><span class="st pass">differs (implementation comparison)</span></td></tr>
+<tr><td class="l">loader config hash</td><td class="l"><code>none</code></td><td class="l"><code>843eb74b8cf276b6a1a17aa562b1aad45dc1618979a7c7459a4e5d8b1e96a9de</code></td><td class="l"><code>843eb74b8cf276b6a1a17aa562b1aad45dc1618979a7c7459a4e5d8b1e96a9de</code></td><td class="l"><code>none</code></td><td class="l"><span class="st pass">differs (implementation comparison)</span></td></tr>
+<tr><td class="l">topology</td><td class="l"><code>local</code></td><td class="l"><code>local</code></td><td class="l"><code>local</code></td><td class="l"><code>local</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">machine fingerprint</td><td class="l"><code>1a2b3c4d5e6f7a8b</code></td><td class="l"><code>1a2b3c4d5e6f7a8b</code></td><td class="l"><code>1a2b3c4d5e6f7a8b</code></td><td class="l"><code>1a2b3c4d5e6f7a8b</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">BDS version</td><td class="l"><code>1.26.60.6</code></td><td class="l"><code>1.26.60.6</code></td><td class="l"><code>1.26.60.6</code></td><td class="l"><code>1.26.60.6</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">BDS build hash</td><td class="l"><code>7638dba5e10e7e6a503f2b32730fb28a66c249e4d03dd70c007acce648650525</code></td><td class="l"><code>7638dba5e10e7e6a503f2b32730fb28a66c249e4d03dd70c007acce648650525</code></td><td class="l"><code>7638dba5e10e7e6a503f2b32730fb28a66c249e4d03dd70c007acce648650525</code></td><td class="l"><code>7638dba5e10e7e6a503f2b32730fb28a66c249e4d03dd70c007acce648650525</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">analysis version</td><td class="l"><code>–</code></td><td class="l"><code>–</code></td><td class="l"><code>–</code></td><td class="l"><code>–</code></td><td class="l"><span class="st invalid">cannot verify</span></td></tr>
+<tr><td class="l">placement profile hash</td><td class="l"><code>c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0</code></td><td class="l"><code>c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0</code></td><td class="l"><code>c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0</code></td><td class="l"><code>c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">bot version</td><td class="l"><code>1.26.60</code></td><td class="l"><code>1.26.60</code></td><td class="l"><code>1.26.60</code></td><td class="l"><code>1.26.60</code></td><td class="l"><span class="st pass">match</span></td></tr></tbody>
+</table></div>
+
+</section>
+<section id="matrix" aria-label="Pairwise verdicts">
+<h2>Pairwise verdicts</h2>
+<figure class="matrix" id="mx-headline"><h3>max players @ 20 TPS <span class="rng">(higher is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>40</td><td class="same">–</td><td class="l same">not separated <span class="vn">+5.3 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">-23.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+8.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>38</td><td class="l same">not separated <span class="vn">-5.0 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">-26.9 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+2.7 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>52</td><td class="l better">better <span class="vn">+30.0 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">+36.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">+40.5 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>37</td><td class="l same">not separated <span class="vn">-7.5 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-2.6 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">-28.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-derived-0"><h3>memory per player <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>9.0 MiB</td><td class="same">–</td><td class="l same">not separated <span class="vn">+0.2 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>9.0 MiB</td><td class="l same">not separated <span class="vn">-0.2 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">-0.2 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.3 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>9.0 MiB</td><td class="l same">not separated <span class="vn">+0.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.2 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">-0.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>9.0 MiB</td><td class="l same">not separated <span class="vn">+0.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.3 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-derived-1"><h3>net tx per player <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>23.5 KiB/s</td><td class="same">–</td><td class="l same">not separated <span class="vn">-0.2 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.9 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>23.5 KiB/s</td><td class="l same">not separated <span class="vn">+0.2 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">+0.2 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+1.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>23.5 KiB/s</td><td class="l same">not separated <span class="vn">-0.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.2 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">+0.8 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>23.3 KiB/s</td><td class="l same">not separated <span class="vn">-0.9 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-1.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-derived-2"><h3>main-thread util per player <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>2.14 %</td><td class="same">–</td><td class="l same">not separated <span class="vn">-2.7 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+29.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-7.8 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>2.20 %</td><td class="l same">not separated <span class="vn">+2.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">+32.6 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-5.3 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>1.66 %</td><td class="l better">better <span class="vn">-22.5 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-24.6 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">-28.6 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>2.32 %</td><td class="l same">not separated <span class="vn">+8.5 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+5.6 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+40.0 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-derived-3"><h3>players at util 1.0 (extrapolated) <span class="rng">(higher is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>41</td><td class="same">–</td><td class="l same">not separated <span class="vn">+3.2 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">-22.6 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+8.7 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>40</td><td class="l same">not separated <span class="vn">-3.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">-25.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+5.4 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>53</td><td class="l better">better <span class="vn">+29.2 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">+33.3 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">+40.4 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>38</td><td class="l same">not separated <span class="vn">-8.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-5.1 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">-28.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-derived-4"><h3>tick CPU per player (ms/tick) <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>1.068</td><td class="same">–</td><td class="l same">not separated <span class="vn">-2.7 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+28.5 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-8.3 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>1.098</td><td class="l same">not separated <span class="vn">+2.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">+32.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-5.7 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>0.831</td><td class="l better">better <span class="vn">-22.2 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-24.3 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">-28.6 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>1.165</td><td class="l same">not separated <span class="vn">+9.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+6.1 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+40.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<p class="foot">Curve metrics at 37 players: every ok repeat's scaling curve linearly interpolated there (inside every run's measured range, at or below the lowest headline when possible).</p>
+<figure class="matrix" id="mx-curve-0"><h3>TPS mean at 37 players <span class="rng">(higher is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>19.97</td><td class="same">–</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">+0.8 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>19.98</td><td class="l same">not separated <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">+0.8 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>19.98</td><td class="l same">not separated <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">+0.8 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>19.82</td><td class="l worse">worse <span class="vn">-0.8 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">-0.8 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">-0.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-1"><h3>tick interval p99 (ms) at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>55.6</td><td class="same">–</td><td class="l same">not separated <span class="vn">+0.3 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+0.9 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-11.8 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>55.5</td><td class="l same">not separated <span class="vn">-0.3 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">+0.7 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-12.0 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>55.1</td><td class="l better">better <span class="vn">-0.9 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.6 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">-12.6 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>63.0</td><td class="l same">not separated <span class="vn">+13.3 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+13.6 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+14.4 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-2"><h3>main-thread util at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>91.2 %</td><td class="same">–</td><td class="l same">not separated <span class="vn">-2.7 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+24.8 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-6.6 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>93.8 %</td><td class="l same">not separated <span class="vn">+2.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">+28.4 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-4.0 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>73.1 %</td><td class="l better">better <span class="vn">-19.9 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-22.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">-25.2 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>97.7 %</td><td class="l same">not separated <span class="vn">+7.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+4.1 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+33.7 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-3"><h3>process CPU (% of a core) at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>131</td><td class="same">–</td><td class="l same">not separated <span class="vn">-1.5 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+16.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-5.4 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>133</td><td class="l same">not separated <span class="vn">+1.5 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">+17.8 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-3.9 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>113</td><td class="l better">better <span class="vn">-13.9 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-15.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">-18.5 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>138</td><td class="l same">not separated <span class="vn">+5.7 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+4.1 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+22.7 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-4"><h3>RSS at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>1.0 GiB</td><td class="same">–</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+0.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>1.0 GiB</td><td class="l same">not separated <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">+0.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>1.0 GiB</td><td class="l better">better <span class="vn">-0.1 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-0.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">0.0 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>1.0 GiB</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-5"><h3>RSS per player at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>28.8 MiB</td><td class="same">–</td><td class="l same">not separated <span class="vn">+1.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+1.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>28.5 MiB</td><td class="l same">not separated <span class="vn">-1.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">-1.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>28.8 MiB</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+1.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">+1.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>28.5 MiB</td><td class="l same">not separated <span class="vn">-1.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-1.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-6"><h3>RTT p95 (ms) at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>13.1</td><td class="same">–</td><td class="l same">not separated <span class="vn">+5.9 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+13.5 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-45.8 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>12.3</td><td class="l same">not separated <span class="vn">-5.6 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">+7.1 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-48.8 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>11.5</td><td class="l better">better <span class="vn">-11.9 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-6.7 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">-52.2 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>24.1</td><td class="l same">not separated <span class="vn">+84.4 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+95.3 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+109.3 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-7"><h3>net tx at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>869.3 KiB/s</td><td class="same">–</td><td class="l same">not separated <span class="vn">+0.7 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+1.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.6 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>863.2 KiB/s</td><td class="l same">not separated <span class="vn">-0.7 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">+0.3 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>860.3 KiB/s</td><td class="l same">not separated <span class="vn">-1.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.3 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">-0.4 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>864.2 KiB/s</td><td class="l same">not separated <span class="vn">-0.6 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.1 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.4 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-8"><h3>tick-counter TPS at 37 players <span class="rng">(higher is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>20.00</td><td class="same">–</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">+0.5 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>20.00</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.5 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>20.00</td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">0.0 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">+0.5 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>19.90</td><td class="l worse">worse <span class="vn">-0.5 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-0.5 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">-0.5 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-9"><h3>tick CPU per tick (ms) at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>45.62</td><td class="same">–</td><td class="l same">not separated <span class="vn">-2.7 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+24.8 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-7.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>46.91</td><td class="l same">not separated <span class="vn">+2.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l worse">worse <span class="vn">+28.4 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">-4.5 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>36.55</td><td class="l better">better <span class="vn">-19.9 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-22.1 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">-25.6 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>49.12</td><td class="l same">not separated <span class="vn">+7.7 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+4.7 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+34.4 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+<figure class="matrix" id="mx-curve-10"><h3>view load t90, median bot (s) at 37 players <span class="rng">(lower is better)</span></h3>
+<div class="scroll"><table class="matrix">
+<thead><tr><th class="l">row vs column</th><th>median</th><th class="l">bds</th><th class="l">levilamina</th><th class="l">levilamina+levioptimize</th><th class="l">endstone</th></tr></thead>
+<tbody><tr><th class="l">bds</th><td>2.53</td><td class="same">–</td><td class="l same">not separated <span class="vn">+1.9 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+1.5 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-2.6 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina</th><td>2.48</td><td class="l same">not separated <span class="vn">-1.8 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l same">not separated <span class="vn">-0.3 % · 3 v 3 · 1/20</span></td><td class="l better">better <span class="vn">-4.4 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">levilamina+levioptimize</th><td>2.49</td><td class="l same">not separated <span class="vn">-1.5 % · 3 v 3 · 1/20</span></td><td class="l same">not separated <span class="vn">+0.3 % · 3 v 3 · 1/20</span></td><td class="same">–</td><td class="l better">better <span class="vn">-4.1 % · 3 v 3 · 1/20</span></td></tr>
+<tr><th class="l">endstone</th><td>2.60</td><td class="l worse">worse <span class="vn">+2.7 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+4.6 % · 3 v 3 · 1/20</span></td><td class="l worse">worse <span class="vn">+4.3 % · 3 v 3 · 1/20</span></td><td class="same">–</td></tr></tbody>
+</table></div></figure>
+</section>
+<section id="scaling" aria-label="Scaling">
+<h2>Scaling, mean over ok repeats</h2>
+<div class="charts">
+<figure><h3>TPS</h3><ul class="legend"><li><span class="sw line s1"></span>bds</li><li><span class="sw line s2"></span>levilamina</li><li><span class="sw line s3"></span>levilamina+levioptimize</li><li><span class="sw line s4"></span>endstone</li></ul><svg class="chart" viewBox="0 0 480 270" role="img" aria-label="TPS against players, all runs" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="mx-tps-clip"><rect x="56" y="12" width="410" height="214"/></clipPath></defs><rect class="plot-bg" x="56" y="12" width="410" height="214"/><g class="grid"><line x1="56" x2="466" y1="226" y2="226"/><line x1="56" x2="466" y1="172.5" y2="172.5"/><line x1="56" x2="466" y1="119" y2="119"/><line x1="56" x2="466" y1="65.5" y2="65.5"/><line x1="56" x2="466" y1="12" y2="12"/></g><g class="tick"><text x="50" y="230" text-anchor="end">16</text><text x="50" y="176.5" text-anchor="end">17</text><text x="50" y="123" text-anchor="end">18</text><text x="50" y="69.5" text-anchor="end">19</text><text x="50" y="16" text-anchor="end">20</text><line class="tick-mark" x1="56" x2="56" y1="226" y2="230"/><text x="56" y="244" text-anchor="middle">0</text><line class="tick-mark" x1="124.33" x2="124.33" y1="226" y2="230"/><text x="124.33" y="244" text-anchor="middle">10</text><line class="tick-mark" x1="192.67" x2="192.67" y1="226" y2="230"/><text x="192.67" y="244" text-anchor="middle">20</text><line class="tick-mark" x1="261" x2="261" y1="226" y2="230"/><text x="261" y="244" text-anchor="middle">30</text><line class="tick-mark" x1="329.33" x2="329.33" y1="226" y2="230"/><text x="329.33" y="244" text-anchor="middle">40</text><line class="tick-mark" x1="397.67" x2="397.67" y1="226" y2="230"/><text x="397.67" y="244" text-anchor="middle">50</text><line class="tick-mark" x1="466" x2="466" y1="226" y2="230"/><text x="466" y="244" text-anchor="middle">60</text></g><line class="axis" x1="56" x2="466" y1="226" y2="226"/><text class="axis-label" x="261" y="264" text-anchor="middle">players</text><text class="axis-label" transform="translate(14 119) rotate(-90)" text-anchor="middle">TPS</text><line class="ref" x1="56" x2="466" y1="12" y2="12"/><text class="ref-label" x="462" y="8" text-anchor="end">20 TPS</text><g clip-path="url(#mx-tps-clip)"><path class="series s1" d="M124.33 13.55L192.67 13.36L261 13.17L295.17 13.02L308.83 13.41L315.67 21.59L329.33 30.68L343 38.59L349.83 37.51L363.5 92.25L397.67 189.69"/><g class="series s1 markers"><circle cx="124.33" cy="13.55" r="4"></circle><circle cx="192.67" cy="13.36" r="4"></circle><circle cx="261" cy="13.17" r="4"></circle><circle cx="295.17" cy="13.02" r="4"></circle><circle cx="308.83" cy="13.41" r="4"></circle><circle cx="315.67" cy="21.59" r="4"></circle><circle cx="329.33" cy="30.68" r="4"></circle><circle cx="343" cy="38.59" r="4"></circle><circle cx="349.83" cy="37.51" r="4"></circle><circle cx="363.5" cy="92.25" r="4"></circle><circle cx="397.67" cy="189.69" r="4"></circle></g><path class="series s2" d="M124.33 13.31L192.67 13.26L261 13.13L295.17 13.15L308.83 14.94L315.67 24.41L329.33 46.44L343 33.59L363.5 98.27L397.67 184.28"/><g class="series s2 markers"><circle cx="124.33" cy="13.31" r="4"></circle><circle cx="192.67" cy="13.26" r="4"></circle><circle cx="261" cy="13.13" r="4"></circle><circle cx="295.17" cy="13.15" r="4"></circle><circle cx="308.83" cy="14.94" r="4"></circle><circle cx="315.67" cy="24.41" r="4"></circle><circle cx="329.33" cy="46.44" r="4"></circle><circle cx="343" cy="33.59" r="4"></circle><circle cx="363.5" cy="98.27" r="4"></circle><circle cx="397.67" cy="184.28" r="4"></circle></g><path class="series s3" d="M124.33 13.37L192.67 13.45L261 13.2L329.33 13.25L397.67 14.79L411.33 28.19L418.17 22.43L431.83 63.97L466 132.76"/><g class="series s3 markers"><circle cx="124.33" cy="13.37" r="4"></circle><circle cx="192.67" cy="13.45" r="4"></circle><circle cx="261" cy="13.2" r="4"></circle><circle cx="329.33" cy="13.25" r="4"></circle><circle cx="397.67" cy="14.79" r="4"></circle><circle cx="411.33" cy="28.19" r="4"></circle><circle cx="418.17" cy="22.43" r="4"></circle><circle cx="431.83" cy="63.97" r="4"></circle><circle cx="466" cy="132.76" r="4"></circle></g><path class="series s4" d="M124.33 13.41L192.67 13.28L261 13.25L295.17 15.05L308.83 40.11L315.67 30.11L329.33 78.26L343 53.65L363.5 122.6L397.67 207.32"/><g class="series s4 markers"><circle cx="124.33" cy="13.41" r="4"></circle><circle cx="192.67" cy="13.28" r="4"></circle><circle cx="261" cy="13.25" r="4"></circle><circle cx="295.17" cy="15.05" r="4"></circle><circle cx="308.83" cy="40.11" r="4"></circle><circle cx="315.67" cy="30.11" r="4"></circle><circle cx="329.33" cy="78.26" r="4"></circle><circle cx="343" cy="53.65" r="4"></circle><circle cx="363.5" cy="122.6" r="4"></circle><circle cx="397.67" cy="207.32" r="4"></circle></g></g></svg></figure>
+<figure><h3>Main-thread utilisation</h3><ul class="legend"><li><span class="sw line s1"></span>bds</li><li><span class="sw line s2"></span>levilamina</li><li><span class="sw line s3"></span>levilamina+levioptimize</li><li><span class="sw line s4"></span>endstone</li></ul><svg class="chart" viewBox="0 0 480 270" role="img" aria-label="Main-thread utilisation against players, all runs" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="mx-util-clip"><rect x="56" y="12" width="410" height="214"/></clipPath></defs><rect class="plot-bg" x="56" y="12" width="410" height="214"/><g class="grid"><line x1="56" x2="466" y1="226" y2="226"/><line x1="56" x2="466" y1="183.2" y2="183.2"/><line x1="56" x2="466" y1="140.4" y2="140.4"/><line x1="56" x2="466" y1="97.6" y2="97.6"/><line x1="56" x2="466" y1="54.8" y2="54.8"/><line x1="56" x2="466" y1="12" y2="12"/></g><g class="tick"><text x="50" y="230" text-anchor="end">0</text><text x="50" y="187.2" text-anchor="end">20</text><text x="50" y="144.4" text-anchor="end">40</text><text x="50" y="101.6" text-anchor="end">60</text><text x="50" y="58.8" text-anchor="end">80</text><text x="50" y="16" text-anchor="end">100</text><line class="tick-mark" x1="56" x2="56" y1="226" y2="230"/><text x="56" y="244" text-anchor="middle">0</text><line class="tick-mark" x1="124.33" x2="124.33" y1="226" y2="230"/><text x="124.33" y="244" text-anchor="middle">10</text><line class="tick-mark" x1="192.67" x2="192.67" y1="226" y2="230"/><text x="192.67" y="244" text-anchor="middle">20</text><line class="tick-mark" x1="261" x2="261" y1="226" y2="230"/><text x="261" y="244" text-anchor="middle">30</text><line class="tick-mark" x1="329.33" x2="329.33" y1="226" y2="230"/><text x="329.33" y="244" text-anchor="middle">40</text><line class="tick-mark" x1="397.67" x2="397.67" y1="226" y2="230"/><text x="397.67" y="244" text-anchor="middle">50</text><line class="tick-mark" x1="466" x2="466" y1="226" y2="230"/><text x="466" y="244" text-anchor="middle">60</text></g><line class="axis" x1="56" x2="466" y1="226" y2="226"/><text class="axis-label" x="261" y="264" text-anchor="middle">players</text><text class="axis-label" transform="translate(14 119) rotate(-90)" text-anchor="middle">util %</text><line class="ref" x1="56" x2="466" y1="12" y2="12"/><text class="ref-label" x="462" y="8" text-anchor="end">util 1.0</text><g clip-path="url(#mx-util-clip)"><path class="series s1" d="M124.33 154.53L192.67 108.55L261 62.81L295.17 31.47L308.83 22L315.67 16.23L329.33 18.14L343 14.84L349.83 13.45L363.5 13.07L397.67 13.07"/><g class="series s1 markers"><circle cx="124.33" cy="154.53" r="4"></circle><circle cx="192.67" cy="108.55" r="4"></circle><circle cx="261" cy="62.81" r="4"></circle><circle cx="295.17" cy="31.47" r="4"></circle><circle cx="308.83" cy="22" r="4"></circle><circle cx="315.67" cy="16.23" r="4"></circle><circle cx="329.33" cy="18.14" r="4"></circle><circle cx="343" cy="14.84" r="4"></circle><circle cx="349.83" cy="13.45" r="4"></circle><circle cx="363.5" cy="13.07" r="4"></circle><circle cx="397.67" cy="13.07" r="4"></circle></g><path class="series s2" d="M124.33 152.43L192.67 105.71L261 58.78L295.17 30.28L308.83 20.71L315.67 17.65L329.33 15.82L343 13.45L363.5 13.07L397.67 13.07"/><g class="series s2 markers"><circle cx="124.33" cy="152.43" r="4"></circle><circle cx="192.67" cy="105.71" r="4"></circle><circle cx="261" cy="58.78" r="4"></circle><circle cx="295.17" cy="30.28" r="4"></circle><circle cx="308.83" cy="20.71" r="4"></circle><circle cx="315.67" cy="17.65" r="4"></circle><circle cx="329.33" cy="15.82" r="4"></circle><circle cx="343" cy="13.45" r="4"></circle><circle cx="363.5" cy="13.07" r="4"></circle><circle cx="397.67" cy="13.07" r="4"></circle></g><path class="series s3" d="M124.33 165.28L192.67 130.12L261 94.46L329.33 59.89L397.67 24.19L411.33 18L418.17 18.12L431.83 14.32L466 13.07"/><g class="series s3 markers"><circle cx="124.33" cy="165.28" r="4"></circle><circle cx="192.67" cy="130.12" r="4"></circle><circle cx="261" cy="94.46" r="4"></circle><circle cx="329.33" cy="59.89" r="4"></circle><circle cx="397.67" cy="24.19" r="4"></circle><circle cx="411.33" cy="18" r="4"></circle><circle cx="418.17" cy="18.12" r="4"></circle><circle cx="431.83" cy="14.32" r="4"></circle><circle cx="466" cy="13.07" r="4"></circle></g><path class="series s4" d="M124.33 150.13L192.67 101.51L261 51.71L295.17 21.43L308.83 14.98L315.67 13.86L329.33 14.18L343 13.14L363.5 13.07L397.67 13.07"/><g class="series s4 markers"><circle cx="124.33" cy="150.13" r="4"></circle><circle cx="192.67" cy="101.51" r="4"></circle><circle cx="261" cy="51.71" r="4"></circle><circle cx="295.17" cy="21.43" r="4"></circle><circle cx="308.83" cy="14.98" r="4"></circle><circle cx="315.67" cy="13.86" r="4"></circle><circle cx="329.33" cy="14.18" r="4"></circle><circle cx="343" cy="13.14" r="4"></circle><circle cx="363.5" cy="13.07" r="4"></circle><circle cx="397.67" cy="13.07" r="4"></circle></g></g></svg></figure>
+</div>
+</section>
+<section id="decision-rule" class="foot" aria-label="Decision rule">
+<h2>Decision rule</h2>
+<p>B is called better or worse than A on a metric only when every ok repeat of B beats every ok repeat of A in that metric&#39;s good direction (complete separation). With no real difference, every ordering of the m + n values is equally likely, so complete separation in a given direction happens by chance with probability 1 / C(m + n, m): 1/20 for 3 vs 3 repeats, 1/252 for 5 vs 5. Overlapping or touching ranges are &quot;not separated&quot;, which does not mean equal. With fewer than 2 ok repeats on a side no verdict is given. Server-failed and invalid repeats are never values.</p>
+<p>In the matrices, B is the row and A the column. Chance of complete separation with no real difference: 3 v 3: 1/20, 5 v 5: 1/252. With 6 pairs some separations are expected by chance alone: each pair separates in either direction with chance 2 / C(m + n, m) (1/10 at 3 v 3), so read isolated verdicts in a large matrix with care.</p>
+</section>
+<section id="methodology" class="foot" aria-label="Methodology">
+<h2>Methodology</h2>
+<p>The headline is the largest bot count that passed every criterion in a step, taken as the median over the <b>ok</b> repeats, each on a fresh instance. Each repeat ramps the bot count until the first failing step, then bisects between the last pass and the first fail. Steps measured while the load generator was saturated are invalid rather than failed.</p>
+<ul>
+<li><b>Repeat status.</b> A repeat is <code>ok</code>, <code>server_failed</code> (the server crashed, was stopped by a watchdog or ended the repeat early: a result about the server, shown as k/n ok, never dropped silently) or <code>invalid</code> (never ended, search unfinished, or flagged by the harness: says something about the harness or machine). Only ok repeats enter the median, the mean curves and the per-player fits.</li>
+<li><b>TPS</b> comes from the Script API probe: ticks per ~1 s window, measured inside the server tick.</li>
+<li><b>Main-thread utilisation</b> is the CPU share of the busiest server thread (OS sampling). Because BDS sleeps out the rest of each 50 ms tick it approximates MSPT / 50 ms. It cannot separate lock waits from sleep and does not include work offloaded to other threads.</li>
+<li><b>Per-player figures</b> are least-squares slopes over the step means of all repeats. Utilisation is fitted on passing steps when possible, because it flattens near 1.0 once the tick thread is saturated. "Players at util 1.0" extrapolates that fit.</li>
+<li><b>RSS per player</b> in the scaling chart is (RSS − fitted zero-player RSS) / players, so the fixed server baseline does not dominate low player counts. It converges on the memory-per-player slope.</li>
+<li><b>RTT</b> is the tick-bound round trip of a scripted ping as seen by the bots, i.e. client-perceived lag.</li>
+<li><b>Tick-counter TPS</b> is the server's own tick counter (<code>time query gametime</code>) read every few seconds from the console: a script-free cross-check of the probe TPS.</li>
+<li><b>Tick CPU per tick</b> is tick-thread CPU time divided by ticks run, in ms. Unlike utilisation it does not saturate at 1.0, so its per-player slope is a capacity cost that compares across machines.</li>
+<li><b>Foreign load</b> is machine CPU used by processes outside the server, the bots and the harness, in cores. Steps with too much of it are invalid.</li>
+<li><b>View load</b>: in-view chunk columns per bot, time until a bot holds 90 % of them (t90) and chunks delivered per second, as seen by the bots.</li>
+<li><b>Invalid steps</b> (loadgen saturated, interference, placement not verified, ...) are left out of the curves and fits; their reasons are listed in the steps table.</li>
+<li>The timeline is downsampled for size. TPS shows the minimum of each bucket so dips stay visible.</li>
+</ul>
+
+<p>Generated by bedperf, analysis version 3.</p>
+</section>
+</main>
+</body>
+</html>

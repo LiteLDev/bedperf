@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { Kinds, RUN_FILES } from '@bedperf/core'
-import type { BenchmarkConfig, BotFleetStats, Envelope, GametimeSample, InterferenceSample, ProbeSample, RunMeta, RunResult, StepResult, SysSample } from '@bedperf/core'
+import type { AgentLinkEvent, AgentTelemetry, BenchmarkConfig, BotFleetStats, Envelope, GametimeSample, InterferenceSample, ProbeSample, RunMeta, RunResult, StepResult, SysSample } from '@bedperf/core'
 import { num } from './math.ts'
 import type { RepeatEnd, RepeatStatus, RunData, StepMarkData } from './types.ts'
 
@@ -101,6 +101,8 @@ export async function loadRun (dir: string): Promise<RunData> {
     bot: [],
     interference: [],
     gametime: [],
+    agentTelemetry: [],
+    agentLink: [],
     stepMarks: [],
     repeatStarts: [],
     repeatEnds: [],
@@ -156,6 +158,14 @@ export async function loadRun (dir: string): Promise<RunData> {
           if (isObject(data) && typeof data.gametime === 'number' && typeof data.t === 'number') run.gametime.push({ t, data: data as unknown as GametimeSample })
           else run.badLines++
           break
+        case Kinds.agentTelemetry:
+          if (isObject(data) && typeof data.agent === 'string' && typeof data.busyCores === 'number') run.agentTelemetry.push({ t, data: data as unknown as AgentTelemetry })
+          else run.badLines++
+          break
+        case Kinds.agentLink:
+          if (isObject(data) && typeof data.agent === 'string' && typeof data.event === 'string') run.agentLink.push({ t, data: data as unknown as AgentLinkEvent })
+          else run.badLines++
+          break
         case Kinds.stepStart:
         case Kinds.stepEnd: {
           const d = (isObject(data) ? data : {}) as StepMarkData
@@ -199,6 +209,8 @@ export async function loadRun (dir: string): Promise<RunData> {
   run.bot.sort(byT)
   run.interference.sort(byT)
   run.gametime.sort((a, b) => a.data.t - b.data.t)
+  run.agentTelemetry.sort(byT)
+  run.agentLink.sort(byT)
   run.stepMarks.sort(byT)
   run.repeatEnds.sort((a, b) => a.repeat - b.repeat)
   run.steps.sort((a, b) => a.repeat - b.repeat || a.startT - b.startT || a.index - b.index)

@@ -1,7 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { DEFAULT_CRITERIA, envelope, Kinds, RUN_FILES, summarize } from '@bedperf/core'
-import type { BenchmarkConfig, BotFleetStats, Envelope, GametimeSample, InterferenceSample, ProbeSample, RunMeta, RunResult, StepResult, SysSample } from '@bedperf/core'
+import {
+  benchConfigSha256, DEFAULT_CRITERIA, envelope, FLAVOR_BDS_VERSION, Kinds, NEUTRAL_LOADER_CONFIG, resolveServerSpec, RUN_FILES, serverBuildSha256, serverLabel,
+  SERVER_PRESETS, serverSpecSha256, sha256Json, summarize, topologySha256
+} from '@bedperf/core'
+import type {
+  AgentFleetSlice, AgentLinkEvent, AgentTelemetry, BenchmarkConfig, BotFleetStats, Envelope, GametimeSample, InterferenceSample, ProbeSample, RunMeta, RunResult,
+  ServerArtifact, ServerBuildInfo, ServerPresetName, ServerSpec, StepResult, SysSample, TopologyMeta
+} from '@bedperf/core'
 
 export interface FixtureOptions {
   name?: string
@@ -56,6 +62,105 @@ export interface FixtureOptions {
   interferenceStep?: { repeat: number, index: number }
   /** With `extended`: tick-thread CPU per tick per player, ms (default from the util model). */
   tickCpuScale?: number
+  /**
+   * With `extended`: the server preset that ran. Sets config.server, meta.server (artifacts, build
+   * hash, allocator, effective loader config, notes), benchConfigSha256 and a configSha256 that
+   * includes the server; BDS is 1.26.60.6 (the build every flavor supports).
+   */
+  server?: ServerPresetName
+  /** With `extended`: host OS (default win32; Wine presets run on linux). */
+  os?: 'win32' | 'linux'
+  /** With `extended`: bots ran on remote agents (meta.topology and agent envelopes). */
+  topology?: FixtureTopology
+}
+
+/** Remote bot agents of a fixture run. */
+export interface FixtureTopology {
+  agents: Array<{ name: string, fingerprint: string, cpuModel: string, logical: number, physical?: number, ramGiB: number, os: string, cpus: number, weight: number, maxBots?: number, rttMs: [number, number, number] }>
+  botTargetHost?: string
+  /** This agent reports itself saturated during the hold of the first bisect step of `repeat`. */
+  saturated?: { agent: string, repeat: number }
+  /** This agent's connection is lost after `repeat`'s search (and reconnects for the next repeat). */
+  lost?: { agent: string, repeat: number, reason: string }
+}
+
+/** Two remote agents; agent-b saturates in repeat 2, agent-a's connection drops after repeat 1. */
+export function remoteTopologyFixture (): FixtureTopology {
+  return {
+    agents: [
+      { name: 'agent-3f9a1c20', fingerprint: '3f9a1c20d4e5b6a7', cpuModel: 'Intel(R) Core(TM) i9-13900K', logical: 32, physical: 24, ramGiB: 62.6, os: 'linux', cpus: 16, weight: 1, rttMs: [0.21, 0.34, 0.92] },
+      { name: 'agent-8b7c6d5e', fingerprint: '8b7c6d5e4f3a2b1c', cpuModel: 'AMD Ryzen 7 5800X 8-Core Processor', logical: 16, physical: 8, ramGiB: 31.3, os: 'linux', cpus: 8, weight: 1, maxBots: 60, rttMs: [0.28, 0.41, 1.37] }
+    ],
+    botTargetHost: '10.0.0.10',
+    saturated: { agent: 'agent-8b7c6d5e', repeat: 2 },
+    lost: { agent: 'agent-3f9a1c20', repeat: 1, reason: 'socket closed (ECONNRESET)' }
+  }
+}
+
+function fakeSha (...parts: string[]): string {
+  return sha256Json(parts)
+}
+
+function deepMerge (a: Record<string, unknown>, b: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...a }
+  for (const [k, v] of Object.entries(b)) {
+    const cur = out[k]
+    out[k] = v !== null && typeof v === 'object' && !Array.isArray(v) && cur !== null && typeof cur === 'object' && !Array.isArray(cur)
+      ? deepMerge(cur as Record<string, unknown>, v as Record<string, unknown>)
+      : v
+  }
+  return out
+}
+
+/** LeviLamina's upstream config.json defaults (abridged) that the neutral defaults merge over. */
+const LEVILAMINA_UPSTREAM_CONFIG = {
+  version: 31,
+  language: 'system',
+  logger: { colorLog: true, logLevel: 4, playerInfoLevel: 'Info' },
+  modules: {
+    enableStatistics: true,
+    crashLogger: { enabled: true, useBuiltin: true, uploadToSentry: true },
+    vulnerabilityFixes: { limitIPFrequency: true, rejectInvalidPackets: true },
+    commands: { tpdimCommand: true, crashCommand: true }
+  }
+}
+
+/** meta.server of a server preset as bds-install would write it (realistic, synthetic hashes). */
+export function serverMetaFor (preset: ServerPresetName, os: 'win32' | 'linux' = 'win32', loaderConfig?: Record<string, unknown>): ServerBuildInfo {
+  const spec: ServerSpec = resolveServerSpec(loaderConfig !== undefined ? { ...SERVER_PRESETS[preset], mods: [...SERVER_PRESETS[preset].mods], loaderConfig } : { ...SERVER_PRESETS[preset], mods: [...SERVER_PRESETS[preset].mods] })
+  const bdsVersion = FLAVOR_BDS_VERSION.levilamina
+  const levi = spec.flavor === 'levilamina'
+  const platform: 'win' | 'linux' = levi || os === 'win32' ? 'win' : 'linux'
+  const artifacts: ServerArtifact[] = [{ name: 'bds', version: bdsVersion, sha256: fakeSha('bds', bdsVersion, platform), source: `https://www.minecraft.net/bedrockdedicatedserver/bin-${platform}/bedrock-server-${bdsVersion}.zip` }]
+  if (levi) {
+    artifacts.push({ name: 'levilamina', version: spec.versions.levilamina!, sha256: fakeSha('levilamina', spec.versions.levilamina!), source: `github.com/LiteLDev/LeviLamina@${spec.versions.levilamina}` })
+    artifacts.push({ name: 'lip', version: '0.29.0', sha256: fakeSha('lip', '0.29.0') })
+  }
+  if (spec.mods.includes('levioptimize')) artifacts.push({ name: 'levioptimize', version: spec.versions.levioptimize!, sha256: fakeSha('levioptimize', spec.versions.levioptimize!), source: `github.com/LiteLDev/LeviOptimize@${spec.versions.levioptimize}` })
+  if (spec.flavor === 'endstone') artifacts.push({ name: 'endstone', version: spec.versions.endstone!, sha256: fakeSha('endstone', spec.versions.endstone!, os), source: `pypi:endstone==${spec.versions.endstone}` })
+  if (spec.runtime === 'wine') artifacts.push({ name: 'wine', version: '10.0', sha256: fakeSha('wine', '10.0') })
+  const notes: string[] = []
+  const info: ServerBuildInfo = {
+    spec,
+    label: serverLabel(spec),
+    specSha256: serverSpecSha256(spec),
+    bdsVersion,
+    binaryPlatform: platform,
+    exeName: levi ? 'bedrock_server_mod.exe' : platform === 'win' ? 'bedrock_server.exe' : 'bedrock_server',
+    artifacts,
+    buildSha256: serverBuildSha256(artifacts),
+    notes
+  }
+  if (spec.flavor === 'endstone' && os === 'linux') {
+    info.allocator = 'mimalloc-preload'
+    notes.push('Endstone preloads mimalloc on Linux (LD_PRELOAD); the other flavors run the binary\'s own allocator.')
+  }
+  if (levi) {
+    info.loaderConfig = deepMerge(deepMerge(LEVILAMINA_UPSTREAM_CONFIG, NEUTRAL_LOADER_CONFIG.levilamina), spec.loaderConfig ?? {})
+    notes.push('LeviLamina is installed with lip; telemetry, crash upload and per-IP connection throttling are turned off (benchmark-neutral defaults).')
+  }
+  if (spec.runtime === 'wine') notes.push('The Windows LeviLamina build runs under Wine 10.0 on a Linux host (WINEPREFIX per instance, wineserver stopped between repeats).')
+  return info
 }
 
 export interface FixtureRepeatOutcome {
@@ -151,6 +256,16 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
     warmupSec: 10,
     seed: o.seed
   }
+  const serverInfo = o.extended === true && o.server !== undefined ? serverMetaFor(o.server, o.os ?? (SERVER_PRESETS[o.server].runtime === 'wine' ? 'linux' : 'win32')) : undefined
+  if (serverInfo !== undefined) {
+    // Same benchmark across server fixtures: `seed` only varies the synthetic noise.
+    config.seed = 1
+    config.bdsVersion = serverInfo.bdsVersion
+    config.server = { ...SERVER_PRESETS[o.server!], mods: [...SERVER_PRESETS[o.server!].mods] }
+  }
+  const topo = o.extended === true ? o.topology : undefined
+  const weights = topo?.agents.reduce((s, a) => s + a.weight, 0) ?? 1
+  let satAgent: string | undefined
 
   const lines: string[] = []
   const emit = (e: Envelope): void => { lines.push(JSON.stringify(e)) }
@@ -159,6 +274,11 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
   let t = o.startMs
   let tick = 0
   emit(envelope('orch', Kinds.runStart, { runId: o.runId }, t))
+  const linkStats = (a: FixtureTopology['agents'][number]): AgentLinkEvent['stats'] => ({ rttMs: { min: a.rttMs[0], median: a.rttMs[1], max: a.rttMs[2], n: 20 }, clockOffsetMs: 3.2 })
+  for (const a of topo?.agents ?? []) {
+    emit(envelope('orch', Kinds.agentLink, { agent: a.name, event: 'connected' } satisfies AgentLinkEvent, t))
+    emit(envelope('orch', Kinds.agentLink, { agent: a.name, event: 'stats', stats: linkStats(a) } satisfies AgentLinkEvent, t))
+  }
 
   const base = o.repeatBase ?? 1
   const ext = o.extended === true
@@ -236,6 +356,34 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
         correctionsPerSec: over * 30,
         loadgen: { workers: Math.max(1, Math.ceil(players / 25)), eventLoopLagP99Ms: 8, maxWorkerCpuPct: 20 + players, saturated: o.saturateAbove !== undefined && players > o.saturateAbove }
       }
+      if (topo !== undefined) {
+        // Bots split across agents by weight; each agent reports its fleet slice and machine telemetry.
+        const slices: AgentFleetSlice[] = topo.agents.map((a) => {
+          const bots = Math.round(players * a.weight / weights)
+          const sat = satAgent === a.name
+          return { agent: a.name, workers: Math.max(1, Math.ceil(bots / 25)), bots, totalCores: Number((0.12 + bots * 0.035 + (sat ? a.cpus * 0.8 : 0) + 0.02 * rnd()).toFixed(3)), eventLoopLagP99Ms: sat ? 240 : 6 + 4 * rnd(), maxWorkerCpuPct: sat ? 99 : 15 + bots, saturated: sat }
+        })
+        bot.loadgen.agents = slices
+        bot.loadgen.saturated = bot.loadgen.saturated || slices.some((s) => s.saturated)
+        bot.loadgen.totalCores = slices.reduce((s, x) => s + (x.totalCores ?? 0), 0)
+        for (const [i, a] of topo.agents.entries()) {
+          const sl = slices[i]!
+          const foreign = 0.04 + 0.03 * rnd()
+          const tel: AgentTelemetry = {
+            agent: a.name,
+            intervalMs: 1000,
+            busyCores: Number((sl.totalCores + 0.08 + foreign).toFixed(3)),
+            botCores: sl.totalCores,
+            foreignCores: Number(foreign.toFixed(3)),
+            logicalCpus: a.logical,
+            netRxBytesPerSec: sl.bots * 24_000,
+            netTxBytesPerSec: sl.bots * 3_000,
+            saturated: sl.saturated,
+            reasons: sl.saturated ? [`cpu: bot workers ${sl.totalCores.toFixed(1)}/${a.cpus} cores`, 'event loop lag p99 240 ms'] : []
+          }
+          emit(envelope('agent', Kinds.agentTelemetry, tel, t))
+        }
+      }
       let intf: InterferenceSample | undefined
       if (ext) {
         const p50 = 1200 + 35 * players + over * 20_000 + 150 * gauss()
@@ -278,8 +426,11 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
       for (let i = 0; i < o.settleSec; i++) second(n)
       const startT = t
       spike = ext && o.interferenceStep !== undefined && o.interferenceStep.repeat === r && o.interferenceStep.index === index
+      const firstBisect = phase === 'bisect' && !steps.some((s) => s.repeat === r && s.phase === 'bisect')
+      satAgent = topo?.saturated !== undefined && topo.saturated.repeat === r && firstBisect ? topo.saturated.agent : undefined
       const held = Array.from({ length: o.holdSec }, () => second(n))
       spike = false
+      satAgent = undefined
       const endT = t
       const tpsVals = held.map((h) => h.probe.tps)
       const tps = summarize(tpsVals)
@@ -377,6 +528,10 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
     }
     // Scale down and restart on a fresh instance.
     for (let i = 0; i < 3; i++) second(0)
+    if (topo?.lost !== undefined && topo.lost.repeat === r) {
+      emit(envelope('orch', Kinds.agentLink, { agent: topo.lost.agent, event: 'lost', reason: topo.lost.reason } satisfies AgentLinkEvent, t))
+      emit(envelope('orch', Kinds.agentLink, { agent: topo.lost.agent, event: 'connected' } satisfies AgentLinkEvent, t + 4000))
+    }
     const ov = o.repeatOutcomes?.[r] ?? {}
     if (o.repeatMarks !== false && ov.noEnd !== true) {
       const passing = steps.filter((s) => s.repeat === r && s.pass).map((s) => s.players)
@@ -461,6 +616,34 @@ export async function generateRun (dir: string, opts: FixtureOptions = {}): Prom
       },
       gates: { foreignMean: 0.5, foreignPeak10s: 1.0, serverSetForeignMean: 0.1, settleMaxSec: o.settleSec * 3, minOkRepeats: 3 }
     })
+    const linux = (o.os ?? (serverInfo?.spec.runtime === 'wine' ? 'linux' : 'win32')) === 'linux'
+    if (linux) {
+      meta.host = { ...meta.host, os: 'linux' }
+      meta.machine = { ...meta.machine!, fingerprint: vcpu ? '7c6b5a4f3e2d1c0b' : 'a1b2c3d4e5f6a7b8', os: 'linux' }
+    }
+    if (serverInfo !== undefined) {
+      meta.server = serverInfo
+      meta.configSha256 = sha256Json(config)
+      meta.benchConfigSha256 = benchConfigSha256(config)
+      const bds = serverInfo.artifacts.find((x) => x.name === 'bds')
+      meta.artifacts = { ...meta.artifacts, ...(bds?.sha256 !== undefined ? { bdsZipSha256: bds.sha256 } : {}), server: serverInfo.artifacts }
+    }
+    if (topo !== undefined) {
+      const agents: TopologyMeta['agents'] = topo.agents.map((a, i) => ({
+        name: a.name,
+        addressId: fakeSha('addr', a.name).slice(0, 12),
+        machine: { fingerprint: a.fingerprint, os: a.os, cpuModel: a.cpuModel, logical: a.logical, ...(a.physical !== undefined ? { physical: a.physical } : {}), ramGiB: a.ramGiB },
+        harness: { version: '0.0.0', git: '2acaef1d6c5b4a39281706f5e4d3c2b1a0918273', dirty: false, node: 'v24.11.0' },
+        cpus: a.cpus,
+        weight: a.weight,
+        ...(a.maxBots !== undefined ? { maxBots: a.maxBots } : {}),
+        link: { rttMs: { min: a.rttMs[0], median: a.rttMs[1], max: a.rttMs[2], n: 20 }, clockOffsetMs: 3.2 + i },
+        placement: { botCpus: Array.from({ length: a.cpus }, (_, k) => a.logical - a.cpus + k), verified: true }
+      }))
+      meta.topology = { mode: 'remote', ...(topo.botTargetHost !== undefined ? { botTargetHost: topo.botTargetHost } : {}), agents, sha256: topologySha256({ mode: 'remote', agents }) }
+      meta.colocated = false
+      meta.network = { loopback: false }
+    }
   }
   await writeFile(join(dir, RUN_FILES.meta), JSON.stringify({ ...meta, ...o.metaExtra }, null, 2))
   await writeFile(join(dir, RUN_FILES.steps), JSON.stringify(steps, null, 2))

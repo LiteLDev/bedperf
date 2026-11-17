@@ -1,13 +1,15 @@
+import { sha256Json } from '@bedperf/core'
 import { curveValues } from './analyze.ts'
 import { DASH, esc, firstAt, fmt, fmtBytes, fmtPct, fmtRate, fmtTick, MiB } from './format.ts'
 import { flagsHtml, methodologyHtml, repeatsDetail } from './html.ts'
 import { binomial, dominance, interp, median, niceTicks, separationChance } from './math.ts'
 import { page } from './page.ts'
-import { MIN_PUBLISH_REPEATS } from './provenance.ts'
+import { MIN_PUBLISH_REPEATS, serverViewOf } from './provenance.ts'
 import { legend, lineChart } from './svg.ts'
+import { troubledAgents } from './topology.ts'
 import type { Series } from './svg.ts'
 import { COMPARABILITY_FIELDS } from './types.ts'
-import type { Analysis, Curve, CurveMetric, Derived } from './types.ts'
+import type { Analysis, ComparabilityField, Curve, CurveMetric, Derived, ServerView } from './types.ts'
 
 /**
  * - `better` / `worse`: every ok repeat of B beats (or loses to) every ok repeat of A in the
@@ -65,8 +67,11 @@ export interface ComparabilityCheck {
   label: string
   a: string | undefined
   b: string | undefined
-  /** `unverified` when either run does not record the field (older runs). */
-  status: 'match' | 'mismatch' | 'unverified'
+  /**
+   * `unverified` when either run does not record the field (older runs). `differs`: a server field
+   * that differs in an implementation comparison (expected, does not refuse).
+   */
+  status: 'match' | 'mismatch' | 'unverified' | 'differs'
 }
 
 /**
@@ -100,6 +105,8 @@ export interface Comparison {
   /** Setup differences and weaknesses that do not refuse the comparison. */
   warnings: ComparabilityWarning[]
   forced: boolean
+  /** The runs ran different server implementations on the same benchmark, machine and topology. */
+  implementation: boolean
 }
 
 /** Thrown by `compareRuns` when the runs differ in a field that makes them incomparable. */
@@ -128,7 +135,7 @@ export const CURVE_DEFS: Array<MetricDef & { key: CurveMetric }> = [
   { key: 'viewT90', label: 'view load t90, median bot (s)', better: 'lower', format: (v) => v === undefined ? DASH : fmt(v / 1000, 2) }
 ]
 
-const DERIVED_DEFS: Array<MetricDef & { pick: (d: Derived) => number | undefined }> = [
+export const DERIVED_DEFS: Array<MetricDef & { pick: (d: Derived) => number | undefined }> = [
   { key: 'memPerPlayer', label: 'memory per player', better: 'lower', format: (v) => fmtBytes(v), pick: (d) => d.memPerPlayer?.slope },
   { key: 'netTxPerPlayer', label: 'net tx per player', better: 'lower', format: (v) => fmtRate(v), pick: (d) => d.netTxPerPlayer?.slope },
   { key: 'utilPerPlayer', label: 'main-thread util per player', better: 'lower', format: (v) => fmtPct(v, 2), deltaFormat: (v) => v === undefined ? DASH : `${fmt(v * 100, 2)} pp`, pick: (d) => d.utilPerPlayer?.slope },
@@ -177,13 +184,95 @@ export function fmtChance (chance: number | undefined): string {
 
 // --- comparability ---------------------------------------------------------------------------
 
-/** Checks every comparability field of the two runs. */
+/** Server view of an analysis; recomputed from meta for analyses that predate it. */
+export function serverOf (an: Analysis): ServerView {
+  return an.server ?? serverViewOf(an.meta)
+}
+
+/** Server identity for comparability: label, plus the spec hash when both runs record one. */
+function serverValues (a: Analysis, b: Analysis): [string, string] {
+  const sa = serverOf(a)
+  const sb = serverOf(b)
+  if (sa.specSha256 !== undefined && sb.specSha256 !== undefined) return [`${sa.label} ${sa.specSha256}`, `${sb.label} ${sb.specSha256}`]
+  return [sa.label, sb.label]
+}
+
+/**
+ * True when the runs ran different server implementations (flavor, mods, runtime or component
+ * versions): an implementation comparison.
+ */
+export function isImplementationComparison (a: Analysis, b: Analysis): boolean {
+  const [va, vb] = serverValues(a, b)
+  return va !== vb
+}
+
+/** Topology identity: `local` for local or unrecorded topologies, else the topology hash. */
+function topologyValue (meta: unknown): string {
+  const t = (meta as { topology?: { mode?: unknown, sha256?: unknown } } | undefined)?.topology
+  if (t?.mode !== 'remote') return 'local'
+  return typeof t.sha256 === 'string' && t.sha256 !== '' ? `remote ${t.sha256}` : 'remote (no hash)'
+}
+
+/**
+ * Hash of the benchmark without its server section: `benchConfigSha256`, or, for older runs whose
+ * config could not have a server section, `configSha256` (the same hash then).
+ */
+function benchHash (an: Analysis): string | undefined {
+  return firstAt(an.meta, [['benchConfigSha256']]) ?? ((an.meta as { server?: unknown }).server === undefined ? firstAt(an.meta, [['configSha256']]) : undefined)
+}
+
+/** Effective loader config identity: its hash, `none` without one (vanilla BDS, older runs). */
+function loaderConfigValue (an: Analysis): string {
+  const cfg = serverOf(an).loaderConfig
+  return cfg === undefined ? 'none' : sha256Json(cfg)
+}
+
+/** One run's value of a comparability field, as shown in a per-run table. */
+export function fieldValue (f: ComparabilityField, an: Analysis): string | undefined {
+  switch (f.key) {
+    case 'configSha256': return benchHash(an) ?? firstAt(an.meta, [['configSha256']])
+    case 'server': {
+      const s = serverOf(an)
+      return s.specSha256 !== undefined ? `${s.label} ${s.specSha256}` : s.label
+    }
+    case 'loaderConfig': return loaderConfigValue(an)
+    case 'topology': return topologyValue(an.meta)
+    default: return firstAt(an.meta, f.paths)
+  }
+}
+
+function fieldValues (f: ComparabilityField, a: Analysis, b: Analysis): { a: string | undefined, b: string | undefined, label: string } {
+  switch (f.key) {
+    case 'configSha256': {
+      // Same benchmark: the config without its server section, when both runs have that hash.
+      const ba = benchHash(a)
+      const bb = benchHash(b)
+      if (ba !== undefined && bb !== undefined) return { a: ba, b: bb, label: f.label }
+      return { a: firstAt(a.meta, [['configSha256']]), b: firstAt(b.meta, [['configSha256']]), label: 'config hash' }
+    }
+    case 'server': {
+      const [va, vb] = serverValues(a, b)
+      return { a: va, b: vb, label: f.label }
+    }
+    default:
+      return { a: fieldValue(f, a), b: fieldValue(f, b), label: f.label }
+  }
+}
+
+/**
+ * Checks every comparability field of the two runs. When the servers differ (an implementation
+ * comparison), the server fields are `differs` instead of mismatches, and the fields that must
+ * still match (benchmark config, BDS version, machine, topology, placement profile) also refuse
+ * when only one run records them.
+ */
 export function comparability (a: Analysis, b: Analysis): ComparabilityCheck[] {
-  return COMPARABILITY_FIELDS.map(({ key, label, paths }) => {
-    const va = firstAt(a.meta, paths)
-    const vb = firstAt(b.meta, paths)
-    const status = va === undefined || vb === undefined ? 'unverified' : va === vb ? 'match' : 'mismatch'
-    return { key, label, a: va, b: vb, status }
+  const impl = isImplementationComparison(a, b)
+  return COMPARABILITY_FIELDS.map((f) => {
+    const v = fieldValues(f, a, b)
+    let status: ComparabilityCheck['status'] = v.a === undefined || v.b === undefined ? 'unverified' : v.a === v.b ? 'match' : 'mismatch'
+    if (impl && f.server === true && status === 'mismatch') status = 'differs'
+    if (impl && f.required === true && status === 'unverified' && (v.a !== undefined || v.b !== undefined)) status = 'mismatch'
+    return { key: f.key, label: v.label, a: v.a, b: v.b, status }
   })
 }
 
@@ -225,6 +314,7 @@ export function comparabilityWarnings (a: Analysis, b: Analysis): ComparabilityW
   ] as const) {
     if (va !== undefined && vb !== undefined && va !== vb) out.push({ key, label, a: va, b: vb, text: `The ${label} differs: the measuring side changed between the runs.` })
   }
+  out.push(...setupWarnings(a, b))
   const unverified = [a, b].filter((an) => an.provenance?.placement?.verified === false).map(side)
   if (unverified.length > 0) out.push({ key: 'placementVerified', label: 'placement verified', a: String(pa?.placement?.verified ?? DASH), b: String(pb?.placement?.verified ?? DASH), text: `CPU placement did not verify in ${unverified.join(' and ')}.` })
   // Same rule as each run's own report (threatsOf): any `bad` threat blocks publishing.
@@ -232,6 +322,36 @@ export function comparabilityWarnings (a: Analysis, b: Analysis): ComparabilityW
   if (unpub.length > 0) {
     const why = (an: Analysis): string => (an.threats ?? []).filter((t) => t.level === 'bad').map((t) => t.id).join(', ') || `fewer than ${MIN_PUBLISH_REPEATS} ok repeats`
     out.push({ key: 'publishable', label: 'publishable', a: a.publishable === false ? 'no' : 'yes', b: b.publishable === false ? 'no' : 'yes', text: `Not publishable: ${unpub.map((an) => `${side(an)} (${why(an)})`).join(', ')}. ${a.headline.kOk} v ${b.headline.kOk} ok repeats.` })
+  }
+  return out
+}
+
+/** Server and topology differences that weaken a comparison: allocator, Wine, loader config, agents. */
+function setupWarnings (a: Analysis, b: Analysis): ComparabilityWarning[] {
+  const out: ComparabilityWarning[] = []
+  const sa = serverOf(a)
+  const sb = serverOf(b)
+  if (sa.allocator !== sb.allocator) {
+    const alloc = (s: ServerView): string => s.allocator ?? "binary's own"
+    out.push({ key: 'allocator', label: 'allocator', a: alloc(sa), b: alloc(sb), text: `The runs use different memory allocators (A ${alloc(sa)}, B ${alloc(sb)}): part of the difference may come from the allocator rather than the server implementation.` })
+  }
+  if (sa.runtime !== sb.runtime) {
+    out.push({ key: 'runtime', label: 'runtime', a: sa.runtime, b: sb.runtime, text: `One run is under ${sa.runtime === 'wine' ? 'Wine (A)' : 'Wine (B)'}: the difference includes Wine's translation cost, not only the server.` })
+  }
+  const userOverrides = (s: ServerView): string => s.loaderOverrides.filter((o) => o.source === 'user').map((o) => `${o.path}=${o.value}`).join(', ')
+  if (userOverrides(sa) !== userOverrides(sb)) {
+    out.push({ key: 'loaderConfig', label: 'loader config overrides', a: userOverrides(sa) || 'none', b: userOverrides(sb) || 'none', text: 'The runs override the loader config differently.' })
+  }
+  const ta = a.topology
+  const tb = b.topology
+  const fps = (an: Analysis): string => (an.topology?.agents ?? []).map((x) => x.fingerprint ?? '?').sort().join(', ')
+  if (ta?.mode === 'remote' && tb?.mode === 'remote' && fps(a) !== fps(b)) {
+    out.push({ key: 'agentMachines', label: 'agent machines', a: fps(a), b: fps(b), text: 'The bots ran on different agent machines: bot-side CPU, network path and link latency differ between the runs.' })
+  }
+  const troubled = (an: Analysis): string[] => troubledAgents(an.topology)
+  const tr = [a, b].filter((an) => troubled(an).length > 0)
+  if (tr.length > 0) {
+    out.push({ key: 'agents', label: 'agents', a: troubled(a).join(', ') || 'ok', b: troubled(b).join(', ') || 'ok', text: `An agent was saturated or lost during ${tr.map((an) => an === a ? 'A' : 'B').join(' and ')}: bot-side limits may have shaped the result.` })
   }
   return out
 }
@@ -259,34 +379,33 @@ function playerSpan (c: Curve): [number, number] | undefined {
  * Player counts at which every ok repeat of both runs was measured ("nice" round numbers plus
  * each run's headline). Falls back to the mean curves' common range when the repeats share none.
  */
-function matchedPlayers (a: Analysis, b: Analysis): number[] {
-  const spans = [...okCurves(a), ...okCurves(b)].map(playerSpan)
-  const hasBoth = okCurves(a).length > 0 && okCurves(b).length > 0
+export function matchedPlayers (...ans: Analysis[]): number[] {
+  const spans = ans.flatMap(okCurves).map(playerSpan)
+  const hasAll = ans.every((an) => okCurves(an).length > 0)
   let lo = -Infinity
   let hi = Infinity
-  if (hasBoth && spans.every((s) => s !== undefined)) {
+  if (hasAll && spans.every((s) => s !== undefined)) {
     for (const s of spans as Array<[number, number]>) { lo = Math.max(lo, s[0]); hi = Math.min(hi, s[1]) }
   }
-  if (!hasBoth || !(hi >= lo)) {
-    const pa = a.meanCurve.points.map((p) => p.players)
-    const pb = b.meanCurve.points.map((p) => p.players)
-    if (pa.length === 0 || pb.length === 0) return []
-    lo = Math.max(Math.min(...pa), Math.min(...pb))
-    hi = Math.min(Math.max(...pa), Math.max(...pb))
+  if (!hasAll || !(hi >= lo)) {
+    const ps = ans.map((an) => an.meanCurve.points.map((p) => p.players))
+    if (ps.some((p) => p.length === 0)) return []
+    lo = Math.max(...ps.map((p) => Math.min(...p)))
+    hi = Math.min(...ps.map((p) => Math.max(...p)))
   }
   if (hi < lo) return []
   if (hi === lo) return [lo]
   const set = new Set(niceTicks(lo, hi, 6).ticks.filter((t) => t >= lo && t <= hi && Number.isInteger(t)))
   set.add(lo)
   set.add(hi)
-  for (const h of [a.headline.maxPlayersMedian, b.headline.maxPlayersMedian]) {
+  for (const h of ans.map((an) => an.headline.maxPlayersMedian)) {
     if (h !== undefined && h >= lo && h <= hi) set.add(Math.round(h))
   }
   return [...set].sort((x, y) => x - y)
 }
 
 /** Per-ok-repeat values of a curve metric at `players`, interpolated on each repeat's curve. */
-function curveValuesAt (an: Analysis, m: CurveMetric, players: number): number[] {
+export function curveValuesAt (an: Analysis, m: CurveMetric, players: number): number[] {
   return okCurves(an).flatMap((c) => {
     const v = interp(curveValues(c, m), players)
     return v === undefined ? [] : [v]
@@ -322,13 +441,14 @@ export function compareRuns (a: Analysis, b: Analysis, opts: CompareOptions = {}
     comparability: checks,
     mismatches,
     warnings: comparabilityWarnings(a, b),
-    forced: mismatches.length > 0
+    forced: mismatches.length > 0,
+    implementation: mismatches.length === 0 && isImplementationComparison(a, b)
   }
 }
 
 // --- HTML ------------------------------------------------------------------------------------
 
-function verdictClass (v: Verdict): string {
+export function verdictClass (v: Verdict): string {
   return v === 'better' ? 'better' : v === 'worse' ? 'worse' : 'same'
 }
 
@@ -361,12 +481,14 @@ function rowCells (r: CompareRow): string {
   return `${valueCell(r.a, r.aRange, r.aValues.length, f)}${valueCell(r.b, r.bRange, r.bValues.length, f)}${deltaCell(r, r.metric.deltaFormat ?? f)}${pctCell(r)}${verdictCell(r)}`
 }
 
-function runCard (label: string, an: Analysis, slot: number): string {
+export function runCard (label: string, an: Analysis, slot: number): string {
   const h = an.headline
+  const s = serverOf(an)
   return `<div class="hero">
 <div class="label"><span class="sw line s${slot}" style="display:inline-block;vertical-align:middle"></span> ${esc(label)}: ${esc(an.name)}</div>
 <div class="value">${esc(h.maxPlayersMedian === undefined ? DASH : fmtTick(h.maxPlayersMedian, 1))}</div>
 <div class="detail">${repeatsDetail(an)}</div>
+<div class="detail">Server <b>${esc(s.label)}</b>${s.buildSha256 !== undefined ? ` (build <code>${esc(s.buildSha256.slice(0, 12))}</code>)` : ''} · bots ${esc(an.topology?.mode ?? 'local')}</div>
 <div class="detail">Run ${esc(an.runId)} · BDS ${esc(an.meta.bdsVersion)} · ${esc(an.config.scenario?.module ?? '')} · ${esc(an.meta.host?.cpuModel ?? '')}</div>
 ${flagsHtml(an)}
 </div>`
@@ -388,10 +510,14 @@ function headlineVerdictText (h: Delta): string {
   }
 }
 
+export const STATUS_LABEL: Record<ComparabilityCheck['status'], string> = { match: 'match', mismatch: 'MISMATCH', unverified: 'cannot verify', differs: 'differs (implementation comparison)' }
+export const STATUS_CLS: Record<ComparabilityCheck['status'], string> = { match: 'pass', mismatch: 'fail', unverified: 'invalid', differs: 'pass' }
+
+/** One sentence on what an implementation comparison holds fixed. */
+export const IMPLEMENTATION_NOTE = 'Implementation comparison: the same benchmark config, BDS version, machine, bot topology and CPU placement, run on different server implementations. Differences are the server implementation (loader, mods, runtime and their allocator), not the setup.'
+
 function comparabilitySection (c: Comparison): string {
-  const label = { match: 'match', mismatch: 'MISMATCH', unverified: 'cannot verify' }
-  const cls = { match: 'pass', mismatch: 'fail', unverified: 'invalid' }
-  const rows = c.comparability.map((k) => `<tr><td class="l">${esc(k.label)}</td><td class="l"><code>${esc(k.a ?? DASH)}</code></td><td class="l"><code>${esc(k.b ?? DASH)}</code></td><td class="l"><span class="st ${cls[k.status]}">${label[k.status]}</span></td></tr>`).join('\n')
+  const rows = c.comparability.map((k) => `<tr><td class="l">${esc(k.label)}</td><td class="l"><code>${esc(k.a ?? DASH)}</code></td><td class="l"><code>${esc(k.b ?? DASH)}</code></td><td class="l"><span class="st ${STATUS_CLS[k.status]}">${STATUS_LABEL[k.status]}</span></td></tr>`).join('\n')
   const warnRows = (c.warnings ?? []).map((w) => `<tr><td class="l">${esc(w.label)}</td><td class="l"><code>${esc(w.a ?? DASH)}</code></td><td class="l"><code>${esc(w.b ?? DASH)}</code></td><td class="l"><span class="st invalid">warning</span></td></tr>`).join('\n')
   const warnBox = (c.warnings ?? []).length > 0
     ? `<div class="cmp-warn" role="note"><b>Comparison warnings.</b><ul>${c.warnings.map((w) => `<li data-warning="${esc(w.key)}">${esc(w.text)}</li>`).join('')}</ul></div>`
@@ -439,7 +565,8 @@ export function renderCompareHtml (c: Comparison): string {
 
   const body = `<header>
 <h1>bedperf comparison</h1>
-<p class="sub">A (baseline): ${esc(c.a.name)} · B: ${esc(c.b.name)}. Deltas are B relative to A, between medians over ok repeats; brackets give each side's [min, max].</p>
+<p class="sub">A (baseline): ${esc(c.a.name)} on ${esc(serverOf(c.a).label)} · B: ${esc(c.b.name)} on ${esc(serverOf(c.b).label)}. Deltas are B relative to A, between medians over ok repeats; brackets give each side's [min, max].</p>
+${c.implementation === true ? `<p class="sub" id="implementation">${esc(IMPLEMENTATION_NOTE)}</p>` : ''}
 </header>
 ${banner}
 <section id="headline" aria-label="Headline">

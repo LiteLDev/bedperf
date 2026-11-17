@@ -48,6 +48,8 @@ dl.meta dt { color: var(--ink-2); font-size: 0.8rem; }
 dl.meta dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 details { margin-top: 12px; } summary { cursor: pointer; color: var(--ink-2); }
 code { font: 0.85em ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere; }
+pre.json { font: 0.8rem ui-monospace, "Cascadia Mono", Consolas, monospace; overflow: auto; max-height: 360px; margin: 8px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+table.matrix td, table.matrix th { white-space: nowrap; }
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
 figure { margin: 0; min-width: 0; }
 .chart { display: block; width: 100%; height: auto; }

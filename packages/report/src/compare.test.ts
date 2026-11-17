@@ -61,7 +61,7 @@ test('3 ok vs 3 ok, fully separated: better, chance 1/20', async () => {
   assert.equal(c.headline.verdict, 'better')
   assert.equal(c.headline.chance, 1 / 20)
   assert.equal(c.headline.aValues.length, 3)
-  assert.ok(c.comparability.every((k) => k.status === 'match'))
+  assert.ok(c.comparability.every((k) => k.status === 'match' || (k.key === 'serverBuildSha256' && k.status === 'unverified')))
   assert.equal(c.forced, false)
   // Util at matched counts compares per-repeat values; higher capacity → lower util → better.
   const util = c.rows.filter((r) => r.metric.key === 'util')
@@ -123,7 +123,7 @@ test('mismatched configSha256 throws; force renders a banner', async () => {
   const c = compareRuns(a, b, { force: true })
   assert.equal(c.forced, true)
   const html = renderCompareHtml(c)
-  assert.match(html, /<div class="banner" role="alert"><b>These runs are not comparable\.<\/b> config hash differs/)
+  assert.match(html, /<div class="banner" role="alert"><b>These runs are not comparable\.<\/b> benchmark config hash differs/)
   assert.match(html, /MISMATCH/)
 
   // writeCompare refuses too, unless forced.

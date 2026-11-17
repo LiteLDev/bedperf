@@ -27,7 +27,8 @@ export interface ChartOptions {
   yLabel: string
   series: Series[]
   refLines?: RefLine[]
-  bands?: ReadonlyArray<Pick<StepBand, 't0' | 't1' | 'status' | 'players'>>
+  /** Shaded x ranges; `title` replaces the default "<players> players: <status>" tooltip. */
+  bands?: ReadonlyArray<Pick<StepBand, 't0' | 't1' | 'status' | 'players'> & { title?: string }>
   /** Values the axis must include (e.g. 0, or 20 for TPS). */
   xInclude?: number[]
   yInclude?: number[]
@@ -100,7 +101,7 @@ export function lineChart (o: ChartOptions): string {
       const x0 = X(Math.max(b.t0, xt.min)) + 1
       const x1 = X(Math.min(b.t1, xt.max)) - 1
       if (!(x1 > x0)) continue
-      parts.push(`<rect class="band band-${b.status}" x="${n2(x0)}" y="${m.t}" width="${n2(x1 - x0)}" height="${ph}"><title>${esc(`${b.players} players: ${b.status}`)}</title></rect>`)
+      parts.push(`<rect class="band band-${b.status}" x="${n2(x0)}" y="${m.t}" width="${n2(x1 - x0)}" height="${ph}"><title>${esc(b.title ?? `${b.players} players: ${b.status}`)}</title></rect>`)
     }
     parts.push('</g>')
   }
