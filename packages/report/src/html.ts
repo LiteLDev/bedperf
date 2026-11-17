@@ -3,9 +3,10 @@ import { ANALYSIS_VERSION, curveValues } from './analyze.ts'
 import { page } from './page.ts'
 import { legend, lineChart, timeTicks } from './svg.ts'
 import type { Series } from './svg.ts'
-import { MIN_PUBLISH_REPEATS } from './provenance.ts'
+import { MIN_PUBLISH_REPEATS, serverViewOf } from './provenance.ts'
+import { agentSaturated } from './topology.ts'
 import { REPEAT_STATUSES } from './types.ts'
-import type { Analysis, Curve, CurveMetric, StepRow, Threat } from './types.ts'
+import type { AgentView, Analysis, Curve, CurveMetric, StepRow, Threat } from './types.ts'
 
 /** server.properties keys that matter most for performance, shown up front. */
 const KEY_PROPERTIES = [
@@ -78,7 +79,7 @@ function headlineSection (a: Analysis): string {
   const value = h.maxPlayersMedian === undefined ? DASH : fmtTick(h.maxPlayersMedian, 1)
   return `<section id="headline" class="headline" aria-label="Headline">
 <div class="hero">
-<div class="label">Max players @ 20 TPS (median of ok repeats)</div>
+<div class="label">Max players @ 20 TPS on ${esc(serverLabelOf(a))} (median of ok repeats)</div>
 <div class="value">${esc(value)}</div>
 <div class="detail">${repeatsDetail(a)}</div>
 ${flagsHtml(a)}
@@ -163,6 +164,130 @@ ${codeItem('Analysis version (recorded)', firstAt(a.meta, [['analysisVersion']])
 </dl>
 ${placement}
 ${gates}
+</section>`
+}
+
+/** Server label of an analysis (`bds` for analyses that predate server views). */
+export function serverLabelOf (a: Analysis): string {
+  return (a.server ?? serverViewOf(a.meta)).label
+}
+
+/** The server implementation: flavor, mods, runtime, versions, build artifacts, allocator, loader config. */
+function serverSection (a: Analysis): string {
+  const s = a.server
+  if (s === undefined) return ''
+  if (!s.recorded) {
+    return `<section id="server" aria-label="Server">
+<h2>Server: ${esc(s.label)}</h2>
+<p class="foot">No server build recorded (older run): vanilla BDS${s.versions.length > 0 ? ` ${esc(s.versions[0]![1])}` : ''}, native, assumed.</p>
+</section>`
+  }
+  const runtimeBadge = s.runtime === 'wine' ? badge('warn', 'wine') : ''
+  const allocBadge = s.allocator !== undefined ? badge('warn', `allocator: ${s.allocator}`) : ''
+  const artifacts = s.artifacts.length > 0
+    ? `<div class="scroll"><table><thead><tr><th class="l">artifact</th><th class="l">version</th><th class="l">sha256</th></tr></thead><tbody>${s.artifacts.map((x) => `<tr><td class="l">${esc(x.name)}</td><td class="l">${esc(x.version ?? DASH)}</td><td class="l">${x.sha256 !== undefined ? `<code title="${esc(x.sha256)}">${esc(x.sha256.slice(0, 12))}</code>` : DASH}</td></tr>`).join('')}</tbody></table></div>`
+    : '<p class="foot">No build artifacts recorded.</p>'
+  const overrides = s.loaderOverrides.length > 0
+    ? `<h3>Loader config overrides</h3><ul class="foot">${s.loaderOverrides.map((o) => `<li><code>${esc(o.path)}</code> = <code>${esc(o.value)}</code> <span class="rng">(${o.source === 'neutral' ? 'bedperf neutral default' : 'config override'})</span></li>`).join('')}</ul>`
+    : ''
+  const loader = s.loaderConfig !== undefined
+    ? `<details><summary>Effective loader config</summary><pre class="json">${esc(JSON.stringify(s.loaderConfig, null, 2))}</pre></details>`
+    : ''
+  const notes = s.notes.length > 0 ? `<h3>Notes</h3><ul>${s.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''
+  return `<section id="server" aria-label="Server">
+<h2>Server: ${esc(s.label)}${runtimeBadge}${allocBadge}</h2>
+<dl class="meta">
+${dlItem('Flavor', s.flavor)}
+${dlItem('Mods', s.mods.length > 0 ? s.mods.join(', ') : 'none')}
+${dlItem('Runtime', s.runtime)}
+${dlItem('Versions', s.versions.map(([k, v]) => `${k} ${v}`).join(' · '))}
+${dlItem('Binary', s.exeName !== undefined ? `${s.exeName}${s.binaryPlatform !== undefined ? ` (${s.binaryPlatform} build)` : ''}` : s.binaryPlatform)}
+${dlItem('Allocator', s.allocator ?? "the binary's own")}
+${codeItem('Build hash', s.buildSha256)}
+${codeItem('Spec hash', s.specSha256)}
+</dl>
+${artifacts}
+${overrides}
+${loader}
+${notes}
+</section>`
+}
+
+/** Where the bots ran: mode, agents, link quality, agent telemetry and per-step agent load. */
+function topologySection (a: Analysis): string {
+  const t = a.topology
+  if (t === undefined) return ''
+  if (t.mode === 'local' && t.agents.length === 0) {
+    return `<section id="topology" aria-label="Topology">
+<h2>Topology: local</h2>
+<p class="foot">Bots ran on the server machine${t.recorded ? '' : ' (no topology recorded; older run)'}.</p>
+</section>`
+  }
+  const machine = (x: AgentView): string => [x.cpuModel, x.logical !== undefined ? `${x.logical} logical${x.physical !== undefined ? ` / ${x.physical} physical` : ''}` : undefined, x.ramGiB !== undefined ? `${x.ramGiB} GiB` : undefined, x.os].filter((v) => v !== undefined).join(' · ')
+  const link = (x: AgentView): string => x.link === undefined
+    ? DASH
+    : `${fmt(x.link.rttMedianMs, 2)} [${fmt(x.link.rttMinMs, 2)}, ${fmt(x.link.rttMaxMs, 2)}]${x.link.clockOffsetMs !== undefined ? ` <span class="rng">offset ${fmt(x.link.clockOffsetMs, 1)} ms</span>` : ''}`
+  const state = (x: AgentView): string => {
+    const f: string[] = []
+    if (agentSaturated(t, x.name)) f.push('<span class="flag warn">saturated</span>')
+    if (x.lost > 0) f.push(`<span class="flag bad">lost${x.lost > 1 ? ` ×${x.lost}` : ''}</span>`)
+    if (f.length === 0) f.push('<span class="flag ok">ok</span>')
+    return f.join(' ')
+  }
+  const verified = (v: boolean | undefined): string => v === true ? '<span class="st pass">verified</span>' : v === false ? '<span class="st fail">not verified</span>' : DASH
+  const agentRows = t.agents.map((x) => `<tr><td class="l">${esc(x.name)}</td><td class="l">${esc(machine(x) || DASH)}</td><td class="l"><code>${esc(x.fingerprint ?? DASH)}</code></td><td>${esc(x.cpus ?? DASH)}</td><td>${esc(x.weight ?? DASH)}</td><td>${esc(x.maxBots ?? DASH)}</td><td>${link(x)}</td><td class="l">${verified(x.placementVerified)}${x.botCpus !== undefined ? ` <span class="rng">${esc(x.botCpus)}</span>` : ''}</td><td class="l">${state(x)}</td></tr>`).join('\n')
+
+  const tl = a.timeline
+  const lastX = Math.max(1, ...tl.repeats.map((r) => r.x1), ...t.series.flatMap((s) => [s.busy.at(-1)?.[0] ?? 0]))
+  const span = lastX
+  const charts = t.series.map((s, i) => {
+    const series: Series[] = [
+      { name: 'machine busy (cores)', slot: 1, points: s.busy },
+      { name: 'bot workers (cores)', slot: 2, points: s.bot },
+      { name: 'foreign (cores)', slot: 5, points: s.foreign }
+    ].filter((x) => x.points.length > 0)
+    const lostMarks = t.links.filter((l) => l.agent === s.agent && l.event === 'lost')
+    const bands = [
+      ...s.saturated.map(([x0, x1]) => ({ t0: x0, t1: Math.max(x1, x0 + span / 400), status: 'invalid' as const, players: 0, title: `${s.agent} saturated ${fmtDuration(x0)}–${fmtDuration(x1)}` })),
+      ...lostMarks.map((l) => ({ t0: l.x - span / 300, t1: l.x + span / 300, status: 'fail' as const, players: 0, title: `${s.agent} lost at ${fmtDuration(l.x)}${l.reason !== undefined ? `: ${l.reason}` : ''}` }))
+    ]
+    const agent = t.agents.find((x) => x.name === s.agent)
+    const ref = agent?.logical !== undefined ? [{ value: agent.logical, label: `${agent.logical} logical CPUs` }] : []
+    return `<figure id="agent-${i}"><h3>${esc(s.agent)}</h3>${legend(series)}${bands.length > 0 ? `<ul class="legend">${s.saturated.length > 0 ? '<li><span class="sw box band-invalid"></span>saturated</li>' : ''}${lostMarks.length > 0 ? '<li><span class="sw box band-fail"></span>connection lost</li>' : ''}</ul>` : ''}${lineChart({ id: `ag-${i}`, label: `CPU load of agent ${s.agent} over time`, xLabel: 'run time (m:ss)', yLabel: 'cores', series, bands, refLines: ref, yInclude: [0], xDomain: [0, lastX], xTickValues: (lo: number, hi: number) => timeTicks(lo, hi, 8), xFormat: (v: number) => fmtDuration(v), width: 720, height: 200 })}</figure>`
+  }).join('\n')
+
+  const events = t.links.length > 0
+    ? `<details${t.links.some((l) => l.event === 'lost') ? ' open' : ''}><summary>Agent link events (${t.links.length})</summary><div class="scroll"><table><thead><tr><th>time</th><th class="l">agent</th><th class="l">event</th><th class="l">reason</th></tr></thead><tbody>${t.links.map((l) => `<tr><td>${esc(fmtDuration(l.x))}</td><td class="l">${esc(l.agent)}</td><td class="l">${l.event === 'lost' ? '<span class="st fail">lost</span>' : esc(l.event)}</td><td class="reasons">${esc(l.reason ?? '')}</td></tr>`).join('')}</tbody></table></div></details>`
+    : ''
+
+  const names = [...new Set(t.steps.flatMap((s) => s.agents.map((x) => x.agent)))]
+  const stepTable = t.steps.length > 0
+    ? `<h3>Agent load per step (hold window)</h3>
+<p class="foot">Per agent: bots, peak CPU of its bot workers (cores) and whether its fleet reported saturation during the hold.</p>
+<div class="scroll"><table>
+<thead><tr><th>rep</th><th>#</th><th>players</th>${names.map((n) => `<th>${esc(n)}</th>`).join('')}</tr></thead>
+<tbody>${t.steps.map((s) => `<tr><td>${esc(s.repeat)}</td><td>${esc(s.index)}</td><td>${esc(s.players)}</td>${names.map((n) => {
+      const x = s.agents.find((y) => y.agent === n)
+      if (x === undefined) return `<td>${DASH}</td>`
+      return `<td${x.saturated ? ' class="worse"' : ''}>${esc(x.bots)} bots · ${fmt(x.maxTotalCores, 2)} cores${x.saturated ? ' <span class="st invalid">saturated</span>' : ''}</td>`
+    }).join('')}</tr>`).join('\n')}</tbody>
+</table></div>`
+    : ''
+
+  return `<section id="topology" aria-label="Topology">
+<h2>Topology: ${esc(t.mode)}${t.mode === 'remote' ? ` (${t.agents.length} agent${t.agents.length === 1 ? '' : 's'})` : ''}</h2>
+<dl class="meta">
+${dlItem('Mode', t.mode)}
+${dlItem('Bot target host', t.botTargetHost)}
+${codeItem('Topology hash', t.sha256)}
+</dl>
+<div class="scroll"><table>
+<thead><tr><th class="l">agent</th><th class="l">machine</th><th class="l">fingerprint</th><th>cpus</th><th>weight</th><th>max bots</th><th>link RTT ms, median [min, max]</th><th class="l">placement</th><th class="l">state</th></tr></thead>
+<tbody>${agentRows}</tbody>
+</table></div>
+${charts !== '' ? `<div class="charts">${charts}</div>` : '<p class="foot">No agent telemetry recorded.</p>'}
+${events}
+${stepTable}
 </section>`
 }
 
@@ -440,16 +565,18 @@ ${notes.length > 0 ? `<h3>Notes</h3><ul>${notes.map((n) => `<li>${esc(n)}</li>`)
 /** Renders the self-contained HTML report for one run. */
 export function renderHtml (a: Analysis): string {
   const body = `<header>
-<h1>bedperf report: ${esc(a.name)}</h1>
-<p class="sub">Run ${esc(a.runId)} · BDS ${esc(a.meta.bdsVersion)} · ${esc(a.config.scenario?.module ?? '')}</p>
+<h1>bedperf report: ${esc(a.name)} on ${esc(serverLabelOf(a))}</h1>
+<p class="sub">Run ${esc(a.runId)} · server ${esc(serverLabelOf(a))} · BDS ${esc(a.meta.bdsVersion)} · bots ${esc(a.topology?.mode ?? 'local')} · ${esc(a.config.scenario?.module ?? '')}</p>
 </header>
 ${headlineSection(a)}
 ${threatsHtml(a.threats ?? [], a.publishable ?? true)}
+${serverSection(a)}
+${topologySection(a)}
 ${provenanceSection(a)}
 ${metaSection(a)}
 ${scalingSection(a)}
 ${timelineSection(a)}
 ${stepsSection(a)}
 ${methodologyHtml(a.notes)}`
-  return page(`bedperf: ${a.name}`, body)
+  return page(`bedperf: ${a.name} on ${serverLabelOf(a)}`, body)
 }

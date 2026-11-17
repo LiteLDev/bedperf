@@ -1,4 +1,4 @@
-import type { BenchmarkConfig, BotFleetStats, GametimeSample, InterferenceSample, ProbeSample, RunMeta, RunResult, StepResult, SysSample } from '@bedperf/core'
+import type { AgentLinkEvent, AgentTelemetry, BenchmarkConfig, BotFleetStats, GametimeSample, InterferenceSample, ProbeSample, RunMeta, RunResult, StepResult, SysSample } from '@bedperf/core'
 
 /**
  * Payload of an `orch.step.start` / `orch.step.end` envelope.
@@ -68,6 +68,10 @@ export interface RunData {
   interference: Array<Timed<InterferenceSample>>
   /** `bds.gametime` envelopes (tick-counter replies); empty in older runs. */
   gametime: Array<Timed<GametimeSample>>
+  /** `agent.telemetry` envelopes from remote bot agents (empty for local runs and older runs). */
+  agentTelemetry: Array<Timed<AgentTelemetry>>
+  /** `agent.link` envelopes: agent connected / lost / closed / link stats. */
+  agentLink: Array<Timed<AgentLinkEvent>>
   stepMarks: StepMark[]
   /** Repeat numbers from `orch.repeat.start` envelopes, in file order. */
   repeatStarts: number[]
@@ -273,6 +277,10 @@ export interface Analysis {
   okRepeats: number[]
   timeline: Timeline
   provenance: Provenance
+  /** The server implementation that ran (absent in analyses made before analysis version 3). */
+  server?: ServerView
+  /** Where the bots ran and how their machines behaved (absent before analysis version 3). */
+  topology?: TopologyView
   /** Threats to validity, most severe first. */
   threats: Threat[]
   /** True when nothing blocks publishing the headline (see `threats`). */
@@ -310,16 +318,144 @@ export interface Provenance {
   gates: Array<[string, string]>
 }
 
+/** meta.json `server`, read defensively. Old runs (no `server`) are vanilla BDS, native. */
+export interface ServerView {
+  /** False for older runs that do not record `server` (vanilla BDS assumed). */
+  recorded: boolean
+  /** `serverLabel(spec)`, e.g. `levilamina+levioptimize (wine)`. */
+  label: string
+  flavor: string
+  mods: string[]
+  runtime: string
+  /** Component versions: BDS first, then loader and mods. */
+  versions: Array<[string, string]>
+  binaryPlatform?: string
+  exeName?: string
+  artifacts: Array<{ name: string, version?: string, sha256?: string }>
+  specSha256?: string
+  buildSha256?: string
+  allocator?: string
+  /** Effective loader config written into the instance. */
+  loaderConfig?: unknown
+  /**
+   * Loader config keys that differ from the loader's upstream defaults, as dotted paths with their
+   * values: bedperf's benchmark-neutral defaults (`neutral`) and the config's own overrides (`user`).
+   */
+  loaderOverrides: Array<{ path: string, value: string, source: 'neutral' | 'user' }>
+  notes: string[]
+}
+
+/** One agent's link stats. */
+export interface AgentLinkView {
+  rttMedianMs: number
+  rttMinMs: number
+  rttMaxMs: number
+  n: number
+  clockOffsetMs?: number
+}
+
+/** One remote agent of a run. */
+export interface AgentView {
+  name: string
+  addressId?: string
+  fingerprint?: string
+  cpuModel?: string
+  logical?: number
+  physical?: number
+  ramGiB?: number
+  os?: string
+  cpus?: number
+  weight?: number
+  maxBots?: number
+  link?: AgentLinkView
+  placementVerified?: boolean
+  botCpus?: string
+  /** Telemetry samples, saturated samples and the reasons the agent gave, tallied. */
+  samples: number
+  saturatedSamples: number
+  saturatedReasons: string[]
+  /** `agent.link` `lost` events of this agent. */
+  lost: number
+}
+
+/** Per-agent telemetry series; x in seconds from `Timeline.t0`. */
+export interface AgentSeries {
+  agent: string
+  busy: Array<[number, number]>
+  bot: Array<[number, number]>
+  foreign: Array<[number, number]>
+  /** Merged intervals in which the agent reported itself saturated, [x0, x1] seconds. */
+  saturated: Array<[number, number]>
+}
+
+/** One `agent.link` event, x in seconds from `Timeline.t0`. */
+export interface AgentLinkMark {
+  x: number
+  agent: string
+  event: string
+  reason?: string
+}
+
+/** Per-step per-agent load from `bot.stats` `loadgen.agents` during the hold window. */
+export interface AgentStepRow {
+  repeat: number
+  index: number
+  players: number
+  agents: Array<{ agent: string, bots: number, maxTotalCores?: number, maxLagP99Ms?: number, saturated: boolean }>
+}
+
+/** meta.json `topology` plus the agent envelopes. Old runs (no `topology`) are local. */
+export interface TopologyView {
+  mode: 'local' | 'remote'
+  /** False for runs that do not record `topology`. */
+  recorded: boolean
+  sha256?: string
+  botTargetHost?: string
+  agents: AgentView[]
+  series: AgentSeries[]
+  links: AgentLinkMark[]
+  steps: AgentStepRow[]
+}
+
 /**
  * Fields read from meta.json that must match for two runs to be compared. Core may not declare
  * all of them yet, so they are read defensively; a run without a field cannot be verified on it.
  */
-export const COMPARABILITY_FIELDS: Array<{ key: string, label: string, paths: ReadonlyArray<readonly string[]> }> = [
-  { key: 'configSha256', label: 'config hash', paths: [['configSha256']] },
-  { key: 'machineFingerprint', label: 'machine fingerprint', paths: [['machine', 'fingerprint'], ['machineFingerprint']] },
-  { key: 'bdsVersion', label: 'BDS version', paths: [['bdsVersion']] },
-  { key: 'bdsBuildSha256', label: 'BDS build hash', paths: [['artifacts', 'bdsZipSha256'], ['bdsBuildSha256'], ['artifacts', 'bdsBuildSha256'], ['artifacts', 'bds', 'sha256']] },
+export interface ComparabilityField {
+  key: string
+  label: string
+  paths: ReadonlyArray<readonly string[]>
+  /**
+   * Part of the server implementation: in an implementation comparison (runs on different
+   * servers) a difference is expected and does not refuse the comparison.
+   */
+  server?: boolean
+  /**
+   * Must match in an implementation comparison: a value recorded by one run only refuses it too
+   * (a value recorded by neither is "cannot verify").
+   */
+  required?: boolean
+}
+
+/**
+ * - `configSha256`: `benchConfigSha256` (the config without its `server` section) when both runs
+ *   record it, else `configSha256` (older runs).
+ * - `server`: server label and spec hash; a difference makes the comparison an implementation
+ *   comparison. Old runs without `server` are vanilla BDS.
+ * - `loaderConfig`: sha256 of the effective loader config (`none` without one); not part of the
+ *   spec hash, so a same-server comparison with different loader settings is refused.
+ * - `topology`: `topology.sha256`, `local` when the run has no topology or a local one.
+ */
+export const COMPARABILITY_FIELDS: ComparabilityField[] = [
+  { key: 'configSha256', label: 'benchmark config hash', paths: [['benchConfigSha256'], ['configSha256']], required: true },
+  { key: 'server', label: 'server', paths: [['server', 'specSha256']], server: true },
+  { key: 'serverBuildSha256', label: 'server build hash', paths: [['server', 'buildSha256']], server: true },
+  { key: 'loaderConfig', label: 'loader config hash', paths: [['server', 'loaderConfig']], server: true },
+  { key: 'topology', label: 'topology', paths: [['topology', 'sha256']], required: true },
+  { key: 'machineFingerprint', label: 'machine fingerprint', paths: [['machine', 'fingerprint'], ['machineFingerprint']], required: true },
+  { key: 'bdsVersion', label: 'BDS version', paths: [['bdsVersion']], required: true },
+  { key: 'bdsBuildSha256', label: 'BDS build hash', paths: [['artifacts', 'bdsZipSha256'], ['bdsBuildSha256'], ['artifacts', 'bdsBuildSha256'], ['artifacts', 'bds', 'sha256']], server: true },
   { key: 'analysisVersion', label: 'analysis version', paths: [['analysisVersion']] },
-  { key: 'placementProfileSha256', label: 'placement profile hash', paths: [['placement', 'profileSha256']] },
+  { key: 'placementProfileSha256', label: 'placement profile hash', paths: [['placement', 'profileSha256']], required: true },
   { key: 'botVersion', label: 'bot version', paths: [['botVersion']] }
 ]

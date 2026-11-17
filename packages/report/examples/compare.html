@@ -56,6 +56,8 @@ dl.meta dt { color: var(--ink-2); font-size: 0.8rem; }
 dl.meta dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 details { margin-top: 12px; } summary { cursor: pointer; color: var(--ink-2); }
 code { font: 0.85em ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere; }
+pre.json { font: 0.8rem ui-monospace, "Cascadia Mono", Consolas, monospace; overflow: auto; max-height: 360px; margin: 8px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+table.matrix td, table.matrix th { white-space: nowrap; }
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
 figure { margin: 0; min-width: 0; }
 .chart { display: block; width: 100%; height: auto; }
@@ -138,7 +140,8 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
 <main>
 <header>
 <h1>bedperf comparison</h1>
-<p class="sub">A (baseline): walk-default · B: walk-tuned. Deltas are B relative to A, between medians over ok repeats; brackets give each side's [min, max].</p>
+<p class="sub">A (baseline): walk-default on bds · B: walk-tuned on bds. Deltas are B relative to A, between medians over ok repeats; brackets give each side's [min, max].</p>
+
 </header>
 
 <section id="headline" aria-label="Headline">
@@ -148,6 +151,7 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
 <div class="label"><span class="sw line s1" style="display:inline-block;vertical-align:middle"></span> A: walk-default</div>
 <div class="value">40</div>
 <div class="detail"><b>4/5 repeats ok</b> (1 server_failed), range [40, 40], spread 0: 40 · 40 · 40 · <span class="rs server_failed">38 server_failed</span> · 40</div>
+<div class="detail">Server <b>bds</b> · bots local</div>
 <div class="detail">Run 20260101-000000-fixture · BDS 1.26.63.1 · @bedperf/scenarios/walk · AMD Ryzen 9 7950X 16-Core Processor</div>
 <div class="flags"><span class="flag bad">1 repeat server_failed</span></div>
 </div>
@@ -155,6 +159,7 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
 <div class="label"><span class="sw line s2" style="display:inline-block;vertical-align:middle"></span> B: walk-tuned</div>
 <div class="value">50</div>
 <div class="detail"><b>5/5 repeats ok</b>, range [47, 52], spread 5: 48 · 47 · 52 · 50 · 52</div>
+<div class="detail">Server <b>bds</b> · bots local</div>
 <div class="detail">Run 20260102-000000-fixture · BDS 1.26.63.1 · @bedperf/scenarios/walk · AMD Ryzen 9 7950X 16-Core Processor</div>
 <div class="flags"><span class="flag ok">no flags</span></div>
 </div>
@@ -165,7 +170,11 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
 <h2>Comparability</h2>
 <div class="scroll"><table>
 <thead><tr><th class="l">field</th><th class="l">A</th><th class="l">B</th><th class="l">status</th></tr></thead>
-<tbody><tr><td class="l">config hash</td><td class="l"><code>5be0c3a7d1f04e29b6a8c7d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2</code></td><td class="l"><code>5be0c3a7d1f04e29b6a8c7d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tbody><tr><td class="l">benchmark config hash</td><td class="l"><code>5be0c3a7d1f04e29b6a8c7d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2</code></td><td class="l"><code>5be0c3a7d1f04e29b6a8c7d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">server</td><td class="l"><code>bds</code></td><td class="l"><code>bds</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">server build hash</td><td class="l"><code>–</code></td><td class="l"><code>–</code></td><td class="l"><span class="st invalid">cannot verify</span></td></tr>
+<tr><td class="l">loader config hash</td><td class="l"><code>none</code></td><td class="l"><code>none</code></td><td class="l"><span class="st pass">match</span></td></tr>
+<tr><td class="l">topology</td><td class="l"><code>local</code></td><td class="l"><code>local</code></td><td class="l"><span class="st pass">match</span></td></tr>
 <tr><td class="l">machine fingerprint</td><td class="l"><code>1a2b3c4d5e6f7a8b</code></td><td class="l"><code>1a2b3c4d5e6f7a8b</code></td><td class="l"><span class="st pass">match</span></td></tr>
 <tr><td class="l">BDS version</td><td class="l"><code>1.26.63.1</code></td><td class="l"><code>1.26.63.1</code></td><td class="l"><span class="st pass">match</span></td></tr>
 <tr><td class="l">BDS build hash</td><td class="l"><code>8e1d4c2b9a7f6e5d4c3b2a19f8e7d6c5b4a39281706f5e4d3c2b1a0918273645</code></td><td class="l"><code>8e1d4c2b9a7f6e5d4c3b2a19f8e7d6c5b4a39281706f5e4d3c2b1a0918273645</code></td><td class="l"><span class="st pass">match</span></td></tr>
@@ -173,7 +182,7 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
 <tr><td class="l">placement profile hash</td><td class="l"><code>c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0</code></td><td class="l"><code>c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0c0ffee00d15ea5e0</code></td><td class="l"><span class="st pass">match</span></td></tr>
 <tr><td class="l">bot version</td><td class="l"><code>1.26.60</code></td><td class="l"><code>1.26.60</code></td><td class="l"><span class="st pass">match</span></td></tr></tbody>
 </table></div>
-<p class="foot">Cannot verify analysis version: at least one run does not record it (older run). The comparison assumes they match.</p>
+<p class="foot">Cannot verify server build hash, analysis version: at least one run does not record them (older run). The comparison assumes they match.</p>
 
 </section>
 <section id="derived" aria-label="Derived metrics">
@@ -282,7 +291,7 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
 <li>The timeline is downsampled for size. TPS shows the minimum of each bucket so dips stay visible.</li>
 </ul>
 
-<p>Generated by bedperf, analysis version 2.</p>
+<p>Generated by bedperf, analysis version 3.</p>
 </section>
 </main>
 </body>

@@ -9,7 +9,7 @@ import {
   ConfigError, EnvGateError, ExitCodes, exitCodeOf, GATES_KEYS, loadConfig, parseConfig, parseOrder, PRESET_NAMES, preset, type PresetName
 } from '@bedperf/orchestrator'
 import { SCENARIOS } from '@bedperf/scenarios'
-import { IncomparableRunsError, writeCompare, writeReport } from '@bedperf/report'
+import { IncomparableRunsError, writeCompare, writeCompareMatrix, writeReport } from '@bedperf/report'
 import { applySets, bool, flag, intFlag, parseArgs, UsageError, type ParsedArgs } from './args.ts'
 import { analyzeCommand } from './analyze.ts'
 import { LockHeldError } from './lock.ts'
@@ -43,7 +43,8 @@ commands:
   report    <runDir>                             (re)write <runDir>/report.html
   analyze   <runDir> [--write]                   recompute every step from samples.jsonl, check it against
                                                  steps.json and the file manifest (--write: rewrite steps.json)
-  compare   <runDirA> <runDirB> [-o out.html]    write a comparison report
+  compare   <runDirA> <runDirB> [<runDirC> ...] [-o out.html]
+                                                 write a comparison report (3+ runs: pairwise matrix and ranking)
               --force                            compare even when config, machine, BDS build, ... differ
                                                  (otherwise exits 2 listing the mismatches)
   install   [latest|preview|x.y.z.w] --accept-eula   download BDS into the cache
@@ -199,10 +200,22 @@ async function main (argv: string[]): Promise<number> {
     }
     case 'compare': {
       const [a, b] = rest
-      if (a === undefined || b === undefined) throw new UsageError('compare needs two run directories')
+      if (a === undefined || b === undefined) throw new UsageError('compare needs at least two run directories')
       const out = flag(args, 'o') ?? flag(args, 'out') ?? 'compare.html'
       try {
-        console.log(await writeCompare(resolve(a), resolve(b), resolve(out), { force: bool(args, 'force') }))
+        if (rest.length === 2) {
+          console.log(await writeCompare(resolve(a), resolve(b), resolve(out), { force: bool(args, 'force') }))
+        } else {
+          const { file, comparison } = await writeCompareMatrix(rest.map((d) => resolve(d)), resolve(out), { force: bool(args, 'force') })
+          if (comparison.implementation) console.log('implementation comparison: same benchmark, machine, topology and placement; different servers')
+          for (const [k, r] of comparison.ranking.entries()) {
+            const n1 = (v: number): string => String(Number(v.toFixed(1)))
+            const range = r.range !== undefined ? ` [${n1(r.range[0])}, ${n1(r.range[1])}]` : ''
+            const above = r.above.map((j) => comparison.runs[j]!.label).join(', ')
+            console.log(`${k + 1}. ${r.label}: ${r.median !== undefined ? n1(r.median) : '-'}${range} (${r.kOk}/${r.n} ok)${above !== '' ? `, separated above ${above}` : ''}`)
+          }
+          console.log(file)
+        }
       } catch (err) {
         if (!(err instanceof IncomparableRunsError)) throw err
         console.error('bedperf: runs are not comparable:')
