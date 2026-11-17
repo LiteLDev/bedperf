@@ -108,6 +108,8 @@ Every agent sends telemetry once per second: machine busy cores, the cores of it
 | agents not reconnectable | before a repeat, after an agent was lost, every agent is reconnected | the repeat is `invalid` (`agent_lost: could not reconnect the agents: ...`) |
 | topology changed | the reconnected agents are other machines than the run recorded | the repeat is `invalid` (`agent_topology_changed`) |
 
+**Agents in a CPU allocation.** On a shared machine (a Slurm job, a container with a cpuset) an agent usually owns only some of the CPUs, and other tenants' load on the rest cannot take CPU time from its bots. By default (`--cpu-scope auto`) an agent whose allowed CPUs (Linux `Cpus_allowed_list`) are fewer than the machine's counts only those CPUs. Busy and foreign cores, the `--saturation-busy` share and the agent idle gate all cover the allocation, and `logicalCpus` is its size. The scope is recorded as `cpuScope` on the agent in `meta.topology`. `--cpu-scope machine` restores whole-machine accounting. Memory bandwidth and the NIC stay shared with the other tenants; saturation of the bots still shows up in the worker self-checks.
+
 An invalid repeat is rerun once, as always ([statuses](methodology.md#statuses-and-exit-codes)). A lost agent's bots count as unexpected disconnects and join failures, but the step is invalid, so they never fail it. The report lists saturated and lost agents and unverified bot placement as threats to validity.
 
 ## Topology provenance and comparability

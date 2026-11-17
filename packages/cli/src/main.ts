@@ -64,6 +64,9 @@ commands:
               --placement auto|off               pin workers to a bots-only CPU set (default off)
               --saturation-busy <fraction>       report saturation above this machine CPU share (default 0.9)
               --saturation-foreign <cores>       report saturation above this foreign load (default 1)
+              --cpu-scope auto|machine           CPUs the saturation and interference verdicts count (default
+                                                 auto: only this process's allowed CPUs when it runs inside a
+                                                 smaller CPU allocation, e.g. a Slurm job; machine: all CPUs)
               --no-lock                          do not take the machine lock while a session is active
                                                  (needed for agents on the server machine itself)
               --allow-harness-mismatch           accept an orchestrator on another bedperf commit

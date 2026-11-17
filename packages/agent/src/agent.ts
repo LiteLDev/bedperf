@@ -9,12 +9,13 @@ import {
 } from '@bedperf/core'
 import { forkWorker, type BotFleetOptions, type ControllerMessage, type WorkerFactory, type WorkerLink } from '@bedperf/loadgen'
 import {
-  createMachineSampler as defaultCreateMachineSampler, idleCheck as defaultIdleCheck,
+  checkInterference, createMachineSampler as defaultCreateMachineSampler, idleCheck as defaultIdleCheck, summarizeInterference,
   type IdleCheckOptions, type IdleCheckResult, type MachineSampler, type MachineSamplerOptions
 } from '@bedperf/sysmon'
 import pkg from '../package.json' with { type: 'json' }
 import { frameLink, isLoopbackHost, macMatches, type FrameLink } from './frames.ts'
 import { resolveScenarioModule, type ScenarioResolverDeps } from './scenario.ts'
+import { resolveCpuScope, scopeSample } from './scope.ts'
 import {
   DEFAULT_AGENT_SATURATION, defaultNetCounters, telemetryFromSample, type AgentSaturationThresholds, type NetCounterReader
 } from './telemetry.ts'
@@ -45,6 +46,12 @@ export interface AgentOptions {
   /** Default: /proc/net/dev on Linux, none elsewhere. */
   netCounters?: NetCounterReader
   saturation?: Partial<AgentSaturationThresholds>
+  /**
+   * CPUs the saturation and interference verdicts look at. `auto` (default): the CPUs this process may
+   * run on when that is fewer than the machine's (a scheduler allocation or cpuset), else the whole
+   * machine. `machine`: always the whole machine. A list: exactly those CPUs.
+   */
+  cpuScope?: 'auto' | 'machine' | number[]
   /** Taken when an orchestrator authenticates, released when its session ends; a throw denies the session. */
   lock?: () => Promise<LockRelease>
   scenarios?: ScenarioResolverDeps
@@ -90,6 +97,8 @@ export async function startAgent (opts: AgentOptions): Promise<AgentServer> {
     harness,
     cpus: availableParallelism()
   }
+  const scope = resolveCpuScope(opts.cpuScope ?? 'auto')
+  if (scope !== undefined) info.cpuScope = scope
   const spawnWorker = opts.workerFactory ?? forkWorker
   const makeSampler = opts.createMachineSampler ?? defaultCreateMachineSampler
   const runIdleCheck = opts.idleCheck ?? defaultIdleCheck
@@ -302,7 +311,7 @@ export async function startAgent (opts: AgentOptions): Promise<AgentServer> {
         }
         prevNet = cur
         prevAt = at
-        send({ type: 'telemetry', sample: telemetryFromSample(sample, thresholds, net) })
+        send({ type: 'telemetry', sample: telemetryFromSample(scope ? scopeSample(sample, scope) : sample, thresholds, net) })
       }).catch(err => {
         log(`telemetry sampler failed to start: ${(err as Error)?.message}`)
         if (sampler === s) sampler = undefined
@@ -323,7 +332,16 @@ export async function startAgent (opts: AgentOptions): Promise<AgentServer> {
       let result: AgentIdleCheckResult
       try {
         const r = await runIdleCheck(o)
-        result = { ok: r.ok, reasons: r.reasons, summary: r.summary, top: r.top }
+        if (scope !== undefined) {
+          // Only the scoped CPUs count; floored at 0 like sysmon's own idle summary.
+          const raw = summarizeInterference(r.samples.map(x => scopeSample(x, scope)))
+          const summary = { samples: raw.samples, foreignMean: Math.max(0, raw.foreignMean), foreignPeak10s: Math.max(0, raw.foreignPeak10s) }
+          const { serverSetForeignMean: _ignored, ...lim } = o.thresholds ?? {}
+          const c = checkInterference(summary, lim)
+          result = { ok: c.ok, reasons: c.reasons, summary, top: r.top }
+        } else {
+          result = { ok: r.ok, reasons: r.reasons, summary: r.summary, top: r.top }
+        }
       } catch (err) {
         result = {
           ok: false,
