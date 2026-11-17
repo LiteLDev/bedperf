@@ -95,8 +95,14 @@ export async function observeProcess (pid: number, runner: PlacementRunner): Pro
   return observedFromWindows(await runPowerShellJson<WinThreadsRaw>(runner, windowsVerifyScript(pid)))
 }
 
-/** Judge an observation against the planned CPUs and priority (pure). */
-export function judgePlacement (pid: number, expected: readonly number[], priority: PlacementPriority | undefined, obs: ObservedProcess): PlacementVerification {
+/**
+ * Judge an observation against the planned CPUs and priority (pure). `allowSubset`: a process
+ * affinity that is a non-empty subset of the plan passes (recorded as info), for helper processes
+ * that narrow their own mask (Wine's services pin themselves to one CPU); it still cannot escape.
+ */
+export function judgePlacement (
+  pid: number, expected: readonly number[], priority: PlacementPriority | undefined, obs: ObservedProcess, allowSubset = false
+): PlacementVerification {
   const expectedCpus = normalizeCpus(expected)
   const allowed = new Set(expectedCpus)
   const checks: PlacementCheck[] = []
@@ -110,6 +116,8 @@ export function judgePlacement (pid: number, expected: readonly number[], priori
   if (obs.processCpus === null) {
     violations.push({ kind: 'process_affinity', message: 'process affinity could not be read' })
     checks.push({ id: 'process_affinity', level: 'fail', summary: 'process affinity could not be read' })
+  } else if (allowSubset && obs.processCpus.length > 0 && obs.processCpus.length < expectedCpus.length && obs.processCpus.every(c => allowed.has(c))) {
+    checks.push({ id: 'process_affinity', level: 'info', summary: `process affinity ${formatCpuList(obs.processCpus)}, a subset of the planned ${formatCpuList(expectedCpus)}` })
   } else if (!sameCpus(obs.processCpus, expectedCpus)) {
     const msg = `process affinity ${formatCpuList(obs.processCpus)} != planned ${formatCpuList(expectedCpus)}`
     violations.push({ kind: 'process_affinity', message: msg, cpus: obs.processCpus })
@@ -167,20 +175,21 @@ export function judgePlacement (pid: number, expected: readonly number[], priori
 export async function verifyPlacement (
   pid: number,
   plan: Pick<PlacementPlan, 'serverCpus' | 'priority'>,
-  opts: { cpus?: readonly number[], priority?: PlacementPriority | null, runner?: PlacementRunner } = {}
+  opts: { cpus?: readonly number[], priority?: PlacementPriority | null, runner?: PlacementRunner, allowSubset?: boolean } = {}
 ): Promise<PlacementVerification> {
   if (!Number.isInteger(pid) || pid <= 0) throw new Error(`invalid pid ${pid}`)
   const runner = opts.runner ?? createNodeRunner()
   const cpus = opts.cpus ?? plan.serverCpus
   const priority = opts.priority === null ? undefined : (opts.priority ?? plan.priority)
-  return judgePlacement(pid, cpus, priority, await observeProcess(pid, runner))
+  return judgePlacement(pid, cpus, priority, await observeProcess(pid, runner), opts.allowSubset ?? false)
 }
 
 /**
  * Verify a launched server's process set against the plan's server CPUs. The game process
  * (`serverPid`) is verified fully: process affinity, every thread and the priority. The launcher and
  * helper processes (e.g. wineserver) are verified for process and thread affinity only, since
- * whether their priority is raised does not affect the measurement; one that has exited is
+ * whether their priority is raised does not affect the measurement, and their process affinity may
+ * be a subset of the server CPUs (Wine narrows some helpers to one CPU); one that has exited is
  * recorded as info, not a failure. Works for a game under Wine on Linux (a Linux process whose
  * threads are in /proc/<pid>/task) and for Endstone's `bedrock_server.exe` child on Windows.
  */
@@ -198,7 +207,7 @@ export async function verifyServerProcesses (
   // In parallel: on Windows each observation is a PowerShell launch.
   const observed = await Promise.all(list.map(async ({ role, pid }) => role === 'server'
     ? await verifyPlacement(pid, plan, { ...opts, runner })
-    : await verifyPlacement(pid, plan, { cpus: opts.cpus, priority: null, runner })))
+    : await verifyPlacement(pid, plan, { cpus: opts.cpus, priority: null, runner, allowSubset: true })))
   for (const [i, { role, pid }] of list.entries()) {
     const v = observed[i]!
     if (role === 'server') {
