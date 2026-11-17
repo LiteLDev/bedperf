@@ -761,6 +761,10 @@ export class BenchmarkRun {
       rec.record('orch', Kinds.stepEnd, step)
       await rec.writeSteps(this.steps)
       const why = [...step.failReasons, ...(step.invalidReasons ?? []).filter(x => !step.failReasons.includes(x))]
+      if (step.loadgenSaturated) {
+        const by = saturatedAgents(botStats.filter(s => s.t >= startT && s.t <= endT))
+        if (by.length > 0) why.push(`saturated agent(s): ${by.join(', ')}`)
+      }
       log.info(`repeat ${r} step ${index} [${phase}] ${players} players: ${outcome} tps=${step.tps.mean.toFixed(2)}${step.counterTps !== undefined ? ` counter=${step.counterTps.toFixed(2)}` : ''} settle=${st.settleSec.toFixed(0)}s${why.length > 0 ? ` (${why.join('; ')})` : ''}`)
 
       if (ctx.crashed !== undefined) return serverFailed(ctx.crashed, players)
@@ -789,7 +793,18 @@ export class BenchmarkRun {
   }
 }
 
-/** Address the bots dial: the agents' bot target, else loopback (both overridable through `loadGenOptions.host`). */
+/** Agents that reported saturation in these fleet stats (per-agent slices), with their reasons when known. */
+function saturatedAgents (stats: readonly BotFleetStats[]): string[] {
+  const out = new Map<string, string[]>()
+  for (const s of stats) {
+    const ext = (s.loadgen as { externalSaturation?: Record<string, string[]> }).externalSaturation ?? {}
+    for (const [a, reasons] of Object.entries(ext)) out.set(a, reasons)
+    for (const a of s.loadgen.agents ?? []) if (a.saturated && !out.has(a.agent)) out.set(a.agent, [])
+  }
+  return [...out].map(([a, reasons]) => reasons.length > 0 ? `${a} (${reasons.join('; ')})` : a)
+}
+
+/** Address the bots dial:the agents' bot target, else loopback (both overridable through `loadGenOptions.host`). */
 function botHost (deps: EngineDeps): string {
   return deps.loadGenOptions?.host ?? deps.agents?.botTargetHost ?? '127.0.0.1'
 }
