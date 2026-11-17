@@ -333,3 +333,76 @@ test('pids() lists live workers and onWorkerSpawn sees every fork; forceFullChun
   await fleet.stop()
   assert.deepEqual(fleet.pids(), [])
 })
+
+function workerStats (workerId: number, extra: Partial<WorkerStats> = {}): WorkerStats {
+  return {
+    type: 'stats', workerId, intervalMs: 1000, bots: 5, joinLatencyMs: [], rttMs: [], corrections: 0, rxBytes: 0,
+    eventLoopP99Ms: 10, mainThreadCpuPct: 20, cpuPct: 40, rssBytes: 1, ...extra
+  }
+}
+
+test('aggregateStats: per-agent slices when workers carry an agent label; external saturation ORs in', () => {
+  const base = {
+    t: 0, target: 10, connected: 10, spawned: 10, joinFailures: 0, unexpectedDisconnects: 0, elapsedMs: 1000, reports: [],
+    thresholds: DEFAULT_SATURATION, staleMs: 5000
+  }
+  const local = aggregateStats({ ...base, workers: [{ latest: workerStats(0), sinceMs: 0 }] })
+  assert.equal(local.loadgen.agents, undefined)
+  assert.equal(local.loadgen.saturated, false)
+
+  const s = aggregateStats({
+    ...base,
+    workers: [
+      { latest: workerStats(0), sinceMs: 0, agent: 'b' },
+      { latest: workerStats(1, { eventLoopP99Ms: 30, cpuPct: 60 }), sinceMs: 0, agent: 'b' },
+      { latest: workerStats(2, { mainThreadCpuPct: 95 }), sinceMs: 0, agent: 'a' }
+    ]
+  })
+  assert.deepEqual(s.loadgen.agents, [
+    { agent: 'a', workers: 1, bots: 5, totalCores: 0.4, eventLoopLagP99Ms: 10, maxWorkerCpuPct: 95, saturated: true },
+    { agent: 'b', workers: 2, bots: 10, totalCores: 1, eventLoopLagP99Ms: 30, maxWorkerCpuPct: 20, saturated: false }
+  ])
+  assert.equal(s.loadgen.saturated, true)
+
+  const ext = aggregateStats({
+    ...base,
+    workers: [{ latest: workerStats(0), sinceMs: 0, agent: 'b' }],
+    externalSaturation: { b: ['busy 95% of 8 CPUs'] }
+  })
+  assert.equal(ext.loadgen.saturated, true)
+  assert.equal(ext.loadgen.agents?.[0]?.saturated, true)
+})
+
+test('remote links: agent label reaches stats, no pid reported, setExternalSaturation marks and clears', async () => {
+  const workers: FakeWorker[] = []
+  const fleet = new BotFleet({
+    spawnWorker: id => {
+      const w = new FakeWorker(id, (wk, msg) => {
+        happy(wk, msg)
+        if (msg.type === 'join') wk.emit(workerStats(wk.id, { bots: 1 }))
+      })
+      ;(w as { agent?: string }).agent = id % 2 === 0 ? 'even' : 'odd'
+      workers.push(w)
+      return w
+    }
+  })
+  const spawned: number[] = []
+  fleet.onWorkerSpawn(pid => spawned.push(pid))
+  const base = setup().opts
+  await fleet.start({ ...base, botsPerWorker: 2, scenarioName: 'idle' })
+  const init = workers[0]!.sent[0]!.msg
+  assert.ok(init.type === 'init' && init.init.scenarioName === 'idle')
+  await fleet.scaleTo(4, 5000)
+  assert.deepEqual(fleet.pids(), [])
+  assert.deepEqual(spawned, [])
+  let s = fleet.emitStats()
+  assert.deepEqual(s.loadgen.agents?.map(a => [a.agent, a.workers]), [['even', 1], ['odd', 1]])
+  assert.equal(s.loadgen.saturated, false)
+  fleet.setExternalSaturation('odd', ['foreign load 3 cores'])
+  s = fleet.emitStats()
+  assert.equal(s.loadgen.saturated, true)
+  assert.equal(s.loadgen.agents?.find(a => a.agent === 'odd')?.saturated, true)
+  fleet.setExternalSaturation('odd', [])
+  assert.equal(fleet.emitStats().loadgen.saturated, false)
+  await fleet.stop()
+})

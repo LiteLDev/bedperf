@@ -8,9 +8,9 @@ import type { LoadGenerator, LoadGenOptions } from '@bedperf/core'
 import { aggregateStats, DEFAULT_SATURATION, type FleetStats, type SaturationThresholds } from './aggregate.ts'
 import type { BotEvent, ControllerMessage, RttOptions, WorkerInit, WorkerMessage, WorkerStats } from './protocol.ts'
 
-export { aggregateStats, aggregateView, censoredMedian, nearestRank, DEFAULT_SATURATION } from './aggregate.ts'
+export { aggregateAgents, aggregateStats, aggregateView, censoredMedian, nearestRank, DEFAULT_SATURATION } from './aggregate.ts'
 export { ViewTracker, VIEW_N, inView, t90Rank, type BotViewSample } from './view.ts'
-export type { FleetStats, SaturationThresholds } from './aggregate.ts'
+export type { AggregateInput, FleetStats, LiveWorker, SaturationThresholds } from './aggregate.ts'
 export type { RttOptions, WorkerInit, ControllerMessage, WorkerMessage, WorkerStats, BotEvent } from './protocol.ts'
 export { botRandom, botSeed, mulberry32, isSampled } from './rng.ts'
 
@@ -42,6 +42,8 @@ export interface BotFleetOptions extends LoadGenOptions {
    * `client_cache_blob_status { missing: all }`. Also settable per run via scenarioParams `forceFullChunks`.
    */
   forceFullChunks?: boolean
+  /** Registry name of the scenario (see `WorkerInit.scenarioName`); lets remote agents use their local copy. */
+  scenarioName?: string
   /** Node flags for worker processes. Default []. */
   workerExecArgv?: string[]
   /** Worker log lines (bot errors, stdout/stderr). Default: written to stderr with a `[loadgen wN]` prefix. */
@@ -54,8 +56,10 @@ export interface WorkerLink {
   onMessage (cb: (msg: WorkerMessage) => void): void
   onExit (cb: (code: number | null) => void): void
   kill (): void
-  /** OS process id, when the worker is a real process. */
+  /** OS process id, when the worker is a real process on this machine (remote workers have none). */
   pid?: number
+  /** Name of the remote agent running this worker; labelled links get a per-agent slice in the stats. */
+  agent?: string
 }
 
 export type WorkerFactory = (workerId: number, opts: BotFleetOptions) => WorkerLink
@@ -137,6 +141,8 @@ export class BotFleet implements LoadGenerator {
   private readonly waiters = new Set<() => void>()
   private stopping = false
   private readonly spawnListeners: Array<(pid: number) => void> = []
+  /** agent name -> reasons its machine is saturated (fed by agent telemetry). */
+  private readonly external = new Map<string, string[]>()
 
   constructor (deps: { spawnWorker?: WorkerFactory, now?: () => number } = {}) {
     this.spawnWorker = deps.spawnWorker ?? forkWorker
@@ -156,6 +162,7 @@ export class BotFleet implements LoadGenerator {
       port: opts.port,
       version: opts.version,
       scenarioModule: opts.scenarioModule,
+      ...(opts.scenarioName !== undefined ? { scenarioName: opts.scenarioName } : {}),
       scenarioParams: p,
       usernamePrefix: opts.usernamePrefix,
       seed: opts.seed,
@@ -263,6 +270,15 @@ export class BotFleet implements LoadGenerator {
     this.spawnListeners.push(listener)
   }
 
+  /**
+   * Mark (non-empty `reasons`) or clear (empty) a saturated load-generator machine, e.g. from agent telemetry.
+   * While set, every interval's `loadgen.saturated` is true and the agent's slice is marked saturated.
+   */
+  setExternalSaturation (agent: string, reasons: readonly string[]): void {
+    if (reasons.length > 0) this.external.set(agent, [...reasons])
+    else this.external.delete(agent)
+  }
+
   /** Current per-state counts (for diagnostics and tests). */
   snapshot (): { target: number, queued: number, joining: number, spawned: number, leaving: number, connected: number, workers: number, joinFailures: number, unexpectedDisconnects: number } {
     const c = { queued: 0, joining: 0, spawned: 0, leaving: 0, connected: 0 }
@@ -300,10 +316,12 @@ export class BotFleet implements LoadGenerator {
       reports: this.reports,
       workers: [...this.workers.values()].filter(w => w.alive).map(w => ({
         ...(w.latest ? { latest: w.latest } : {}),
+        ...(w.link.agent !== undefined ? { agent: w.link.agent } : {}),
         sinceMs: now - (w.latest ? w.lastReportAt : w.startedAt)
       })),
       thresholds: this.thresholds,
-      staleMs
+      staleMs,
+      ...(this.external.size > 0 ? { externalSaturation: Object.fromEntries(this.external) } : {})
     })
     this.reports = []
     this.lastStatsAt = now

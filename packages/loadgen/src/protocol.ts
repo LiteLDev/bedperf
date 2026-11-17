@@ -19,6 +19,11 @@ export interface WorkerInit {
   port: number
   version: string
   scenarioModule: string
+  /**
+   * Registry name of the scenario (`@bedperf/scenarios`), when it is a builtin. A remote agent resolves it to its
+   * own copy of the module and rewrites `scenarioModule`, which names a file on the controller's machine.
+   */
+  scenarioName?: string
   scenarioParams: Record<string, unknown>
   usernamePrefix: string
   seed: number
