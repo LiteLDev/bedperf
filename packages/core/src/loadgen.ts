@@ -17,6 +17,11 @@ export interface LoadGenOptions {
   botsPerWorker: number
   /** Delay between successive joins, ms. */
   joinIntervalMs: number
+  /**
+   * A join whose transport never connected (e.g. a RakNet `Connect timed out`) is re-queued up to this many
+   * times before it counts as a join failure. Default 0. Retries are counted in `BotFleetStats.connectRetries`.
+   */
+  connectRetries?: number
   /** Username prefix; bot i is `${prefix}${i}`. */
   usernamePrefix: string
   /** Seed for scenario RNG. */
