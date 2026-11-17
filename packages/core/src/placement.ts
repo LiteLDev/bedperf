@@ -11,6 +11,13 @@ export type PlacementPriority = 'normal' | 'above_normal'
 /** `vcpu` when the machine is virtualized (including WSL2): core/SMT facts are then unreliable. */
 export type PlacementKind = 'physical' | 'vcpu'
 
+/**
+ * What a plan places on this machine. `local`: server, bots and harness share the machine (the
+ * default). `remote-bots`: the server machine of a distributed run; bots run on agent machines, so
+ * no bot set is reserved. `bots-only`: an agent machine; bot workers and the agent, no server.
+ */
+export type PlacementMode = 'local' | 'remote-bots' | 'bots-only'
+
 /** A placement profile, usually loaded from JSON. Everything but `label` feeds `profileSha256`. */
 export interface PlacementProfile {
   label?: string
@@ -40,6 +47,8 @@ export interface PlacementPlan {
   harnessCpus: number[]
   priority: PlacementPriority
   kind: PlacementKind
+  /** Absent in plans from before distributed runs: `local`. */
+  mode?: PlacementMode
   checks: PlacementCheck[]
   /** sha256 of the canonical profile (label excluded), when planned from a profile. */
   profileSha256?: string
@@ -68,4 +77,19 @@ export interface PlacementVerification {
   threadCount: number
   checks: PlacementCheck[]
   violations: PlacementViolation[]
+}
+
+/** One process of a launched server (the game, its launcher or a helper such as wineserver) measured against the plan. */
+export interface PlacementSetMember {
+  role: 'server' | 'launcher' | 'aux'
+  verification: PlacementVerification
+}
+
+/** A launched server's process set measured against the plan: the game process with every thread, plus launcher and helpers. */
+export interface PlacementSetVerification {
+  verified: boolean
+  /** The game process' verification (also present in `members`). */
+  server: PlacementVerification
+  members: PlacementSetMember[]
+  checks: PlacementCheck[]
 }

@@ -65,6 +65,19 @@ Whole cores always move together, so `auto` never splits SMT siblings. Explicit 
 | `overlap` | warn | the server shares CPUs with the bots or harness |
 | `vcpu` | info | virtualized host |
 
+### Distributed runs
+
+`planPlacement(topology, profile, opts)` takes `{ bots: 'local' | 'remote', role: 'server' | 'bots-only' }`. The plan records which kind it is in `mode` (`local`, `remote-bots`, `bots-only`; plans from before this field are `local`).
+
+**Server machine, bots on agents** (`{ bots: 'remote' }`, `mode: 'remote-bots'`): no bot set is reserved (`botCpus` is empty) and the harness gets a set of its own. With `auto`:
+
+- **hybrid CPUs**: the server gets every core of the fastest class and the harness every slower core, if the fastest class holds at least a quarter of the cores (rounded up), so a single "prime" core never becomes the whole server;
+- **otherwise** the harness takes the slowest, highest-numbered whole cores until it holds `HARNESS_CPUS` (2) logical CPUs or a quarter of the cores (rounded up), whichever comes first, and the server gets every other core. Two logical CPUs cover the orchestrator event loop plus sysmon sampling and log/probe parsing, which stay well under two busy CPUs.
+
+An explicit `botCpus` is ignored with a `bot_cpus_ignored` warning, and `harnessCpus: "bot"` (the default) means auto. With an explicit `serverCpus` the harness gets the whole cores the server does not touch (else every remaining CPU); with only an explicit `harnessCpus` the server gets the fastest class of what is left. The `bot_cpus` check does not apply; `bots_remote` (info) says why, and `harness_cpus` fails when the harness gets nothing. On a single core the server still runs and the harness shares its CPUs (`harness_shared` and `overlap`, both warnings).
+
+**Agent machine** (`{ role: 'bots-only' }`, `mode: 'bots-only'`): `serverCpus` is empty and the bot workers get every allowed CPU except the agent's own set (the same `HARNESS_CPUS` rule). E-cores are used too: bots are network and JS bound, nothing measured runs on an agent, and an agent that runs short of CPU reports itself saturated. On a single core the agent shares the bot CPUs (`harness_shared`, info). An explicit `serverCpus` is ignored with a warning. With explicit `botCpus` the agent gets the whole cores the bots do not touch (else every remaining CPU, else it shares the bot set); explicit bot and agent sets that partly overlap are warned (`overlap`). In a container, only the CPUs in the harness's own affinity (`--cpuset-cpus`) are planned; a CFS quota (`--cpus`) does not show up in affinity and is not seen. The agent places each worker with `applyBotWorker(pid, plan)` (`applyToPid(pid, plan.botCpus, 'normal')`) and checks it with `verifyBotWorker(pid, plan)`.
+
 ## Applying
 
 `applyToPid(pid, cpus, priority)` returns `{ok, affinityError?, priorityError?, method: 'post-spawn'}` and never throws for an OS refusal:
@@ -73,6 +86,15 @@ Whole cores always move together, so `auto` never splits SMT siblings. Explicit 
 - Linux: `taskset -a -p -c <cpus> <pid>` (all threads), then the renice equivalent, `setpriority` on every thread (`above_normal` = nice -5, which needs root or CAP_SYS_NICE; a refusal is reported in `priorityError`).
 
 `wrapSpawn(cmd, args, plan, {role})` returns `taskset -c <cpus> [nice -n <n>] cmd args` on Linux (`method: 'preexec'`). Both tools exec in place, so the pid is the server's and every thread it ever starts inherits the mask. Note that `nice -n` is relative to the harness's own nice. Without CAP_SYS_NICE, GNU `nice` only warns and runs the command anyway, so `priorityUnconfirmed` is true whenever a negative nice is requested: call `verifyPlacement` after the spawn. On Windows the command comes back unchanged with `postSpawnApplyRequired: true` (`method: 'post-spawn'`). `role` is `server` (the default), `bot` or `harness`. Only the server gets the plan's priority.
+
+### Launchers (lip, wine, Endstone)
+
+A server may be started through a launcher (`LaunchSpec.command` is lip, wine or Python for Endstone) whose descendant is the game process, plus helpers that are not descendants (`auxProcessPatterns`, e.g. `wineserver`).
+
+- **Linux**: wrap the launcher with `wrapSpawn`. The `taskset` mask and `nice` carry over fork and exec, so the game child, Wine's helper `.exe` processes and a wineserver that wine forks (it daemonizes, but keeps the mask) are all covered from creation (`coversDescendants: true`). A wineserver that was already running for the prefix was not started under the wrapper: place it with `applyToServerTree(plan, { auxPids })`.
+- **Windows**: a child takes its parent's affinity mask when it is created, and an above-normal priority class is not inherited. Call `applyToServerTree(plan, { launcherPid })` right after the spawn so children the launcher creates later inherit the mask, then `applyToServerTree(plan, { serverPid, auxPids })` on the resolved game pid as soon as it is found and before the server is reported ready. A game process created before the launcher was placed (the race between spawn and the first apply) runs unplaced until the second call; setting its process mask then resets every existing thread's mask, so the gap stays inside startup. Endstone's `bedrock_server.exe`, which Python starts with an injected DLL, is handled this way.
+
+`applyToServerTree` gives every listed process the server's CPUs and priority (a wineserver serves the game's Wine calls, so it sits on the game's critical path), in parallel, applying a pid listed twice once. It is `ok` when the game got its CPUs and priority and every launcher or helper got its CPUs or had already exited (`ApplyResult.gone`, also set on Windows when the process exits between lookup and apply).
 
 ## Verifying (`verifyPlacement`)
 
@@ -83,8 +105,10 @@ Whole cores always move together, so `auto` never splits SMT siblings. Explicit 
 - `priority`: the observed priority is not the planned one (pass `priority: null` to skip this check);
 - `process_gone`: the process has exited.
 
-A thread narrowed to a strict subset of the plan is listed in `narrowed` and is not a violation. `verified` is true when there are no violations. It defaults to the server set and priority. To check a bot worker, pass `{cpus: plan.botCpus, priority: 'normal'}`.
+A thread narrowed to a strict subset of the plan is listed in `narrowed` and is not a violation. `verified` is true when there are no violations. It defaults to the server set and priority. To check a bot worker, pass `{cpus: plan.botCpus, priority: 'normal'}` (or use `verifyBotWorker`).
+
+`verifyServerProcesses(plan, { serverPid, launcherPid?, auxPids? })` verifies a launched server as a set (`PlacementSetVerification`): the game process fully (process mask, every thread, priority), and the launcher and helpers for process and thread affinity only. A launcher or helper that has exited is recorded as info (`launcher_gone` / `aux_gone`), not a failure. A game running under Wine on Linux is an ordinary Linux process whose threads are in `/proc/<pid>/task`, and Wine maps `SetThreadAffinityMask` to `sched_setaffinity`, so a game thread that widens its own mask shows up as `thread_outside`.
 
 ## Tests
 
-`node --test src/placement.test.ts` runs on fakes, with topology fixtures for a 14700F-like hybrid (8P with HT + 12E, on both Windows and Linux), a plain 8c/16t, a 4-core part without SMT, and WSL2. `BEDPERF_E2E=1 node --test src/placement.e2e.test.ts` reads the real topology, starts a real BDS, applies a 2-CPU set taken from the plan's server CPUs, verifies it, then changes the affinity out of band and checks that verification fails.
+`node --test src/placement.test.ts src/remote.test.ts` runs on fakes, with topology fixtures for a 14700F-like hybrid (8P with HT + 12E, on both Windows and Linux), a plain 8c/16t, a 4-core part without SMT, and WSL2; `remote.test.ts` covers remote-bots and bots-only plans and launched servers (Wine on Linux and Endstone on Windows, as fake `/proc` and PowerShell data). `BEDPERF_E2E=1 node --test src/placement.e2e.test.ts` reads the real topology, starts a real BDS, applies a 2-CPU set taken from the plan's server CPUs, verifies it, then changes the affinity out of band and checks that verification fails.
