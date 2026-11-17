@@ -74,14 +74,16 @@ export const DEFAULT_SERVER_SPEC: ServerSpec = { flavor: 'bds', mods: [], runtim
 /**
  * LeviLamina config overrides that keep the loader from changing what is measured or phoning home:
  * telemetry and crash uploads off, per-IP connection throttling off (all bots of an agent share an IP).
- * Paths are keys of LeviLamina's `config.json`.
+ * Paths are keys of LeviLamina's `mods/LeviLamina/config/Config.json` (config version 43, LeviLamina 26.60.7).
  */
 export const NEUTRAL_LOADER_CONFIG: Record<ServerFlavor, Record<string, unknown>> = {
   bds: {},
   levilamina: {
     modules: {
+      crashLogger: { uploadToSentry: false }
+    },
+    targeted: {
       enableStatistics: false,
-      crashLogger: { uploadToSentry: false },
       vulnerabilityFixes: { limitIPFrequency: false }
     }
   },
