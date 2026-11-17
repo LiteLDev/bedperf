@@ -64,13 +64,15 @@ export function parseValue (raw: string): unknown {
 /**
  * Apply `path=value` overrides to a plain object (mutates and returns it). Path segments are split on
  * `.`; `serverProperties.<key>` keeps the rest of the path as one key, since property names contain dots.
+ * `server.versions.<component>` values are taken verbatim (never parsed as numbers).
  */
 export function applySets (obj: Record<string, unknown>, sets: readonly string[]): Record<string, unknown> {
   for (const s of sets) {
     const eq = s.indexOf('=')
     if (eq <= 0) throw new UsageError(`--set expects path=value, got '${s}'`)
     const path = s.slice(0, eq)
-    const value = parseValue(s.slice(eq + 1))
+    // Component versions stay strings: `0.20` must not become the number 0.2.
+    const value = path.startsWith('server.versions.') ? s.slice(eq + 1) : parseValue(s.slice(eq + 1))
     let parts = path.split('.')
     if (parts[0] === 'serverProperties' && parts.length > 2) parts = ['serverProperties', parts.slice(1).join('.')]
     let cur: Record<string, unknown> = obj

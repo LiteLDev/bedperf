@@ -4,7 +4,7 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {
-  RUN_FILES, Scrubber, envelope, harnessInfo, machineInfo, sha256Json,
+  RUN_FILES, Scrubber, benchConfigSha256, envelope, harnessInfo, machineInfo, sha256Json,
   type BenchmarkConfig, type Envelope, type FileDigest, type HarnessInfo, type MachineInfo, type RunMeta, type RunResult, type Source, type StepResult
 } from '@bedperf/core'
 import pkg from '../package.json' with { type: 'json' }
@@ -83,10 +83,13 @@ export function hostInfo (): RunMeta['host'] {
   }
 }
 
-/** `configSha256`, or nothing for a config canonicalJson rejects (NaN / Infinity): provenance never aborts a run. */
-function configHash (config: BenchmarkConfig): { configSha256?: string } {
+/**
+ * `configSha256` and `benchConfigSha256` (the config without its `server` section), or nothing for a
+ * config canonicalJson rejects (NaN / Infinity): provenance never aborts a run.
+ */
+function configHash (config: BenchmarkConfig): { configSha256?: string, benchConfigSha256?: string } {
   try {
-    return { configSha256: sha256Json(config) }
+    return { configSha256: sha256Json(config), benchConfigSha256: benchConfigSha256(config) }
   } catch {
     return {}
   }
@@ -106,7 +109,7 @@ function json (v: unknown): string {
  * samples.jsonl (streamed), steps.json and result.json.
  *
  * meta.json and config.json go through a `Scrubber` (no absolute paths, user or host names). meta.json carries
- * provenance: `configSha256`, `machine`, `harness` and, after `close()`, the `files` manifest. Raw logs
+ * provenance: `configSha256`, `benchConfigSha256`, `machine`, `harness` and, after `close()`, the `files` manifest. Raw logs
  * (samples.jsonl, bds*.log) are written as they come and are NOT scrubbed.
  */
 export class RunRecorder {

@@ -59,6 +59,8 @@ corepack pnpm bedperf run --scenario walk --set ramp.max=200 --set loadgen.botsP
 
 This writes `runs/<id>/` (config, meta, samples.jsonl, steps.json, result.json, bds.log) and `report.html`. See [packages/cli/README.md](packages/cli/README.md) for every option.
 
+`--server <preset>` runs another implementation of the same benchmark: `bds` (default), `levilamina`, `levilamina-levioptimize`, `endstone`, and on Linux `levilamina-wine`, `levilamina-levioptimize-wine`. [docker/README.md](docker/README.md) has a Linux image for the server machine.
+
 Bots are expensive: about 0.16 cores and 60 MB each for `walk`. When the bots share a host with BDS, they saturate before a fast server does, and the result is then flagged `loadgenLimited`. To measure real capacity, run the bots on a separate machine.
 
 ## Rigor

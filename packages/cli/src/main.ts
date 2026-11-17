@@ -3,7 +3,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { AGENT_TOKEN_ENV, type AgentSpec, type BenchmarkConfig, type RunResult } from '@bedperf/core'
+import { AGENT_TOKEN_ENV, SERVER_PRESET_NAMES, SERVER_PRESETS, serverLabel, type AgentSpec, type BenchmarkConfig, type RunResult, type ServerPresetName, type ServerSpec } from '@bedperf/core'
 import { ensureBds, hostPlatform, resolveVersion } from '@bedperf/bds-install'
 import {
   consoleLogger, ConfigError, EnvGateError, ExitCodes, exitCodeOf, GATES_KEYS, loadConfig, parseAgentSpecs, parseConfig, parseOrder, PRESET_NAMES,
@@ -15,7 +15,7 @@ import { applySets, bool, flag, intFlag, parseArgs, UsageError, type ParsedArgs 
 import { agentCommand } from './agent.ts'
 import { analyzeCommand } from './analyze.ts'
 import { LockHeldError } from './lock.ts'
-import { runCommand, runSessionCommand, type RunCommandOptions } from './run.ts'
+import { installServerCommand, runCommand, runSessionCommand, stopActiveServers, type RunCommandOptions } from './run.ts'
 
 export const USAGE = `usage: bedperf <command> [options]
 
@@ -36,6 +36,8 @@ commands:
                                                  agents on other machines; never a loopback address then)
               --skip-idle-check                  do not run the idle gate before repeats
               --scenario <name>                  override scenario.module (${Object.keys(SCENARIOS).join(', ')})
+              --server <preset>                  server implementation (default bds): ${SERVER_PRESET_NAMES.join(', ')}
+                                                 (pin components with --set server.versions.levilamina=26.60.7)
               --set <path>=<value>               override any config field, e.g. --set ramp.max=60
                                                  or --set serverProperties.view-distance=8 (repeatable)
               --bds-version <v>                  latest | preview | x.y.z.w
@@ -68,6 +70,8 @@ commands:
               --insecure                         allow an empty token (loopback --listen only)
               runs until SIGINT / SIGTERM
   install   [latest|preview|x.y.z.w] --accept-eula   download BDS into the cache
+              --server <preset>                  install a server flavor instead (${SERVER_PRESET_NAMES.join(', ')});
+                                                 modded flavors default to their pinned BDS build
   scenarios                                      list built-in scenarios
 `
 
@@ -95,6 +99,14 @@ export function applyMachineProfile (raw: Record<string, unknown>, profile: unkn
     }
     raw['gates'] = gates
   }
+}
+
+/** `--server <preset>`: a fresh copy of the named server preset, or undefined without the flag. */
+export function serverPresetFlag (args: ParsedArgs): ServerSpec | undefined {
+  const name = flag(args, 'server')
+  if (name === undefined) return undefined
+  if (!(SERVER_PRESET_NAMES as readonly string[]).includes(name)) throw new UsageError(`unknown server preset '${name}' (expected one of: ${SERVER_PRESET_NAMES.join(', ')})`)
+  return structuredClone(SERVER_PRESETS[name as ServerPresetName]) as ServerSpec
 }
 
 async function machineProfile (args: ParsedArgs): Promise<{ profile: unknown, file: string } | undefined> {
@@ -178,6 +190,9 @@ async function overrideConfig (base: BenchmarkConfig, args: ParsedArgs, source: 
   }
   const bds = flag(args, 'bds-version')
   if (bds !== undefined) raw['bdsVersion'] = bds
+  // Replaces the whole section; `--set server.*` below refines it.
+  const server = serverPresetFlag(args)
+  if (server !== undefined) raw['server'] = server
   const mp = await machineProfile(args)
   if (mp !== undefined) applyMachineProfile(raw, mp.profile, mp.file)
   applySets(raw, sets)
@@ -203,11 +218,24 @@ async function main (argv: string[]): Promise<number> {
       const agents = await agentsFromArgs(args)
       const ac = new AbortController()
       let interrupts = 0
+      // A launcher-started server (Linux tree-kill flavors) runs in its own process group and never sees
+      // the terminal's Ctrl+C, and a forced exit skips the engine's cleanup: stop servers before exiting.
+      let forcing = false
+      const forceExit = (why: string): void => {
+        // Already stopping: another signal exits at once (the servers' exit hooks still fire).
+        if (forcing) process.exit(ExitCodes.interrupted)
+        forcing = true
+        console.error(`[bedperf] ${why}: stopping the server and exiting (signal again to exit at once)`)
+        ac.abort(new Error('interrupted'))
+        setTimeout(() => process.exit(ExitCodes.interrupted), 15_000).unref()
+        stopActiveServers({ timeoutMs: 8000 }).finally(() => process.exit(ExitCodes.interrupted))
+      }
       process.on('SIGINT', () => {
-        if (++interrupts > 1) process.exit(130)
-        console.error('[bedperf] interrupt: stopping after the current step (press Ctrl+C again to kill)')
+        if (++interrupts > 1) { forceExit('second interrupt'); return }
+        console.error('[bedperf] interrupt: stopping after the current step (press Ctrl+C again to stop now)')
         ac.abort(new Error('interrupted'))
       })
+      process.on('SIGTERM', () => { forceExit('SIGTERM') })
       const runsDir = flag(args, 'runs-dir')
       const port = intFlag(args, 'port')
       const ropts: RunCommandOptions = {
@@ -283,6 +311,13 @@ async function main (argv: string[]): Promise<number> {
       return 0
     }
     case 'install': {
+      const server = serverPresetFlag(args)
+      if (server !== undefined) {
+        const installed = await installServerCommand(server, rest[0] ?? 'latest', { acceptEula: bool(args, 'accept-eula'), preview: bool(args, 'preview') })
+        console.log(`${serverLabel(installed.build.spec)} (BDS ${installed.build.bdsVersion}, ${installed.build.binaryPlatform} build) ready at ${installed.pristineDir}`)
+        for (const a of installed.build.artifacts) console.log(`  ${a.name.padEnd(22)} ${a.version ?? ''}${a.sha256 !== undefined ? ` sha256:${a.sha256.slice(0, 16)}…` : ''}`)
+        return 0
+      }
       const resolved = await resolveVersion(rest[0] ?? 'latest', hostPlatform(), { preview: bool(args, 'preview') })
       const r = await ensureBds(resolved, {
         acceptEula: bool(args, 'accept-eula'),

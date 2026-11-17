@@ -23,7 +23,7 @@ console.log(formatStepsTable(steps))
 
 | export | what it does |
 |---|---|
-| `loadConfig(path \| URL \| object)` / `parseConfig(raw)` | Validates a `BenchmarkConfig` and fills defaults: `DEFAULT_CRITERIA`; ramp `start 10, step 10, max 500, settleSec 20, holdSec 60, resolution 2`; `repeats 3`; `warmupSec 60`; `bdsVersion 'latest'`; `loadgen {botsPerWorker 50, joinIntervalMs 200}`; `seed 1`. Unknown keys are errors, which catches typos. A `ConfigError` lists every problem with its path. |
+| `loadConfig(path \| URL \| object)` / `parseConfig(raw)` | Validates a `BenchmarkConfig` and fills defaults: `DEFAULT_CRITERIA`; ramp `start 10, step 10, max 500, settleSec 20, holdSec 60, resolution 2`; `repeats 3`; `warmupSec 60`; `bdsVersion 'latest'`; `loadgen {botsPerWorker 50, joinIntervalMs 200}`; `seed 1`. Unknown keys are errors, which catches typos. A `ConfigError` lists every problem with its path. The optional `server` section (`{ flavor, mods?, runtime?, versions?, loaderConfig? }`, core `ServerSpec`) is checked and resolved (`resolveServerSpec`: pinned versions filled, mods sorted): flavor `bds`/`levilamina`/`endstone`; mods (`levioptimize`), runtime `wine` and `loaderConfig` are LeviLamina-only; a version must belong to the flavor (or a listed mod). Absent means vanilla BDS. |
 | `presets`, `preset(name)` | `quick` (1 repeat, 15 s holds, max 50, settle 5–60 s over a 10 s window, tick counter every 1 s, 5 s cooldown, for smoke runs), `standard` (3 repeats, 60 s holds, max 300, settle 20–300 s, 60 s cooldown) and `thorough` (5 repeats, 120 s holds, max 500, resolution 1, settle 60–900 s, 120 s cooldown). The JSON files are in `presets/`. All three set view-distance 10, tick-distance 4, max-players 1000 and operator permission level. |
 | `evaluateStep(window, criteria)` | A pure function that turns probe, sys and bot samples into a `StepResult` minus its identity fields. See below. |
 | `stepOutcome(step)` | Returns `'pass' \| 'fail' \| 'invalid'`. |
@@ -88,7 +88,7 @@ Before the first repeat, and before any run dir exists, the idle gate (`deps.idl
 
 Per repeat:
 
-1. `createServer(r)`, subscribe to `probe` and `exit`, `start()`. Start the interference sampler (`createMachineSampler`, groups: server = BDS pid, bots = worker pids, harness = this process) for the whole repeat. Verify the server placement (a violation makes the repeat `invalid`). `send` each `scenarioSetup()` command.
+1. `createServer(r)`, subscribe to `probe` and `exit`, `start()`. From here `server.pid` is the game process (for a launcher-started flavor, not the launcher); `bds.event ready` records it, plus `launcherPid` when different. Start the interference sampler (`createMachineSampler`, groups: server = the game pid, the optional `launcherPid` and `auxPids()` (e.g. wineserver; refreshed before every hold), bots = worker pids, harness = this process) for the whole repeat. `verifyServer(pid, server)` gets the server too, so it can check the launcher and helpers. Verify the server placement (a violation makes the repeat `invalid`). `send` each `scenarioSetup()` command.
 2. `createSampler(pid).start()`, the tick-counter sampler (`createGametimeSampler`, every `sampling.gametimeIntervalSec`) and `createLoadGen(r)` → `onStats`, `onWorkerSpawn` (worker placement), `start(opts)`. The options come from the config: `host 127.0.0.1`, the instance port, `version = botVersion ?? bdsVersion`, the scenario, `usernamePrefix bp<r>_`, `seed + r` and 1 s stats. `deps.loadGenOptions` overrides any of them. Warm up for `warmupSec`; the tick counter must answer and advance during it (else `invalid`, `gametime_probe_dead`).
 3. Loop on `planNext`: `orch.step.start` → `scaleTo(n)` → **settle** → verify placement → open the hold (`onHold(true)`) → `scriptevent bedperf:mark step-<i>-start` → hold → close the hold → `scriptevent bedperf:mark step-<i>-end` → verify placement → `orch.step.facts` → `stepFromEnvelopes` → `orch.step.end`, and rewrite `steps.json`.
 4. Always stop the loadgen, samplers and server, in `finally`, and write `orch.repeat.end` with `outcome.status` / `statusReasons`.
@@ -131,12 +131,13 @@ Every step result is a pure function of the envelopes written before its `orch.s
 
 `meta.json` also records (core `provenance.ts`):
 
-- `configSha256`: `sha256Json` (sorted-key compact JSON) of config.json's content, so `sha256Json(JSON.parse(config.json))` must match.
+- `configSha256`: `sha256Json` (sorted-key compact JSON) of config.json's content, so `sha256Json(JSON.parse(config.json))` must match. `benchConfigSha256`: the same without the `server` section (equal for one benchmark on different servers).
+- `server`: `deps.serverBuild` (core `ServerBuildInfo`), with its artifacts also under `artifacts.server`.
 - `machine`: `fingerprint` (16 hex digits over OS family, CPU model, logical and physical cores and whole GiB of RAM; no user or host name), plus `os`, `cpuModel`, `logical`, `physical` (best effort: PowerShell `Win32_Processor` on Windows, `/proc/cpuinfo` on Linux) and `ramGiB`.
 - `harness`: bedperf `version`, `git` commit of the checkout, `dirty` (tracked files under `packages/` or `scripts/` changed) and `node`.
 - `artifacts`: whatever the caller passes in `meta` (the CLI sets the BDS zip sha256, the probe pack tree hash and the bedboo commit).
 - `files`: `{ sha256, bytes }` of every file in the run dir at `close()`, except `meta.json` and `report.html`.
-- `placement`: `{ profileSha256, label?, kind, method, serverCpus, botCpus, harnessCpus, priority, verified, verifications, checks }`; `verified` is false as soon as one server verification failed.
+- `placement`: `{ profileSha256, label?, kind, mode?, method, serverCpus, botCpus, harnessCpus, priority, verified, verifications, checks }`; `verified` is false as soon as one server verification failed.
 - `gates`: the resolved gates and validity thresholds (`gates.*`, `minCounterTps`, `maxProbeCounterTpsDivergence`, `gametimeIntervalSec`) and which checks ran.
 - `network`: `{ loopback }`, true when the bots connect to a loopback address.
 
@@ -146,7 +147,7 @@ meta.json and config.json go through a `Scrubber`: the run dir, cache, repo, tem
 
 ## Simulation
 
-`createSimDeps({ capacity, noise?, tpsDropPerPlayer?, saturateAbove?, maxJoinable?, crashAbove?, seed?, foreignLoad?, idleForeign?, gametimeLatencyMs?, gametimeRateOffset?, gametimeDead?, viewChunks?, viewTauSec?, viewDriftPerBot?, placementFailAt? }, runsDir, { features? })` returns engine deps on a virtual clock, where `sleep` advances time instantly, with simulated placement, idle gate, interference and tick-counter samplers (each can be switched off through `features`). Knobs may be functions of `{ t, holds, holding, players }`. The model:
+`createSimDeps({ capacity, noise?, tpsDropPerPlayer?, saturateAbove?, maxJoinable?, crashAbove?, seed?, foreignLoad?, idleForeign?, gametimeLatencyMs?, gametimeRateOffset?, gametimeDead?, viewChunks?, viewTauSec?, viewDriftPerBot?, placementFailAt? }, runsDir, { features?, server? })` returns engine deps on a virtual clock, where `sleep` advances time instantly, with simulated placement, idle gate, interference and tick-counter samplers (each can be switched off through `features`). `server` (a `ServerSpec`) makes the run record `meta.server` as `simServerBuild(spec)` (pinned BDS of a modded flavor, synthetic artifact hashes), so report and compare flows can be exercised without real servers. Knobs may be functions of `{ t, holds, holding, players }`. The model:
 
 - TPS is 20 minus uniform noise while players ≤ C, then drops by 0.5 per extra player.
 - Tick intervals derive from TPS.

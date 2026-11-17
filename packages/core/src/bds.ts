@@ -44,7 +44,12 @@ export interface BdsServerEvents {
 
 export interface BdsServer {
   readonly instance: BdsInstance
+  /** The game process' pid once started (for a launcher-started flavor: the resolved game process, not the launcher). */
   readonly pid: number | undefined
+  /** Optional: the spawned process when it is a launcher (wine, Endstone's Python); may equal `pid`. */
+  readonly launcherPid?: number | undefined
+  /** Optional: helper processes that belong to the server but are not its descendants (e.g. wineserver). */
+  auxPids? (): Promise<number[]>
   start (opts?: { readyTimeoutMs?: number }): Promise<void>
   /** Write a console command (no leading slash) to stdin. */
   send (command: string): void
