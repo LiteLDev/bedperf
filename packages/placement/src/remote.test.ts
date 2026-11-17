@@ -273,6 +273,17 @@ test('verifyServerProcesses: game under Wine on Linux with per-thread affinity, 
   assert.deepEqual(aux.checks.map(c => `${c.level}:${c.id}`), ['ok:server', 'info:launcher_gone', 'fail:aux_placement'])
   assert.ok(!aux.members[2]!.verification.violations.some(v => v.kind === 'priority'))
 
+  // Wine narrows helper services to one CPU of the plan: still inside, so it passes (as info)
+  const narrowAux = await verifyServerProcesses(plan4, procs, {
+    runner: fakeRunner('linux', wineProc({ '/proc/490/status': STATUS('wineserver', '2'), '/proc/490/task/490/status': STATUS('wineserver', '2') }))
+  })
+  assert.equal(narrowAux.verified, true, JSON.stringify(narrowAux.checks))
+  assert.ok(narrowAux.members[2]!.verification.checks.some(c => c.id === 'process_affinity' && c.level === 'info'))
+  // ... but the game process itself must have exactly the planned CPUs
+  const narrowGame = await verifyServerProcesses(plan4, procs, { runner: fakeRunner('linux', wineProc({ '/proc/500/status': STATUS('bedrock_server_', '2') })) })
+  assert.equal(narrowGame.server.verified, false)
+  assert.deepEqual(narrowGame.server.violations.map(v => v.kind), ['process_affinity'])
+
   // `nice -n -5` without CAP_SYS_NICE leaves the game at nice 0
   const nice = await verifyServerProcesses(plan4, { serverPid: 500 }, { runner: fakeRunner('linux', wineProc({ '/proc/500/stat': STAT(500, 'bedrock_server_', 0) })) })
   assert.deepEqual(nice.server.violations.map(v => v.kind), ['priority'])
