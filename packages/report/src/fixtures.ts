@@ -118,10 +118,12 @@ const LEVILAMINA_UPSTREAM_CONFIG = {
   language: 'system',
   logger: { colorLog: true, logLevel: 4, playerInfoLevel: 'Info' },
   modules: {
-    enableStatistics: true,
     crashLogger: { enabled: true, useBuiltin: true, uploadToSentry: true },
-    vulnerabilityFixes: { limitIPFrequency: true, rejectInvalidPackets: true },
     commands: { tpdimCommand: true, crashCommand: true }
+  },
+  targeted: {
+    enableStatistics: true,
+    vulnerabilityFixes: { limitIPFrequency: true, rejectInvalidPackets: true }
   }
 }
 

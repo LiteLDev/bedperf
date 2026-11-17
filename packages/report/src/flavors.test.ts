@@ -47,7 +47,7 @@ test('every server preset: server panel, label in the headline, flavor threats',
     assert.equal(ids.includes('allocator'), preset === 'endstone', preset)
     assert.equal(ids.includes('loader-config'), preset.startsWith('levilamina'), preset)
     if (preset.startsWith('levilamina')) {
-      assert.ok(s.loaderOverrides.some((o) => o.path === 'modules.enableStatistics' && o.value === 'false' && o.source === 'neutral'))
+      assert.ok(s.loaderOverrides.some((o) => o.path === 'targeted.enableStatistics' && o.value === 'false' && o.source === 'neutral'))
       assert.ok(s.loaderConfig !== undefined)
     }
     if (preset.includes('levioptimize')) assert.ok(s.artifacts.some((x) => x.name === 'levioptimize'))
@@ -133,7 +133,7 @@ test('implementation comparison: different servers on the same setup compare; ma
   assert.throws(() => compareRuns(ll, rebuilt), (err: unknown) => err instanceof IncomparableRunsError && err.mismatches.map((m) => m.key).join() === 'serverBuildSha256')
 
   // Same server spec, different effective loader config: refused (the spec hash leaves it out).
-  const tuned = await run({ seed: 8, server: 'levilamina', metaExtra: { server: { ...ll.meta.server!, loaderConfig: { modules: { enableStatistics: false, tickRate: 30 } } } } })
+  const tuned = await run({ seed: 8, server: 'levilamina', metaExtra: { server: { ...ll.meta.server!, loaderConfig: { targeted: { enableStatistics: false, tickRate: 30 } } } } })
   assert.throws(() => compareRuns(ll, tuned), (err: unknown) => err instanceof IncomparableRunsError && err.mismatches.map((m) => m.key).join() === 'loaderConfig')
 
   // A forced comparison is never labelled an implementation comparison.

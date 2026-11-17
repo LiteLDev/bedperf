@@ -166,7 +166,7 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
 </section>
 <section id="threats" class="threats" aria-label="Threats to validity">
 <h2>Threats to validity</h2>
-<ul><li class="warn" data-threat="invalid-steps"><span class="lvl">warning</span> 1 invalid step left out of the curves and fits: loadgen saturated.</li><li class="warn" data-threat="settle-capped"><span class="lvl">warning</span> Settle hit its cap in 9 steps: the server may not have reached steady state before the hold.</li><li class="warn" data-threat="views-incomplete"><span class="lvl">warning</span> Bots had not finished loading their view in 3 steps: chunk sending was still part of the measured load.</li><li class="warn" data-threat="agent-saturated"><span class="lvl">warning</span> Agent saturated during the run: agent-8b7c6d5e (20 saturated telemetry samples, saturated in 1 step: cpu: bot workers 7.3/8 cores, event loop lag p99 240 ms). Bots on a saturated agent lag on their own; what they measure then says less about the server.</li><li class="warn" data-threat="agent-lost"><span class="lvl">warning</span> Agent connection lost during the run: agent-3f9a1c20 (socket closed (ECONNRESET)). Its bots were cut off; failures around that time come from the harness, not the server.</li><li class="info" data-threat="remote-network"><span class="lvl">disclosure</span> Bots ran on 2 remote agents and dialled 10.0.0.10: the network between bots and server (latency, loss, NIC and kernel cost) is part of the measurement. Control-link RTT baseline (median [min, max]): agent-3f9a1c20 0.34 ms [0.21, 0.92]; agent-8b7c6d5e 0.41 ms [0.28, 1.37].</li><li class="info" data-threat="loader-config"><span class="lvl">disclosure</span> Loader config differs from the upstream defaults; bedperf&#39;s benchmark-neutral overrides: modules.enableStatistics = false, modules.crashLogger.uploadToSentry = false, modules.vulnerabilityFixes.limitIPFrequency = false.</li></ul>
+<ul><li class="warn" data-threat="invalid-steps"><span class="lvl">warning</span> 1 invalid step left out of the curves and fits: loadgen saturated.</li><li class="warn" data-threat="settle-capped"><span class="lvl">warning</span> Settle hit its cap in 9 steps: the server may not have reached steady state before the hold.</li><li class="warn" data-threat="views-incomplete"><span class="lvl">warning</span> Bots had not finished loading their view in 3 steps: chunk sending was still part of the measured load.</li><li class="warn" data-threat="agent-saturated"><span class="lvl">warning</span> Agent saturated during the run: agent-8b7c6d5e (20 saturated telemetry samples, saturated in 1 step: cpu: bot workers 7.3/8 cores, event loop lag p99 240 ms). Bots on a saturated agent lag on their own; what they measure then says less about the server.</li><li class="warn" data-threat="agent-lost"><span class="lvl">warning</span> Agent connection lost during the run: agent-3f9a1c20 (socket closed (ECONNRESET)). Its bots were cut off; failures around that time come from the harness, not the server.</li><li class="info" data-threat="remote-network"><span class="lvl">disclosure</span> Bots ran on 2 remote agents and dialled 10.0.0.10: the network between bots and server (latency, loss, NIC and kernel cost) is part of the measurement. Control-link RTT baseline (median [min, max]): agent-3f9a1c20 0.34 ms [0.21, 0.92]; agent-8b7c6d5e 0.41 ms [0.28, 1.37].</li><li class="info" data-threat="loader-config"><span class="lvl">disclosure</span> Loader config differs from the upstream defaults; bedperf&#39;s benchmark-neutral overrides: modules.crashLogger.uploadToSentry = false, targeted.enableStatistics = false, targeted.vulnerabilityFixes.limitIPFrequency = false.</li></ul>
 </section>
 <section id="server" aria-label="Server">
 <h2>Server: levilamina</h2>
@@ -181,7 +181,7 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
 <div><dt>Spec hash</dt><dd><code>aef1557f857d1737bf913e6f77eb53537624e2867f1317e415bc716b9b6af593</code></dd></div>
 </dl>
 <div class="scroll"><table><thead><tr><th class="l">artifact</th><th class="l">version</th><th class="l">sha256</th></tr></thead><tbody><tr><td class="l">bds</td><td class="l">1.26.60.6</td><td class="l"><code title="7638dba5e10e7e6a503f2b32730fb28a66c249e4d03dd70c007acce648650525">7638dba5e10e</code></td></tr><tr><td class="l">levilamina</td><td class="l">26.60.7</td><td class="l"><code title="44df92df22dcd53e0ace732e057a24b1cfe775b6edbe49285f5e1bae11d54c8e">44df92df22dc</code></td></tr><tr><td class="l">lip</td><td class="l">0.29.0</td><td class="l"><code title="40389f62ddfa720604d9612e909964ba3fb534b1ef04bcf61bfb4016934aa54c">40389f62ddfa</code></td></tr></tbody></table></div>
-<h3>Loader config overrides</h3><ul class="foot"><li><code>modules.enableStatistics</code> = <code>false</code> <span class="rng">(bedperf neutral default)</span></li><li><code>modules.crashLogger.uploadToSentry</code> = <code>false</code> <span class="rng">(bedperf neutral default)</span></li><li><code>modules.vulnerabilityFixes.limitIPFrequency</code> = <code>false</code> <span class="rng">(bedperf neutral default)</span></li></ul>
+<h3>Loader config overrides</h3><ul class="foot"><li><code>modules.crashLogger.uploadToSentry</code> = <code>false</code> <span class="rng">(bedperf neutral default)</span></li><li><code>targeted.enableStatistics</code> = <code>false</code> <span class="rng">(bedperf neutral default)</span></li><li><code>targeted.vulnerabilityFixes.limitIPFrequency</code> = <code>false</code> <span class="rng">(bedperf neutral default)</span></li></ul>
 <details><summary>Effective loader config</summary><pre class="json">{
   &quot;version&quot;: 31,
   &quot;language&quot;: &quot;system&quot;,
@@ -191,19 +191,21 @@ h3 .flag, h2 .flag, dd .flag { vertical-align: middle; font-weight: 400; }
     &quot;playerInfoLevel&quot;: &quot;Info&quot;
   },
   &quot;modules&quot;: {
-    &quot;enableStatistics&quot;: false,
     &quot;crashLogger&quot;: {
       &quot;enabled&quot;: true,
       &quot;useBuiltin&quot;: true,
       &quot;uploadToSentry&quot;: false
     },
-    &quot;vulnerabilityFixes&quot;: {
-      &quot;limitIPFrequency&quot;: false,
-      &quot;rejectInvalidPackets&quot;: true
-    },
     &quot;commands&quot;: {
       &quot;tpdimCommand&quot;: true,
       &quot;crashCommand&quot;: true
+    }
+  },
+  &quot;targeted&quot;: {
+    &quot;enableStatistics&quot;: false,
+    &quot;vulnerabilityFixes&quot;: {
+      &quot;limitIPFrequency&quot;: false,
+      &quot;rejectInvalidPackets&quot;: true
     }
   }
 }</pre></details>
