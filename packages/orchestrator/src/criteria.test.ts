@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULT_CRITERIA, type BotFleetStats, type ProbeSample, type SysSample } from '@bedperf/core'
+import { DEFAULT_CRITERIA, DEFAULT_GATES, type BotFleetStats, type ProbeSample, type SysSample } from '@bedperf/core'
 import { LOADGEN_SATURATED_REASON, evaluateStep, poolQuantiles, poolSummaries, stepOutcome, type MeasuredWindow } from './criteria.ts'
 
 function sample (tps: number, opts: { p99?: number, max?: number, t?: number } = {}): ProbeSample {
@@ -164,6 +164,14 @@ test('loadgen saturation marks the step invalid', () => {
   const r2 = evaluateStep(win({ probe: [sample(10)], bots: [bots({ saturated: true })] }), DEFAULT_CRITERIA)
   assert.equal(stepOutcome(r2), 'invalid')
   assert.ok(r2.failReasons.length > 1)
+})
+
+test('gates.loadgenSaturatedMaxFraction tolerates a few saturated reports', () => {
+  const twenty = (sat: number) => [...Array.from({ length: 20 - sat }, () => bots()), ...Array.from({ length: sat }, () => bots({ saturated: true }))]
+  const g = { gates: { ...DEFAULT_GATES, loadgenSaturatedMaxFraction: 0.05 } }
+  assert.equal(evaluateStep(win({ bots: twenty(1) }), DEFAULT_CRITERIA, g).loadgenSaturated, false) // 5% allowed
+  assert.equal(evaluateStep(win({ bots: twenty(2) }), DEFAULT_CRITERIA, g).loadgenSaturated, true)
+  assert.equal(evaluateStep(win({ bots: twenty(1) }), DEFAULT_CRITERIA).loadgenSaturated, true) // default: any
 })
 
 test('rtt summaries are pooled', () => {

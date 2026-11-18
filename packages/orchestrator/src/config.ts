@@ -360,9 +360,12 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
   // gates
   const g = v.obj(raw, 'gates', P) ?? {}
   const GP = `${P}.gates`
-  v.unknownKeys(g, GP, GATES_KEYS)
-  const gates = { ...DEFAULT_GATES }
-  for (const k of GATES_KEYS) gates[k] = v.num(g, k, GP, { def: DEFAULT_GATES[k], min: 0 })!
+  v.unknownKeys(g, GP, [...GATES_KEYS, 'loadgenSaturatedMaxFraction'])
+  const gates: GatesConfig = { ...DEFAULT_GATES }
+  for (const k of GATES_KEYS) (gates as unknown as Record<string, number>)[k] = v.num(g, k, GP, { def: DEFAULT_GATES[k] as number, min: 0 })!
+  // optional and not filled in, so configs without it keep their hash
+  const satFrac = v.num(g, 'loadgenSaturatedMaxFraction', GP, { min: 0, max: 1 })
+  if (satFrac !== undefined) gates.loadgenSaturatedMaxFraction = satFrac
 
   // sampling
   const sm = v.obj(raw, 'sampling', P) ?? {}

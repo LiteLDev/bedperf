@@ -122,3 +122,10 @@ test('loadgen.saturation is optional, never filled in, and validated', () => {
   assert.throws(() => parseConfig({ ...base, loadgen: { saturation: { cpuPct: 120 } } }), /cpuPct/)
   assert.throws(() => parseConfig({ ...base, loadgen: { saturation: { lag: 1 } } }), /lag/)
 })
+
+test('gates.loadgenSaturatedMaxFraction is optional, never filled in, and in 0..1', () => {
+  const base = { name: 'x', bdsVersion: 'latest', scenario: { module: 'idle' } }
+  assert.equal(parseConfig(base).gates?.loadgenSaturatedMaxFraction, undefined)
+  assert.equal(parseConfig({ ...base, gates: { loadgenSaturatedMaxFraction: 0.05 } }).gates?.loadgenSaturatedMaxFraction, 0.05)
+  assert.throws(() => parseConfig({ ...base, gates: { loadgenSaturatedMaxFraction: 2 } }), /loadgenSaturatedMaxFraction/)
+})

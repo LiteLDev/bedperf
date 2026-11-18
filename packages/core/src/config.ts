@@ -72,6 +72,11 @@ export interface GatesConfig {
   gametimeMaxGapSec: number
   /** p99 tick-counter reply latency in a hold, seconds. */
   gametimeLatencyP99Sec: number
+  /**
+   * Fraction of a hold's load generator reports that may be saturated before the step is invalid (0..1).
+   * Absent (default): any saturated report invalidates the step.
+   */
+  loadgenSaturatedMaxFraction?: number
 }
 
 export interface SamplingConfig {
