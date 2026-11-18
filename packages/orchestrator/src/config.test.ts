@@ -112,3 +112,13 @@ test('loadgen.connectRetries is optional, never filled in, and bounded', () => {
   assert.throws(() => parseConfig({ ...base, loadgen: { connectRetries: -1 } }), /connectRetries/)
   assert.throws(() => parseConfig({ ...base, loadgen: { connectRetries: 1.5 } }), /connectRetries/)
 })
+
+test('loadgen.saturation is optional, never filled in, and validated', () => {
+  const base = { name: 'x', bdsVersion: 'latest', scenario: { module: 'idle' } }
+  assert.equal(parseConfig(base).loadgen.saturation, undefined)
+  assert.deepEqual(parseConfig({ ...base, loadgen: { saturation: { eventLoopP99Ms: 250 } } }).loadgen.saturation, { eventLoopP99Ms: 250 })
+  assert.deepEqual(parseConfig({ ...base, loadgen: { saturation: { eventLoopP99Ms: 250, cpuPct: 90 } } }).loadgen.saturation, { eventLoopP99Ms: 250, cpuPct: 90 })
+  assert.throws(() => parseConfig({ ...base, loadgen: { saturation: { eventLoopP99Ms: 0 } } }), /eventLoopP99Ms/)
+  assert.throws(() => parseConfig({ ...base, loadgen: { saturation: { cpuPct: 120 } } }), /cpuPct/)
+  assert.throws(() => parseConfig({ ...base, loadgen: { saturation: { lag: 1 } } }), /lag/)
+})

@@ -118,8 +118,11 @@ export interface BenchmarkConfig {
     levelType?: 'DEFAULT' | 'FLAT'
   }
   scenario: { module: string, params?: Record<string, unknown> }
-  /** `connectRetries`: see `LoadGenOptions.connectRetries` (absent: 0). */
-  loadgen: { botsPerWorker: number, joinIntervalMs: number, connectRetries?: number }
+  /**
+   * `connectRetries`: see `LoadGenOptions.connectRetries` (absent: 0). `saturation`: worker thresholds above which
+   * the load generator counts as saturated (absent: event-loop delay p99 50 ms, worker thread CPU 85%).
+   */
+  loadgen: { botsPerWorker: number, joinIntervalMs: number, connectRetries?: number, saturation?: { eventLoopP99Ms?: number, cpuPct?: number } }
   ramp: RampConfig
   criteria: PassCriteria
   /** Independent repetitions of the whole search. */
