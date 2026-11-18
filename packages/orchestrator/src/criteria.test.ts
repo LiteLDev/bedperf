@@ -135,6 +135,10 @@ test('bot failures are a delta against the baseline', () => {
 test('fleet below target fails', () => {
   const r = evaluateStep(win({ players: 10, bots: [bots({ spawned: 8 })] }), DEFAULT_CRITERIA)
   assert.ok(r.failReasons.includes('only 8/10 bots spawned'))
+  // the shortfall counts against maxBotFailures
+  const lenient = { ...DEFAULT_CRITERIA, maxBotFailures: 2 }
+  assert.ok(!evaluateStep(win({ players: 10, bots: [bots({ spawned: 8 })] }), lenient).failReasons.some(x => /spawned/.test(x)))
+  assert.ok(evaluateStep(win({ players: 10, bots: [bots({ spawned: 7 })] }), lenient).failReasons.includes('only 7/10 bots spawned'))
 })
 
 test('missing probe data fails with a reason', () => {

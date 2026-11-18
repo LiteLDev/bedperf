@@ -250,7 +250,8 @@ export function evaluateStep (window: MeasuredWindow, criteria: PassCriteria, op
     const base = window.botBaseline ?? window.bots[0]!
     botFailures = Math.max(0, failureCount(last) - failureCount(base))
     if (botFailures > criteria.maxBotFailures) reasons.push(`bot failures ${botFailures} > ${criteria.maxBotFailures}`)
-    if (window.players !== undefined && last.spawned < window.players) reasons.push(`only ${last.spawned}/${window.players} bots spawned`)
+    // Bots that never joined count against maxBotFailures as well (default 0: any shortfall fails the step).
+    if (window.players !== undefined && window.players - last.spawned > criteria.maxBotFailures) reasons.push(`only ${last.spawned}/${window.players} bots spawned`)
   }
   const rttMs = poolSummaries(window.bots.flatMap(b => b.rttMs === undefined ? [] : [b.rttMs]))
 
