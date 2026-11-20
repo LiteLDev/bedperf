@@ -37,7 +37,8 @@ test('server: absent stays absent; presets parse and get pinned versions', () =>
 test('server: invalid sections list every problem', () => {
   assert.match(issues({ ...minimal, server: { flavor: 'paper' } }).join('\n'), /server\.flavor: expected one of: bds, levilamina, endstone/)
   assert.match(issues({ ...minimal, server: {} }).join('\n'), /server\.flavor: required/)
-  assert.match(issues({ ...minimal, server: { flavor: 'endstone', runtime: 'wine' } }).join('\n'), /server\.runtime: "wine" runs the Windows build of LeviLamina only/)
+  assert.match(issues({ ...minimal, server: { flavor: 'endstone', runtime: 'wine' } }).join('\n'), /server\.runtime: "wine" runs a Windows build of BDS or LeviLamina/)
+  assert.deepEqual(issues({ ...minimal, server: { flavor: 'bds', runtime: 'wine' } }), [])
   assert.match(issues({ ...minimal, server: { flavor: 'bds', runtime: 'docker' } }).join('\n'), /server\.runtime: expected one of: native, wine/)
   assert.match(issues({ ...minimal, server: { flavor: 'levilamina', mods: ['worldedit'] } }).join('\n'), /server\.mods: unknown mod \(known: levioptimize\)/)
   assert.match(issues({ ...minimal, server: { flavor: 'endstone', mods: ['levioptimize'] } }).join('\n'), /server\.mods: mods need flavor levilamina/)

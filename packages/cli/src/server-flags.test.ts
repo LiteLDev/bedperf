@@ -29,7 +29,7 @@ test('--server rejects unknown presets and invalid combinations as usage errors'
   assert.throws(() => serverPresetFlag(parseArgs(['run', '--server', 'paper'])), UsageError)
   await assert.rejects(configFromArgs(parseArgs(['run', '--server', 'paper'])), /unknown server preset 'paper'/)
   const err = await configFromArgs(parseArgs(['run', '--server', 'endstone', '--set', 'server.runtime=wine'])).catch((e: unknown) => e)
-  assert.match(String(err), /"wine" runs the Windows build of LeviLamina only/)
+  assert.match(String(err), /"wine" runs a Windows build of BDS or LeviLamina \(flavor endstone runs natively\)/)
   assert.equal(exitCodeForError(err), 2)
   await assert.rejects(configFromArgs(parseArgs(['run', '--server', 'levilamina', '--set', 'server.mods=["nope"]'])), /unknown mod/)
 })

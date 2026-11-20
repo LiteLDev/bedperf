@@ -106,9 +106,9 @@ function testedBotVersions (): string[] {
  */
 export function checkServerHost (spec: ServerSpec, platform: NodeJS.Platform = process.platform): void {
   const s = resolveServerSpec(spec)
-  const native = ['levilamina', ...s.mods].join('-')
+  const native = [s.flavor, ...s.mods].join('-')
   if (s.runtime === 'wine' && platform === 'win32') {
-    throw new UsageError(`server ${serverLabel(s)}: runtime 'wine' runs LeviLamina's Windows build on a Linux host; on Windows run it natively (--server ${native})`)
+    throw new UsageError(`server ${serverLabel(s)}: runtime 'wine' runs a Windows build on a Linux host; on Windows run it natively (--server ${native})`)
   }
   if (s.flavor === 'levilamina' && s.runtime === 'native' && platform !== 'win32') {
     throw new UsageError(`server ${serverLabel(s)}: LeviLamina is Windows-only; on Linux run it under Wine (--server ${native}-wine)`)
@@ -143,6 +143,14 @@ export async function installServer (spec: ServerSpec, requested: string, opts: 
   const s = resolveServerSpec(spec)
   checkServerHost(s)
   const log = (line: string): void => { opts.log.info(line) }
+  if (s.flavor === 'bds' && s.runtime === 'wine') {
+    // The Windows build under lip's Wine: lip needs an exact game version.
+    const resolved = await resolveVersion(requested, 'win', { preview: opts.preview === true })
+    const cached = moddedBuildCached(serverCacheDir(s, resolved.version), s.flavor)
+    if (!cached && opts.acceptEula !== true) throw new Error(`server ${serverLabel(s)} (BDS ${resolved.version}) is not installed. ${EULA_HINT}`)
+    if (!cached) opts.log.info(`installing ${serverLabel(s)} on BDS ${resolved.version} (lip downloads; this can take minutes)`)
+    return await ensureServer(s, { acceptEula: true, bdsVersion: resolved.version, log })
+  }
   if (s.flavor === 'bds') {
     const platform = hostPlatform()
     const resolved = await resolveVersion(requested, platform, { preview: opts.preview === true })
@@ -477,7 +485,7 @@ async function withLock<T> (opts: RunCommandOptions, fn: (lock: MachineLock | un
 /** Run dir name: the config name, plus the server for a non-vanilla one (`quick-levilamina-levioptimize-wine`). */
 function runName (config: BenchmarkConfig): string {
   const spec = resolveServerSpec(config.server)
-  return spec.flavor === 'bds' ? config.name : `${config.name}-${serverSlug(spec)}`
+  return spec.flavor === 'bds' && spec.runtime === 'native' ? config.name : `${config.name}-${serverSlug(spec)}`
 }
 
 function freshId (dir: string, name: string, taken: Set<string> = new Set()): string {

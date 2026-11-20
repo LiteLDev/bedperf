@@ -36,6 +36,17 @@ function fakeExec (opts: { libpython?: boolean } = {}): { exec: InstallExec, cal
     if (base === 'lip' && args[0] === '--version') return ok('0.41.0-beta.4\n')
     if (base === 'lip' && args[0] === 'setup') {
       const ws = o.cwd!
+      if (args.includes('--no-loader')) {
+        write(join(ws, 'bedrock_server.exe'), 'vanilla exe')
+        write(join(ws, 'server.properties'), 'server-name=Dedicated Server\n')
+        write(join(ws, '.lip/wine/system.reg'), 'reg')
+        write(join(ws, '.lip/state.json'), JSON.stringify({
+          format: 4,
+          platform: 'win-x64',
+          packages: [pkg('github.com/LiteLDev/bds', '1.26.60', ['bedrock_server.exe', 'server.properties'], undefined, [BDS_URL])]
+        }))
+        return ok()
+      }
       write(join(ws, 'bedrock_server_mod.exe'), 'mod exe')
       write(join(ws, 'bedrock_server.exe.bak'), 'orig exe')
       write(join(ws, 'PreLoader.dll'), 'preloader')
@@ -134,6 +145,48 @@ test('lip commands: setup with the pinned loader, then one install per mod', () 
   assert.deepEqual(lipSetupCommands({ flavor: 'levilamina', mods: [], runtime: 'native', versions: { levilamina: '26.60.2' } }, '1.26.61.1'), [
     ['setup', '--game', '1.26.61', '--loader', 'levilamina@26.60.2', '--accept-eula']
   ])
+  assert.deepEqual(lipSetupCommands(SERVER_PRESETS['bds-wine'] as unknown as ServerSpec, BDS), [
+    ['setup', '--game', '1.26.60', '--no-loader', '--accept-eula']
+  ])
+})
+
+test('bds under wine: lip without a loader, lip\'s Wine, vanilla exe LaunchSpec', async () => {
+  const s = setup('linux')
+  try {
+    const spec = SERVER_PRESETS['bds-wine'] as unknown as ServerSpec
+    const srv = await ensureServer(spec, { ...s.opts, bdsVersion: BDS })
+    const ws = srv.pristineDir
+    assert.equal(ws, join(serverCacheDir(spec, BDS, s.root), 'server'))
+    assert.match(ws.replaceAll('\\', '/'), /\/servers\/bds-wine-[0-9a-f]{12}\/server$/)
+    assert.deepEqual(s.calls.filter(c => c.cmd === 'lip' && c.args[0] !== '--version').map(c => c.args), lipSetupCommands(spec, BDS))
+    const b = srv.build
+    assert.equal(b.exeName, 'bedrock_server.exe')
+    assert.equal(b.binaryPlatform, 'win')
+    assert.equal(b.bdsVersion, BDS)
+    assert.equal(b.label, 'bds (wine)')
+    assert.equal(b.loaderConfig, undefined)
+    assert.equal(srv.instanceFiles, undefined)
+    assert.deepEqual(b.artifacts.map(a => a.name).sort(), ['bds', 'lip', 'wine'])
+    assert.equal(b.artifacts.find(a => a.name === 'bds')!.sha256, sha('bds zip bytes'))
+    const wineBin = join(s.dataDir, 'wine', 'wine-11.21-amd64-wow64', 'wine-11.21-amd64-wow64', 'bin', 'wine')
+    const l = srv.launch('/srv/inst')
+    assert.equal(l.command, wineBin)
+    assert.deepEqual(l.args, [join('/srv/inst', 'bedrock_server.exe')])
+    assert.deepEqual(l.env, { WINEPREFIX: join(ws, '.lip', 'wine'), WINEDEBUG: '-all' })
+    assert.equal(l.wine?.version, '11.21')
+    assert.equal(l.killTree, true)
+    const re = new RegExp(l.serverProcess.namePattern)
+    assert.ok(re.test('bedrock_server.'), 'truncated comm of bedrock_server.exe')
+    assert.ok(re.test('bedrock_server.exe'))
+    assert.ok(!re.test('bedrock_server_'))
+    assert.ok(l.auxProcessPatterns!.some(p => new RegExp(p).test('lsass.exe')))
+
+    const n = s.calls.length
+    await ensureServer(spec, { ...s.opts, bdsVersion: BDS })
+    assert.equal(s.calls.length, n, 'cached')
+  } finally {
+    rmSync(s.root, { recursive: true, force: true })
+  }
 })
 
 test('cache keys: per spec and BDS version, never inside bds/', () => {
@@ -251,7 +304,7 @@ test('runtime / host mismatches fail clearly', async () => {
     await assert.rejects(ensureServer(SERVER_PRESETS.levilamina as ServerSpec, lin.opts), /Windows-only.*wine/)
     await assert.rejects(ensureServer(SERVER_PRESETS['levilamina-wine'] as ServerSpec, win.opts), /on Windows use runtime 'native'/)
     await assert.rejects(ensureServer({ ...SERVER_PRESETS.endstone, runtime: 'wine' } as ServerSpec, win.opts), /natively only/)
-    await assert.rejects(ensureServer({ ...SERVER_PRESETS.bds, runtime: 'wine' } as ServerSpec, win.opts), /natively only/)
+    await assert.rejects(ensureServer(SERVER_PRESETS['bds-wine'] as ServerSpec, { ...win.opts, bdsVersion: BDS }), /on Windows use runtime 'native'/)
   } finally {
     rmSync(lin.root, { recursive: true, force: true })
     rmSync(win.root, { recursive: true, force: true })

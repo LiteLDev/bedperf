@@ -144,7 +144,7 @@ docker run --rm --network host -e BEDPERF_AGENT_TOKEN=<secret> bedperf-agent --l
 
 Outbound UDP from the bots works through Docker's default bridge NAT, and `--network host` avoids the NAT hop. The machine lock lives in the container's cache dir, so it does not see other containers or the host. `--placement auto` plans only the container's CPUs (`--cpuset-cpus`; a `--cpus` quota is not visible).
 
-**Server machine on Linux** (`docker/server-linux.Dockerfile`). It runs `bedperf` with any Linux server flavor (`bds`, `endstone`, `levilamina-wine`, `levilamina-levioptimize-wine`). For a distributed run, publish the server's UDP port. The orchestrator dials the agents, so nothing else needs publishing:
+**Server machine on Linux** (`docker/server-linux.Dockerfile`). It runs `bedperf` with any Linux server flavor (`bds`, `endstone`, `bds-wine`, `levilamina-wine`, `levilamina-levioptimize-wine`). For a distributed run, publish the server's UDP port. The orchestrator dials the agents, so nothing else needs publishing:
 
 ```bash
 docker run --rm -it -e BEDPERF_AGENT_TOKEN=<secret> -p 19200:19200/udp \
