@@ -1,0 +1,263 @@
+host,jobsLog,timeUtc,event,unit,detail
+bp-hm1,bp-hm1/old/sweep-try1-0144/N2/levilamina-wine/r1/jobs.log,2026-11-18T01:31:53Z,start,N2-levilamina-wine-r1-a1,"cpus=20,132 harness=108,109,110,111,220,221,222,223 port=30014 agent=10.0.0.12:20002 host=hm1-host"
+bp-hm1,bp-hm1/old/sweep-try1-0144/N32/bds-wine/r1/jobs.log,2026-11-18T01:29:49Z,start,N32-bds-wine-r1-a1,"cpus=2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.12:20000 host=hm1-host"
+bp-hm1,bp-hm1/old/sweep-try1-0144/N32/bds/r1/jobs.log,2026-11-18T01:28:15Z,start,N32-bds-r1-a1,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20000 host=hm1-host"
+bp-hm1,bp-hm1/old/sweep-try1-0144/N32/endstone/r1/jobs.log,2026-11-18T01:29:17Z,start,N32-endstone-r1-a1,"cpus=88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20002 host=hm1-host"
+bp-hm1,bp-hm1/old/sweep-try1-0144/N32/levilamina-wine/r1/jobs.log,2026-11-18T01:28:47Z,start,N32-levilamina-wine-r1-a1,"cpus=72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20001 host=hm1-host"
+bp-hm1,bp-hm1/old/sweep-try1-0144/N4/bds-wine/r1/jobs.log,2026-11-18T01:30:51Z,start,N4-bds-wine-r1-a1,"cpus=106,107,218,219 harness=108,109,110,111,220,221,222,223 port=30010 agent=10.0.0.11:20004 host=hm1-host"
+bp-hm1,bp-hm1/old/sweep-try1-0144/N4/endstone/r1/jobs.log,2026-11-18T01:31:21Z,start,N4-endstone-r1-a1,"cpus=18,19,130,131 harness=108,109,110,111,220,221,222,223 port=30012 agent=10.0.0.12:20001 host=hm1-host"
+bp-hm1,bp-hm1/old/sweep-try1-0144/N4/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T01:30:21Z,start,N4-levilamina-levioptimize-wine-r1-a1,"cpus=104,105,216,217 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.11:20003 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/bds-wine/r1/jobs.log,2026-11-18T05:31:21Z,start,N16-bds-wine-r1-a1,"cpus=60,61,62,63,64,65,66,67,172,173,174,175,176,177,178,179 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/bds-wine/r2/jobs.log,2026-11-19T11:22:54Z,start,N16-bds-wine-r2-a1,"cpus=88,89,90,91,92,93,94,95,200,201,202,203,204,205,206,207 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20034 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/bds-wine/r2/jobs.log,2026-11-19T13:54:23Z,end,N16-bds-wine-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N16/bds/r1/jobs.log,2026-11-18T04:14:27Z,start,N16-bds-r1-a1,"cpus=75,78,79,80,81,82,83,84,187,190,191,192,193,194,195,196 harness=108,109,110,111,220,221,222,223 port=30014 agent=10.0.0.11:20006 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/bds/r1/jobs.log,2026-11-18T05:37:35Z,end,N16-bds-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N16/bds/r1/jobs.log,2026-11-18T12:24:43Z,start,N16-bds-r1-a1,"cpus=56,57,58,59,60,61,62,63,168,169,170,171,172,173,174,175 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20006 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/bds/r1/jobs.log,2026-11-18T14:10:13Z,end,N16-bds-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N16/bds/r1/jobs.log,2026-11-18T18:16:10Z,start,N16-bds-r1-a2,"cpus=62,63,64,65,66,67,68,69,174,175,176,177,178,179,180,181 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20013 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/bds/r1/jobs.log,2026-11-18T21:21:04Z,end,N16-bds-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N16/endstone/r1/jobs.log,2026-11-18T04:42:22Z,start,N16-endstone-r1-a1,"cpus=76,77,87,88,89,90,91,92,188,189,199,200,201,202,203,204 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20002 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/endstone/r1/jobs.log,2026-11-18T06:02:12Z,end,N16-endstone-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N16/endstone/r3/jobs.log,2026-11-19T11:36:19Z,start,N16-endstone-r3-a1,"cpus=56,57,58,59,60,61,62,63,168,169,170,171,172,173,174,175 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20035 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/endstone/r3/jobs.log,2026-11-19T15:03:39Z,end,N16-endstone-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N16/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T05:38:38Z,start,N16-levilamina-levioptimize-wine-r1-a1,"cpus=2,4,5,6,7,8,9,10,114,116,117,118,119,120,121,122 harness=108,109,110,111,220,221,222,223 port=30018 agent=10.0.0.11:20006 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/levilamina-levioptimize-wine/r1/jobs.log,2026-11-19T06:02:39Z,start,N16-levilamina-levioptimize-wine-r1-a2,"cpus=74,75,82,83,84,85,86,87,186,187,194,195,196,197,198,199 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20029 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/levilamina-levioptimize-wine/r1/jobs.log,2026-11-19T08:50:28Z,end,N16-levilamina-levioptimize-wine-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N16/levilamina-wine/r2/jobs.log,2026-11-19T08:54:51Z,start,N16-levilamina-wine-r2-a1,"cpus=74,75,82,83,84,85,86,87,186,187,194,195,196,197,198,199 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20032 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N16/levilamina-wine/r2/jobs.log,2026-11-19T11:35:54Z,end,N16-levilamina-wine-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/bds-wine/r1/jobs.log,2026-11-18T03:01:27Z,start,N1-bds-wine-r1-a1,"cpus=3 harness=108,109,110,111,220,221,222,223 port=30012 agent=10.0.0.12:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/bds-wine/r1/jobs.log,2026-11-18T04:32:56Z,end,N1-bds-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/bds-wine/r2/jobs.log,2026-11-18T20:37:38Z,start,N1-bds-wine-r2-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20016 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/bds-wine/r2/jobs.log,2026-11-18T22:18:41Z,end,N1-bds-wine-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/bds-wine/r3/jobs.log,2026-11-18T22:13:52Z,start,N1-bds-wine-r3-a1,"cpus=114 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20019 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/bds-wine/r3/jobs.log,2026-11-18T23:54:54Z,end,N1-bds-wine-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/bds/r1/jobs.log,2026-11-18T01:45:16Z,start,N1-bds-r1-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.12:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/bds/r1/jobs.log,2026-11-18T03:34:26Z,end,N1-bds-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/endstone/r1/jobs.log,2026-11-18T03:38:34Z,start,N1-endstone-r1-a1,"cpus=115 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20004 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/endstone/r1/jobs.log,2026-11-18T06:00:03Z,end,N1-endstone-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T06:24:38Z,start,N1-levilamina-levioptimize-wine-r1-a1,"cpus=3 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20002 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T07:56:12Z,end,N1-levilamina-levioptimize-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-levioptimize-wine/r2/jobs.log,2026-11-18T10:45:39Z,start,N1-levilamina-levioptimize-wine-r2-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-levioptimize-wine/r2/jobs.log,2026-11-18T12:11:00Z,end,N1-levilamina-levioptimize-wine-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-wine/r1/jobs.log,2026-11-18T02:13:37Z,start,N1-levilamina-wine-r1-a1,"cpus=114 harness=108,109,110,111,220,221,222,223 port=30010 agent=10.0.0.11:20004 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-wine/r1/jobs.log,2026-11-18T03:35:39Z,end,N1-levilamina-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-wine/r2/jobs.log,2026-11-18T11:15:52Z,start,N1-levilamina-wine-r2-a1,"cpus=114 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20003 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-wine/r2/jobs.log,2026-11-18T12:47:49Z,end,N1-levilamina-wine-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-wine/r3/jobs.log,2026-11-18T23:43:19Z,start,N1-levilamina-wine-r3-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.11:20022 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N1/levilamina-wine/r3/jobs.log,2026-11-19T01:21:20Z,end,N1-levilamina-wine-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/bds-wine/r1/jobs.log,2026-11-18T04:14:59Z,start,N2-bds-wine-r1-a1,"cpus=85,197 harness=108,109,110,111,220,221,222,223 port=30016 agent=10.0.0.11:20007 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/bds-wine/r1/jobs.log,2026-11-18T05:42:25Z,end,N2-bds-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/bds-wine/r1/jobs.log,2026-11-18T08:57:30Z,start,N2-bds-wine-r1-a1,"cpus=81,193 harness=108,109,110,111,220,221,222,223 port=30010 agent=10.0.0.11:20004 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/bds-wine/r1/jobs.log,2026-11-18T11:04:13Z,end,N2-bds-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/bds/r1/jobs.log,2026-11-18T04:15:29Z,start,N2-bds-r1-a1,"cpus=86,198 harness=108,109,110,111,220,221,222,223 port=30018 agent=10.0.0.12:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/bds/r1/jobs.log,2026-11-18T05:32:25Z,end,N2-bds-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/bds/r1/jobs.log,2026-11-18T09:42:35Z,start,N2-bds-r1-a1,"cpus=102,214 harness=108,109,110,111,220,221,222,223 port=30014 agent=10.0.0.11:20006 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/bds/r1/jobs.log,2026-11-18T11:18:29Z,end,N2-bds-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/bds/r3/jobs.log,2026-11-18T21:05:01Z,start,N2-bds-r3-a1,"cpus=59,171 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.11:20017 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/bds/r3/jobs.log,2026-11-18T23:41:55Z,end,N2-bds-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/endstone/r1/jobs.log,2026-11-18T04:13:41Z,start,N2-endstone-r1-a1,"cpus=74,186 harness=108,109,110,111,220,221,222,223 port=30010 agent=10.0.0.11:20005 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/endstone/r1/jobs.log,2026-11-18T05:37:04Z,end,N2-endstone-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/endstone/r1/jobs.log,2026-11-18T08:19:21Z,start,N2-endstone-r1-a1,"cpus=76,188 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20003 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/endstone/r1/jobs.log,2026-11-18T10:23:51Z,end,N2-endstone-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/endstone/r1/jobs.log,2026-11-18T15:52:37Z,start,N2-endstone-r1-a2,"cpus=60,172 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20011 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/endstone/r1/jobs.log,2026-11-18T18:52:01Z,end,N2-endstone-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/endstone/r2/jobs.log,2026-11-18T16:41:08Z,start,N2-endstone-r2-a1,"cpus=61,173 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20012 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/endstone/r2/jobs.log,2026-11-18T19:40:17Z,end,N2-endstone-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T02:13:06Z,start,N2-levilamina-levioptimize-wine-r1-a1,"cpus=77,189 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.11:20003 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T04:32:57Z,end,N2-levilamina-levioptimize-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/levilamina-levioptimize-wine/r3/jobs.log,2026-11-18T19:32:47Z,start,N2-levilamina-levioptimize-wine-r3-a1,"cpus=58,170 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20015 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/levilamina-levioptimize-wine/r3/jobs.log,2026-11-18T21:20:27Z,end,N2-levilamina-levioptimize-wine-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T00:38:33Z,start,N2-levilamina-levioptimize-wine-r3-a1,"cpus=78,190 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20023 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T02:51:36Z,end,N2-levilamina-levioptimize-wine-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N2/levilamina-wine/r1/jobs.log,2026-11-18T02:12:35Z,start,N2-levilamina-wine-r1-a1,"cpus=76,188 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20002 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N2/levilamina-wine/r1/jobs.log,2026-11-18T04:22:29Z,end,N2-levilamina-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/bds-wine/r1/jobs.log,2026-11-18T06:44:27Z,start,N32-bds-wine-r1-a1,"cpus=88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20003 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/bds-wine/r1/jobs.log,2026-11-18T08:15:47Z,end,N32-bds-wine-r1-a1,rc=5
+bp-hm1,bp-hm1/runs/sweep/N32/bds-wine/r1/jobs.log,2026-11-18T08:16:18Z,start,N32-bds-wine-r1-a2,"cpus=88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20002 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/bds-wine/r1/jobs.log,2026-11-18T09:33:41Z,end,N32-bds-wine-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/bds-wine/r1/jobs.log,2026-11-18T09:36:25Z,start,N32-bds-wine-r1-a3,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/bds-wine/r1/jobs.log,2026-11-18T12:24:09Z,end,N32-bds-wine-r1-a3,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/bds-wine/r1/jobs.log,2026-11-19T04:25:24Z,start,N32-bds-wine-r1-a1,"cpus=64,65,66,67,68,69,70,71,72,73,76,77,78,79,80,81,176,177,178,179,180,181,182,183,184,185,188,189,190,191,192,193 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20027 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/bds-wine/r1/jobs.log,2026-11-19T07:00:26Z,end,N32-bds-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/bds/r1/jobs.log,2026-11-18T01:44:14Z,start,N32-bds-r1-a1,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/bds/r1/jobs.log,2026-11-18T04:52:44Z,end,N32-bds-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/bds/r2/jobs.log,2026-11-18T23:42:09Z,start,N32-bds-r2-a1,"cpus=58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20020 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/bds/r2/jobs.log,2026-11-19T02:44:10Z,end,N32-bds-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/endstone/r1/jobs.log,2026-11-18T06:43:48Z,start,N32-endstone-r1-a1,"cpus=72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/endstone/r1/jobs.log,2026-11-18T08:17:35Z,end,N32-endstone-r1-a1,rc=5
+bp-hm1,bp-hm1/runs/sweep/N32/endstone/r1/jobs.log,2026-11-18T09:33:55Z,start,N32-endstone-r1-a2,"cpus=82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20002 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/endstone/r1/jobs.log,2026-11-18T11:19:32Z,end,N32-endstone-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-levioptimize-wine/r2/jobs.log,2026-11-19T07:00:45Z,start,N32-levilamina-levioptimize-wine-r2-a1,"cpus=64,65,66,67,68,69,70,71,72,73,76,77,78,79,80,81,176,177,178,179,180,181,182,183,184,185,188,189,190,191,192,193 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20030 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-levioptimize-wine/r2/jobs.log,2026-11-19T09:48:54Z,end,N32-levilamina-levioptimize-wine-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T05:38:07Z,start,N32-levilamina-wine-r1-a1,"cpus=75,78,79,80,81,82,83,84,93,94,95,96,97,98,99,100,187,190,191,192,193,194,195,196,205,206,207,208,209,210,211,212 harness=108,109,110,111,220,221,222,223 port=30014 agent=10.0.0.11:20005 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T06:23:54Z,end,N32-levilamina-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T06:43:12Z,start,N32-levilamina-wine-r1-a2,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T08:17:52Z,end,N32-levilamina-wine-r1-a2,rc=5
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T08:18:10Z,start,N32-levilamina-wine-r1-a3,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T09:36:05Z,end,N32-levilamina-wine-r1-a3,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T11:19:50Z,start,N32-levilamina-wine-r1-a1,"cpus=76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20002 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T11:19:51Z,end,N32-levilamina-wine-r1-a1,rc=3
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T11:20:24Z,start,N32-levilamina-wine-r1-a2,"cpus=76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20002 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T13:07:16Z,end,N32-levilamina-wine-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T13:07:48Z,start,N32-levilamina-wine-r1-a3,"cpus=66,67,68,69,70,71,76,77,78,79,80,81,82,83,84,85,178,179,180,181,182,183,188,189,190,191,192,193,194,195,196,197 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20008 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r1/jobs.log,2026-11-18T15:52:17Z,end,N32-levilamina-wine-r1-a3,rc=0
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r3/jobs.log,2026-11-19T09:49:03Z,start,N32-levilamina-wine-r3-a1,"cpus=64,65,66,67,68,69,70,71,72,73,76,77,78,79,80,81,176,177,178,179,180,181,182,183,184,185,188,189,190,191,192,193 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20033 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N32/levilamina-wine/r3/jobs.log,2026-11-19T12:30:13Z,end,N32-levilamina-wine-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N4/bds-wine/r1/jobs.log,2026-11-18T05:33:26Z,start,N4-bds-wine-r1-a1,"cpus=72,73,184,185 harness=108,109,110,111,220,221,222,223 port=30012 agent=10.0.0.12:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/bds-wine/r1/jobs.log,2026-11-18T06:28:33Z,end,N4-bds-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N4/bds/r1/jobs.log,2026-11-18T18:17:18Z,start,N4-bds-r1-a1,"cpus=56,57,168,169 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20014 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/bds/r1/jobs.log,2026-11-18T21:13:19Z,end,N4-bds-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N4/endstone/r1/jobs.log,2026-11-18T05:37:34Z,start,N4-endstone-r1-a1,"cpus=74,86,186,198 harness=108,109,110,111,220,221,222,223 port=30010 agent=10.0.0.11:20003 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/endstone/r2/jobs.log,2026-11-19T04:34:53Z,start,N4-endstone-r2-a1,"cpus=60,61,172,173 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20028 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/endstone/r2/jobs.log,2026-11-19T07:40:01Z,end,N4-endstone-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T04:13:12Z,start,N4-levilamina-levioptimize-wine-r1-a1,"cpus=72,73,184,185 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T05:30:58Z,end,N4-levilamina-levioptimize-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T12:48:13Z,start,N4-levilamina-levioptimize-wine-r1-a1,"cpus=64,65,176,177 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20007 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T15:23:48Z,end,N4-levilamina-levioptimize-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T08:06:07Z,start,N4-levilamina-levioptimize-wine-r3-a1,"cpus=88,89,200,201 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20031 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T10:34:40Z,end,N4-levilamina-levioptimize-wine-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-wine/r1/jobs.log,2026-11-18T21:20:43Z,start,N4-levilamina-wine-r1-a1,"cpus=56,57,168,169 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20018 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-wine/r1/jobs.log,2026-11-18T23:49:37Z,end,N4-levilamina-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-wine/r1/jobs.log,2026-11-19T02:28:33Z,start,N4-levilamina-wine-r1-a1,"cpus=74,75,186,187 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20025 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N4/levilamina-wine/r1/jobs.log,2026-11-19T04:50:29Z,end,N4-levilamina-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/bds-wine/r1/jobs.log,2026-11-18T01:44:46Z,start,N8-bds-wine-r1-a1,"cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/bds-wine/r1/jobs.log,2026-11-18T04:12:53Z,end,N8-bds-wine-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/bds-wine/r2/jobs.log,2026-11-19T02:02:49Z,start,N8-bds-wine-r2-a1,"cpus=79,80,81,82,191,192,193,194 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20024 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/bds-wine/r2/jobs.log,2026-11-19T04:24:51Z,end,N8-bds-wine-r2-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/bds/r1/jobs.log,2026-11-18T15:24:40Z,start,N8-bds-r1-a1,"cpus=56,57,58,59,168,169,170,171 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20010 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/bds/r1/jobs.log,2026-11-18T18:16:41Z,end,N8-bds-r1-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/endstone/r1/jobs.log,2026-11-18T05:42:45Z,start,N8-endstone-r1-a1,"cpus=85,101,102,103,197,213,214,215 harness=108,109,110,111,220,221,222,223 port=30016 agent=10.0.0.11:20007 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/endstone/r1/jobs.log,2026-11-18T09:37:01Z,start,N8-endstone-r1-a2,"cpus=98,99,100,101,210,211,212,213 harness=108,109,110,111,220,221,222,223 port=30012 agent=10.0.0.11:20005 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/endstone/r1/jobs.log,2026-11-18T11:19:04Z,end,N8-endstone-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/endstone/r1/jobs.log,2026-11-18T12:11:17Z,start,N8-endstone-r1-a3,"cpus=96,97,98,99,208,209,210,211 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/endstone/r1/jobs.log,2026-11-18T15:35:27Z,end,N8-endstone-r1-a3,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/endstone/r3/jobs.log,2026-11-19T02:44:45Z,start,N8-endstone-r3-a1,"cpus=56,57,58,59,168,169,170,171 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.11:20026 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/endstone/r3/jobs.log,2026-11-19T06:02:30Z,end,N8-endstone-r3-a1,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T04:53:13Z,start,N8-levilamina-levioptimize-wine-r1-a1,"cpus=56,57,58,59,168,169,170,171 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.11:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T06:45:04Z,start,N8-levilamina-levioptimize-wine-r1-a2,"cpus=104,105,106,107,216,217,218,219 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.12:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T08:05:44Z,end,N8-levilamina-levioptimize-wine-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T08:18:44Z,start,N8-levilamina-levioptimize-wine-r1-a3,"cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.11:20001 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T10:02:09Z,end,N8-levilamina-levioptimize-wine-r1-a3,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T11:18:41Z,start,N8-levilamina-levioptimize-wine-r1-a4,"cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.11:20004 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T13:08:44Z,end,N8-levilamina-levioptimize-wine-r1-a4,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r1/jobs.log,2026-11-18T05:32:55Z,start,N8-levilamina-wine-r1-a1,"cpus=68,69,70,71,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.12:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r1/jobs.log,2026-11-18T08:42:05Z,start,N8-levilamina-wine-r1-a2,"cpus=77,78,79,80,189,190,191,192 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.12:20000 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r1/jobs.log,2026-11-18T10:47:58Z,end,N8-levilamina-wine-r1-a2,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r1/jobs.log,2026-11-18T11:20:58Z,start,N8-levilamina-wine-r1-a3,"cpus=92,93,94,95,204,205,206,207 harness=108,109,110,111,220,221,222,223 port=30010 agent=10.0.0.11:20005 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r1/jobs.log,2026-11-18T13:07:54Z,end,N8-levilamina-wine-r1-a3,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r1/jobs.log,2026-11-18T13:08:23Z,start,N8-levilamina-wine-r1-a4,"cpus=86,87,88,89,198,199,200,201 harness=108,109,110,111,220,221,222,223 port=30010 agent=10.0.0.11:20009 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r1/jobs.log,2026-11-18T15:24:14Z,end,N8-levilamina-wine-r1-a4,rc=0
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r2/jobs.log,2026-11-18T23:42:45Z,start,N8-levilamina-wine-r2-a1,"cpus=74,75,76,77,186,187,188,189 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.11:20021 host=hm1-host"
+bp-hm1,bp-hm1/runs/sweep/N8/levilamina-wine/r2/jobs.log,2026-11-19T02:14:21Z,end,N8-levilamina-wine-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N16/bds-wine/r1/jobs.log,2026-11-18T22:13:55Z,start,N16-bds-wine-r1-a2,"cpus=73,74,75,76,77,78,79,80,185,186,187,188,189,190,191,192 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.21:20011 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N16/bds-wine/r1/jobs.log,2026-11-19T00:36:02Z,end,N16-bds-wine-r1-a2,rc=0
+bp-z1,bp-z1/runs/sweep/N16/bds/r3/jobs.log,2026-11-19T09:50:21Z,start,N16-bds-r3-a1,"cpus=64,65,66,67,76,77,78,79,176,177,178,179,188,189,190,191 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20025 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N16/bds/r3/jobs.log,2026-11-19T12:45:51Z,end,N16-bds-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N16/endstone/r2/jobs.log,2026-11-19T08:39:43Z,start,N16-endstone-r2-a1,"cpus=56,57,58,59,60,61,62,63,168,169,170,171,172,173,174,175 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.21:20024 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N16/endstone/r2/jobs.log,2026-11-19T11:57:35Z,end,N16-endstone-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N16/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T11:53:55Z,start,N16-levilamina-levioptimize-wine-r3-a1,"cpus=70,71,72,73,74,75,80,81,182,183,184,185,186,187,192,193 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.21:20027 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N16/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T14:45:41Z,end,N16-levilamina-levioptimize-wine-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N16/levilamina-wine/r1/jobs.log,2026-11-18T23:22:42Z,start,N16-levilamina-wine-r1-a1,"cpus=56,57,58,59,60,61,62,63,168,169,170,171,172,173,174,175 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20013 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N16/levilamina-wine/r1/jobs.log,2026-11-19T07:46:39Z,start,N16-levilamina-wine-r1-a1,"cpus=68,69,70,71,72,73,74,75,180,181,182,183,184,185,186,187 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.21:20023 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N16/levilamina-wine/r1/jobs.log,2026-11-19T10:18:35Z,end,N16-levilamina-wine-r1-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N1/endstone/r2/jobs.log,2026-11-18T17:25:55Z,start,N1-endstone-r2-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20005 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N1/endstone/r2/jobs.log,2026-11-18T19:53:35Z,end,N1-endstone-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N1/endstone/r3/jobs.log,2026-11-19T00:21:24Z,start,N1-endstone-r3-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.21:20015 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N1/endstone/r3/jobs.log,2026-11-19T02:55:19Z,end,N1-endstone-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N2/bds-wine/r3/jobs.log,2026-11-18T22:42:59Z,start,N2-bds-wine-r3-a1,"cpus=81,193 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.21:20012 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N2/bds-wine/r3/jobs.log,2026-11-19T00:49:34Z,end,N2-bds-wine-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N2/bds/r2/jobs.log,2026-11-18T14:01:08Z,start,N2-bds-r2-a1,"cpus=76,188 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.21:20002 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N2/bds/r2/jobs.log,2026-11-18T16:38:06Z,end,N2-bds-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N2/levilamina-levioptimize-wine/r2/jobs.log,2026-11-18T20:49:27Z,start,N2-levilamina-levioptimize-wine-r2-a1,"cpus=72,184 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20009 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N2/levilamina-levioptimize-wine/r2/jobs.log,2026-11-18T23:02:36Z,end,N2-levilamina-levioptimize-wine-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N2/levilamina-wine/r3/jobs.log,2026-11-19T03:00:22Z,start,N2-levilamina-wine-r3-a1,"cpus=82,194 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.21:20018 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N2/levilamina-wine/r3/jobs.log,2026-11-19T05:07:01Z,end,N2-levilamina-wine-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N32/bds-wine/r2/jobs.log,2026-11-18T20:57:18Z,start,N32-bds-wine-r2-a1,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.21:20010 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N32/bds-wine/r2/jobs.log,2026-11-18T23:22:30Z,end,N32-bds-wine-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N32/bds-wine/r2/jobs.log,2026-11-19T02:44:42Z,start,N32-bds-wine-r2-a1,"cpus=64,65,66,67,68,69,70,71,72,75,76,77,78,79,80,81,176,177,178,179,180,181,182,183,184,187,188,189,190,191,192,193 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20017 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N32/bds-wine/r2/jobs.log,2026-11-19T05:16:12Z,end,N32-bds-wine-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N32/bds-wine/r3/jobs.log,2026-11-19T12:46:29Z,start,N32-bds-wine-r3-a1,"cpus=64,65,66,67,76,77,78,79,82,83,84,85,86,87,88,89,176,177,178,179,188,189,190,191,194,195,196,197,198,199,200,201 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20028 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N32/bds-wine/r3/jobs.log,2026-11-19T15:18:04Z,end,N32-bds-wine-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N32/endstone/r1/jobs.log,2026-11-18T13:28:10Z,start,N32-endstone-r1-a3,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20000 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N32/endstone/r1/jobs.log,2026-11-18T16:52:13Z,end,N32-endstone-r1-a3,rc=0
+bp-z1,bp-z1/runs/sweep/N32/endstone/r3/jobs.log,2026-11-19T05:07:17Z,start,N32-endstone-r3-a1,"cpus=56,57,58,59,60,61,62,63,82,83,84,85,86,87,88,89,168,169,170,171,172,173,174,175,194,195,196,197,198,199,200,201 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.21:20020 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N32/endstone/r3/jobs.log,2026-11-19T08:28:00Z,end,N32-endstone-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N32/levilamina-wine/r2/jobs.log,2026-11-18T18:25:13Z,start,N32-levilamina-wine-r2-a1,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.21:20006 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N32/levilamina-wine/r2/jobs.log,2026-11-18T20:56:57Z,end,N32-levilamina-wine-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N32/levilamina-wine/r2/jobs.log,2026-11-19T00:06:19Z,start,N32-levilamina-wine-r2-a1,"cpus=64,65,66,67,68,69,70,71,72,82,83,84,85,86,87,88,176,177,178,179,180,181,182,183,184,194,195,196,197,198,199,200 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20014 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N32/levilamina-wine/r2/jobs.log,2026-11-19T02:44:34Z,end,N32-levilamina-wine-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N4/bds-wine/r1/jobs.log,2026-11-18T16:15:29Z,start,N4-bds-wine-r1-a2,"cpus=77,78,189,190 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.21:20004 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N4/bds-wine/r1/jobs.log,2026-11-18T18:24:42Z,end,N4-bds-wine-r1-a2,rc=0
+bp-z1,bp-z1/runs/sweep/N4/bds-wine/r3/jobs.log,2026-11-19T03:44:32Z,start,N4-bds-wine-r3-a1,"cpus=73,74,185,186 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.21:20019 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N4/bds-wine/r3/jobs.log,2026-11-19T05:57:02Z,end,N4-bds-wine-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N4/bds/r2/jobs.log,2026-11-18T19:09:55Z,start,N4-bds-r2-a1,"cpus=78,79,190,191 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.21:20008 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N4/bds/r2/jobs.log,2026-11-18T22:02:35Z,end,N4-bds-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N4/bds/r3/jobs.log,2026-11-19T10:18:52Z,start,N4-bds-r3-a1,"cpus=68,69,180,181 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.21:20026 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N4/bds/r3/jobs.log,2026-11-19T13:08:20Z,end,N4-bds-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N4/levilamina-levioptimize-wine/r2/jobs.log,2026-11-18T18:25:47Z,start,N4-levilamina-levioptimize-wine-r2-a1,"cpus=76,77,188,189 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.21:20007 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N4/levilamina-levioptimize-wine/r2/jobs.log,2026-11-18T20:54:45Z,end,N4-levilamina-levioptimize-wine-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N4/levilamina-wine/r3/jobs.log,2026-11-19T01:20:50Z,start,N4-levilamina-wine-r3-a1,"cpus=73,74,185,186 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.21:20016 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N4/levilamina-wine/r3/jobs.log,2026-11-19T03:43:05Z,end,N4-levilamina-wine-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N8/bds/r3/jobs.log,2026-11-19T06:51:16Z,start,N8-bds-r3-a1,"cpus=64,65,66,67,176,177,178,179 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.21:20022 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N8/bds/r3/jobs.log,2026-11-19T09:50:11Z,end,N8-bds-r3-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N8/endstone/r2/jobs.log,2026-11-18T16:14:54Z,start,N8-endstone-r2-a1,"cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.21:20003 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N8/endstone/r2/jobs.log,2026-11-18T19:29:42Z,end,N8-endstone-r2-a1,rc=0
+bp-z1,bp-z1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T13:28:46Z,start,N8-levilamina-levioptimize-wine-r1-a5,"cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.21:20001 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N8/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T16:06:33Z,end,N8-levilamina-levioptimize-wine-r1-a5,rc=0
+bp-z1,bp-z1/runs/sweep/N8/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T05:11:14Z,start,N8-levilamina-levioptimize-wine-r3-a1,"cpus=90,91,92,93,202,203,204,205 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.21:20021 host=z1-host"
+bp-z1,bp-z1/runs/sweep/N8/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T07:46:04Z,end,N8-levilamina-levioptimize-wine-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N16/bds-wine/r3/jobs.log,2026-11-19T12:36:57Z,start,N16-bds-wine-r3-a1,"cpus=76,77,78,79,80,81,82,83,188,189,190,191,192,193,194,195 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20026 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N16/bds-wine/r3/jobs.log,2026-11-19T15:08:49Z,end,N16-bds-wine-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N16/bds/r2/jobs.log,2026-11-19T05:04:54Z,start,N16-bds-r2-a1,"cpus=67,68,69,70,71,72,73,74,179,180,181,182,183,184,185,186 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.22:20019 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N16/bds/r2/jobs.log,2026-11-19T08:03:29Z,end,N16-bds-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N16/endstone/r1/jobs.log,2026-11-19T05:04:20Z,start,N16-endstone-r1-a2,"cpus=57,58,59,60,61,62,63,64,169,170,171,172,173,174,175,176 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.22:20018 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N16/endstone/r1/jobs.log,2026-11-19T08:25:39Z,end,N16-endstone-r1-a2,rc=0
+bp-z2,bp-z2/runs/sweep/N16/levilamina-levioptimize-wine/r2/jobs.log,2026-11-19T08:03:43Z,start,N16-levilamina-levioptimize-wine-r2-a1,"cpus=67,68,69,70,71,72,73,74,179,180,181,182,183,184,185,186 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.22:20021 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N16/levilamina-levioptimize-wine/r2/jobs.log,2026-11-19T10:54:44Z,end,N16-levilamina-levioptimize-wine-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N16/levilamina-wine/r3/jobs.log,2026-11-19T10:55:14Z,start,N16-levilamina-wine-r3-a1,"cpus=65,66,67,68,69,70,71,72,177,178,179,180,181,182,183,184 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.22:20024 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N16/levilamina-wine/r3/jobs.log,2026-11-19T13:33:15Z,end,N16-levilamina-wine-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N1/bds/r2/jobs.log,2026-11-18T16:17:09Z,start,N1-bds-r2-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30008 agent=10.0.0.22:20004 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N1/bds/r2/jobs.log,2026-11-18T18:25:49Z,end,N1-bds-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N1/bds/r3/jobs.log,2026-11-18T20:52:37Z,start,N1-bds-r3-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.22:20009 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N1/bds/r3/jobs.log,2026-11-18T23:07:37Z,end,N1-bds-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N1/levilamina-levioptimize-wine/r3/jobs.log,2026-11-18T18:32:58Z,start,N1-levilamina-levioptimize-wine-r3-a1,"cpus=2 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.22:20007 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N1/levilamina-levioptimize-wine/r3/jobs.log,2026-11-18T20:20:42Z,end,N1-levilamina-levioptimize-wine-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N2/bds-wine/r2/jobs.log,2026-11-18T19:31:05Z,start,N2-bds-wine-r2-a1,"cpus=56,168 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20008 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N2/bds-wine/r2/jobs.log,2026-11-18T21:11:58Z,end,N2-bds-wine-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N2/bds-wine/r2/jobs.log,2026-11-19T00:22:37Z,start,N2-bds-wine-r2-a1,"cpus=76,188 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20014 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N2/bds-wine/r2/jobs.log,2026-11-19T02:25:47Z,end,N2-bds-wine-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N2/bds/r1/jobs.log,2026-11-18T14:02:07Z,start,N2-bds-r1-a2,"cpus=76,188 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.22:20002 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N2/bds/r1/jobs.log,2026-11-18T16:45:32Z,end,N2-bds-r1-a2,rc=0
+bp-z2,bp-z2/runs/sweep/N2/endstone/r3/jobs.log,2026-11-19T02:13:56Z,start,N2-endstone-r3-a1,"cpus=56,168 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.22:20016 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N2/endstone/r3/jobs.log,2026-11-19T05:13:12Z,end,N2-endstone-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N2/levilamina-wine/r2/jobs.log,2026-11-19T00:03:27Z,start,N2-levilamina-wine-r2-a1,"cpus=64,176 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.22:20012 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N2/levilamina-wine/r2/jobs.log,2026-11-19T02:13:03Z,end,N2-levilamina-wine-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N32/bds/r3/jobs.log,2026-11-18T21:12:11Z,start,N32-bds-r3-a1,"cpus=56,57,58,59,76,77,78,79,80,81,82,83,84,85,86,87,168,169,170,171,188,189,190,191,192,193,194,195,196,197,198,199 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20010 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N32/bds/r3/jobs.log,2026-11-19T00:14:19Z,end,N32-bds-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N32/endstone/r2/jobs.log,2026-11-18T18:26:14Z,start,N32-endstone-r2-a1,"cpus=60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.22:20006 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N32/endstone/r2/jobs.log,2026-11-18T21:50:16Z,end,N32-endstone-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N32/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T13:29:12Z,start,N32-levilamina-levioptimize-wine-r1-a1,"cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20000 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N32/levilamina-levioptimize-wine/r1/jobs.log,2026-11-18T16:26:30Z,end,N32-levilamina-levioptimize-wine-r1-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N32/levilamina-levioptimize-wine/r1/jobs.log,2026-11-19T00:06:25Z,start,N32-levilamina-levioptimize-wine-r1-a1,"cpus=65,66,67,68,69,70,71,72,73,74,75,88,89,90,91,92,177,178,179,180,181,182,183,184,185,186,187,200,201,202,203,204 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.22:20013 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N32/levilamina-levioptimize-wine/r1/jobs.log,2026-11-19T03:00:25Z,end,N32-levilamina-levioptimize-wine-r1-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N32/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T02:13:24Z,start,N32-levilamina-levioptimize-wine-r3-a1,"cpus=64,77,78,79,80,81,82,83,84,85,86,87,93,94,95,96,176,189,190,191,192,193,194,195,196,197,198,199,205,206,207,208 harness=108,109,110,111,220,221,222,223 port=30004 agent=10.0.0.22:20015 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N32/levilamina-levioptimize-wine/r3/jobs.log,2026-11-19T05:04:10Z,end,N32-levilamina-levioptimize-wine-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N4/bds-wine/r2/jobs.log,2026-11-19T03:42:45Z,start,N4-bds-wine-r2-a1,"cpus=65,66,177,178 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20017 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N4/bds-wine/r2/jobs.log,2026-11-19T05:55:22Z,end,N4-bds-wine-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N4/endstone/r1/jobs.log,2026-11-18T16:16:35Z,start,N4-endstone-r1-a2,"cpus=77,78,189,190 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.22:20003 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N4/endstone/r1/jobs.log,2026-11-18T19:28:13Z,end,N4-endstone-r1-a2,rc=0
+bp-z2,bp-z2/runs/sweep/N4/endstone/r3/jobs.log,2026-11-19T09:31:25Z,start,N4-endstone-r3-a1,"cpus=56,57,168,169 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20023 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N4/endstone/r3/jobs.log,2026-11-19T12:36:44Z,end,N4-endstone-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N4/levilamina-wine/r2/jobs.log,2026-11-19T06:42:42Z,start,N4-levilamina-wine-r2-a1,"cpus=65,66,177,178 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20020 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N4/levilamina-wine/r2/jobs.log,2026-11-19T09:01:37Z,end,N4-levilamina-wine-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N8/bds-wine/r3/jobs.log,2026-11-18T22:13:58Z,start,N8-bds-wine-r3-a1,"cpus=60,61,62,63,172,173,174,175 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.22:20011 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N8/bds-wine/r3/jobs.log,2026-11-19T11:04:46Z,start,N8-bds-wine-r3-a1,"cpus=64,73,74,75,176,185,186,187 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.22:20025 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N8/bds-wine/r3/jobs.log,2026-11-19T13:23:25Z,end,N8-bds-wine-r3-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N8/bds/r2/jobs.log,2026-11-18T13:29:44Z,start,N8-bds-r2-a1,"cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.22:20001 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N8/bds/r2/jobs.log,2026-11-18T16:34:36Z,end,N8-bds-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N8/levilamina-levioptimize-wine/r2/jobs.log,2026-11-18T16:35:38Z,start,N8-levilamina-levioptimize-wine-r2-a1,"cpus=56,57,58,59,168,169,170,171 harness=108,109,110,111,220,221,222,223 port=30000 agent=10.0.0.22:20005 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N8/levilamina-levioptimize-wine/r2/jobs.log,2026-11-18T19:23:26Z,end,N8-levilamina-levioptimize-wine-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N8/levilamina-levioptimize-wine/r2/jobs.log,2026-11-19T08:26:05Z,start,N8-levilamina-levioptimize-wine-r2-a1,"cpus=64,75,76,77,176,187,188,189 harness=108,109,110,111,220,221,222,223 port=30002 agent=10.0.0.22:20022 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N8/levilamina-levioptimize-wine/r2/jobs.log,2026-11-19T11:04:15Z,end,N8-levilamina-levioptimize-wine-r2-a1,rc=0
+bp-z2,bp-z2/runs/sweep/N8/levilamina-wine/r3/jobs.log,2026-11-19T13:22:11Z,start,N8-levilamina-wine-r3-a1,"cpus=84,85,86,87,196,197,198,199 harness=108,109,110,111,220,221,222,223 port=30006 agent=10.0.0.22:20027 host=z2-host"
+bp-z2,bp-z2/runs/sweep/N8/levilamina-wine/r3/jobs.log,2026-11-19T15:56:55Z,end,N8-levilamina-wine-r3-a1,rc=0

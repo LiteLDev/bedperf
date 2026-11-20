@@ -1,0 +1,30 @@
+{
+ "cfg": "sweep",
+ "state": "~/bpx/sweep-state.json",
+ "log": "~/bpx/logs/sweep-dispatch.log",
+ "reps": 3,
+ "pollSec": 30,
+ "launchGapSec": 15,
+ "corePerBot": 0.6,
+ "botBudget": 0.7,
+ "machines": [
+  {
+   "name": "hm1",
+   "ip": "10.0.0.11",
+   "agents": 64
+  }
+ ],
+ "peakGuess": {
+  "1": 74,
+  "2": 96,
+  "4": 100,
+  "8": 110,
+  "16": 120,
+  "32": 160
+ },
+ "maxAttempts": 8,
+ "corePerBot2": 0.0,
+ "busyMax": 0.55,
+ "botCoreBase": 2,
+ "botCoreCap": 45
+}

@@ -1,0 +1,36 @@
+[bedperf] hm1-host-20001 listening on 10.0.0.11:20001
+bedperf agent hm1-host-20001 listening on 10.0.0.11:20001 (224 CPUs for bots)
+[bedperf] controller 10.0.0.11:53120 connected
+[bedperf] controller 10.0.0.11:53120 gone (controller said bye)
+[bedperf] controller 10.0.0.11:42238 connected
+[bedperf] controller 10.0.0.11:42238 gone (controller said bye)
+[bedperf] controller 10.0.0.11:60786 connected
+[bedperf] controller 10.0.0.11:60786 gone (controller said bye)
+[bedperf] controller 10.0.0.11:57650 connected
+[bedperf] controller 10.0.0.11:57650 gone (controller said bye)
+[bedperf] controller 10.0.0.11:42116 connected
+[bedperf] controller 10.0.0.11:42116 gone (socket error: read ECONNRESET); killed 5 worker(s)
+[bedperf] controller 10.0.0.11:37114 connected
+[bedperf] controller 10.0.0.11:37114 gone (controller said bye)
+[bedperf] controller 10.0.0.11:38872 connected
+[bedperf] controller 10.0.0.11:38872 gone (controller said bye)
+[bedperf] controller 10.0.0.11:52274 connected
+[bedperf] controller 10.0.0.11:52274 gone (socket error: read ECONNRESET); killed 40 worker(s)
+[bedperf] controller 10.0.0.11:35734 connected
+[bedperf] stopping
+[bedperf] controller 10.0.0.11:35734 gone (agent closing); killed 56 worker(s)
+[bedperf] hm1-host-20001 listening on 10.0.0.11:20001
+bedperf agent hm1-host-20001 listening on 10.0.0.11:20001 (120 CPUs for bots)
+[bedperf] denied 10.0.0.11:55688: harness mismatch: agent runs bedperf 5030b9c46619, controller 4aee7d0f2f34 (use the same commit or allowHarnessMismatch)
+[bedperf] controller 10.0.0.11:55852 connected
+[bedperf] controller 10.0.0.11:55852 gone (controller said bye)
+[bedperf] stopping
+[bedperf] hm1-host-20001 listening on 10.0.0.11:20001
+bedperf agent hm1-host-20001 listening on 10.0.0.11:20001 (130 CPUs for bots)
+[bedperf] stopping
+[bedperf] hm1-host-20001 listening on 10.0.0.11:20001
+bedperf agent hm1-host-20001 listening on 10.0.0.11:20001 (130 CPUs for bots)
+[bedperf] controller 10.0.0.11:49546 connected
+[bedperf] controller 10.0.0.11:49546 gone (controller said bye)
+[bedperf] controller 10.0.0.11:58860 connected
+[bedperf] controller 10.0.0.11:58860 gone (controller said bye)

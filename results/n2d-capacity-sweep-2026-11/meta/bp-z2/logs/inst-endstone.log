@@ -1,0 +1,175 @@
+[bedperf] installing endstone on BDS 1.26.60.6 (lip / pip downloads; this can take minutes)
+[bedperf] 3.11.14
+[bedperf] installing endstone 0.11.15 with Python 3.11.14 into ~/.cache/bedperf/servers/endstone-d7225031babb/venv
+[bedperf] Collecting endstone==0.11.15
+[bedperf]   Downloading endstone-0.11.15-cp311-cp311-manylinux_2_31_x86_64.whl.metadata (7.0 kB)
+[bedperf] Downloading endstone-0.11.15-cp311-cp311-manylinux_2_31_x86_64.whl (48.0 MB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 48.0/48.0 MB 42.2 MB/s eta 0:00:00
+[bedperf] Saved /ephemeral/cache/bedperf/servers/endstone-d7225031babb/wheels/endstone-0.11.15-cp311-cp311-manylinux_2_31_x86_64.whl
+[bedperf] Successfully downloaded endstone
+[bedperf] Processing ./.cache/bedperf/servers/endstone-d7225031babb/wheels/endstone-0.11.15-cp311-cp311-manylinux_2_31_x86_64.whl
+[bedperf] Collecting aiohttp (from endstone==0.11.15)
+[bedperf]   Downloading aiohttp-3.14.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.3 kB)
+[bedperf] Collecting asyncio (from endstone==0.11.15)
+[bedperf]   Downloading asyncio-4.0.0-py3-none-any.whl.metadata (994 bytes)
+[bedperf] Collecting click (from endstone==0.11.15)
+[bedperf]   Downloading click-8.5.1-py3-none-any.whl.metadata (2.6 kB)
+[bedperf] Collecting colorlog (from endstone==0.11.15)
+[bedperf]   Downloading colorlog-6.12.0-py3-none-any.whl.metadata (11 kB)
+[bedperf] Collecting importlib-metadata (from endstone==0.11.15)
+[bedperf]   Downloading importlib_metadata-10.2.0-py3-none-any.whl.metadata (4.6 kB)
+[bedperf] Collecting importlib-resources (from endstone==0.11.15)
+[bedperf]   Downloading importlib_resources-7.1.0-py3-none-any.whl.metadata (4.0 kB)
+[bedperf] Collecting lazy-loader (from endstone==0.11.15)
+[bedperf]   Downloading lazy_loader-0.6-py3-none-any.whl.metadata (6.0 kB)
+[bedperf] Collecting numpy (from endstone==0.11.15)
+[bedperf]   Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+[bedperf] Collecting packaging (from endstone==0.11.15)
+[bedperf]   Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+[bedperf] Requirement already satisfied: pip in ./.cache/bedperf/servers/endstone-d7225031babb/venv/lib/python3.11/site-packages (from endstone==0.11.15) (24.0)
+[bedperf] Collecting pkginfo (from endstone==0.11.15)
+[bedperf]   Downloading pkginfo-2.0-py3-none-any.whl.metadata (1.8 kB)
+[bedperf] Collecting psutil (from endstone==0.11.15)
+[bedperf]   Downloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl.metadata (22 kB)
+[bedperf] Collecting pyyaml (from endstone==0.11.15)
+[bedperf]   Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+[bedperf] Collecting requests (from endstone==0.11.15)
+[bedperf]   Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+[bedperf] Collecting rich (from endstone==0.11.15)
+[bedperf]   Downloading rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+[bedperf] Collecting tomlkit (from endstone==0.11.15)
+[bedperf]   Downloading tomlkit-0.15.2-py3-none-any.whl.metadata (3.4 kB)
+[bedperf] Collecting typing-extensions (from endstone==0.11.15)
+[bedperf]   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+[bedperf] Collecting aiohappyeyeballs>=2.5.0 (from aiohttp->endstone==0.11.15)
+[bedperf]   Downloading aiohappyeyeballs-2.7.1-py3-none-any.whl.metadata (5.9 kB)
+[bedperf] Collecting aiosignal>=1.4.0 (from aiohttp->endstone==0.11.15)
+[bedperf]   Downloading aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+[bedperf] Collecting attrs>=17.3.0 (from aiohttp->endstone==0.11.15)
+[bedperf]   Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+[bedperf] Collecting frozenlist>=1.1.1 (from aiohttp->endstone==0.11.15)
+[bedperf]   Downloading frozenlist-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+[bedperf] Collecting multidict<8.0,>=4.5 (from aiohttp->endstone==0.11.15)
+[bedperf]   Downloading multidict-7.2.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (6.1 kB)
+[bedperf] Collecting propcache>=0.2.0 (from aiohttp->endstone==0.11.15)
+[bedperf]   Downloading propcache-0.5.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (25 kB)
+[bedperf] Collecting yarl<2.0,>=1.25.1 (from aiohttp->endstone==0.11.15)
+[bedperf]   Downloading yarl-1.25.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (111 kB)
+[bedperf]      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 111.6/111.6 kB 5.3 MB/s eta 0:00:00
+[bedperf] Collecting zipp>=3.20 (from importlib-metadata->endstone==0.11.15)
+[bedperf]   Downloading zipp-4.1.2-py3-none-any.whl.metadata (3.6 kB)
+[bedperf] Collecting lazy-importer>=0.1 (from importlib-metadata->endstone==0.11.15)
+[bedperf]   Downloading lazy_importer-0.1.0-py3-none-any.whl.metadata (7.3 kB)
+[bedperf] Collecting charset_normalizer<4,>=2 (from requests->endstone==0.11.15)
+[bedperf]   Downloading charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (46 kB)
+[bedperf]      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 46.4/46.4 kB 7.9 MB/s eta 0:00:00
+[bedperf] Collecting idna<4,>=2.5 (from requests->endstone==0.11.15)
+[bedperf]   Downloading idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+[bedperf] Collecting urllib3<3,>=1.26 (from requests->endstone==0.11.15)
+[bedperf]   Downloading urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+[bedperf] Collecting certifi>=2023.5.7 (from requests->endstone==0.11.15)
+[bedperf]   Downloading certifi-2026.10.23-py3-none-any.whl.metadata (2.5 kB)
+[bedperf] Collecting markdown-it-py>=2.2.0 (from rich->endstone==0.11.15)
+[bedperf]   Downloading markdown_it_py-4.3.0-py3-none-any.whl.metadata (7.9 kB)
+[bedperf] Collecting pygments<3.0.0,>=2.13.0 (from rich->endstone==0.11.15)
+[bedperf]   Downloading pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+[bedperf] Collecting mdurl~=0.1 (from markdown-it-py>=2.2.0->rich->endstone==0.11.15)
+[bedperf]   Downloading mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+[bedperf] Downloading aiohttp-3.14.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.9 MB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.9/1.9 MB 22.1 MB/s eta 0:00:00
+[bedperf] Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.6/45.6 kB 1.2 MB/s eta 0:00:00
+[bedperf] Downloading asyncio-4.0.0-py3-none-any.whl (5.6 kB)
+[bedperf] Downloading click-8.5.1-py3-none-any.whl (126 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 126.2/126.2 kB 1.1 MB/s eta 0:00:00
+[bedperf] Downloading colorlog-6.12.0-py3-none-any.whl (12 kB)
+[bedperf] Downloading importlib_metadata-10.2.0-py3-none-any.whl (34 kB)
+[bedperf] Downloading importlib_resources-7.1.0-py3-none-any.whl (37 kB)
+[bedperf] Downloading lazy_loader-0.6-py3-none-any.whl (8.8 kB)
+[bedperf] Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 36.2 MB/s eta 0:00:00
+[bedperf] Downloading packaging-26.3-py3-none-any.whl (129 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 130.0/130.0 kB 312.3 kB/s eta 0:00:00
+[bedperf] Downloading pkginfo-2.0-py3-none-any.whl (16 kB)
+[bedperf] Downloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (155 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 155.6/155.6 kB 7.6 MB/s eta 0:00:00
+[bedperf] Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 38.8 MB/s eta 0:00:00
+[bedperf] Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.1/73.1 kB 5.0 MB/s eta 0:00:00
+[bedperf] Downloading rich-15.0.0-py3-none-any.whl (310 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 310.7/310.7 kB 9.8 MB/s eta 0:00:00
+[bedperf] Downloading tomlkit-0.15.2-py3-none-any.whl (52 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 52.2/52.2 kB 2.1 MB/s eta 0:00:00
+[bedperf] Downloading aiohappyeyeballs-2.7.1-py3-none-any.whl (15 kB)
+[bedperf] Downloading aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+[bedperf] Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 67.5/67.5 kB 2.5 MB/s eta 0:00:00
+[bedperf] Downloading certifi-2026.10.23-py3-none-any.whl (135 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 135.1/135.1 kB 13.4 MB/s eta 0:00:00
+[bedperf] Downloading charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (269 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 270.0/270.0 kB 10.3 MB/s eta 0:00:00
+[bedperf] Downloading frozenlist-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (231 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 231.1/231.1 kB 20.9 MB/s eta 0:00:00
+[bedperf] Downloading idna-3.20-py3-none-any.whl (69 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 69.6/69.6 kB 975.5 kB/s eta 0:00:00
+[bedperf] Downloading lazy_importer-0.1.0-py3-none-any.whl (12 kB)
+[bedperf] Downloading markdown_it_py-4.3.0-py3-none-any.whl (96 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 97.0/97.0 kB 2.3 MB/s eta 0:00:00
+[bedperf] Downloading multidict-7.2.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (510 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 510.1/510.1 kB 44.4 MB/s eta 0:00:00
+[bedperf] Downloading propcache-0.5.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (235 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 235.4/235.4 kB 4.0 MB/s eta 0:00:00
+[bedperf] Downloading pygments-2.21.0-py3-none-any.whl (1.3 MB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 21.5 MB/s eta 0:00:00
+[bedperf] Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 135.7/135.7 kB 12.3 MB/s eta 0:00:00
+[bedperf] Downloading yarl-1.25.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (117 kB)
+[bedperf]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 117.7/117.7 kB 9.5 MB/s eta 0:00:00
+[bedperf] Downloading zipp-4.1.2-py3-none-any.whl (10 kB)
+[bedperf] Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+[bedperf] Installing collected packages: zipp, urllib3, typing-extensions, tomlkit, pyyaml, pygments, psutil, propcache, pkginfo, packaging, numpy, multidict, mdurl, lazy-importer, importlib-resources, idna, frozenlist, colorlog, click, charset_normalizer, certifi, attrs, asyncio, aiohappyeyeballs, yarl, requests, markdown-it-py, lazy-loader, importlib-metadata, aiosignal, rich, aiohttp, endstone
+[bedperf] Successfully installed aiohappyeyeballs-2.7.1 aiohttp-3.14.5 aiosignal-1.4.0 asyncio-4.0.0 attrs-26.1.0 certifi-2026.10.23 charset_normalizer-3.5.2 click-8.5.1 colorlog-6.12.0 endstone-0.11.15 frozenlist-1.8.0 idna-3.20 importlib-metadata-10.2.0 importlib-resources-7.1.0 lazy-importer-0.1.0 lazy-loader-0.6 markdown-it-py-4.3.0 mdurl-0.1.2 multidict-7.2.1 numpy-2.4.6 packaging-26.3 pkginfo-2.0 propcache-0.5.4 psutil-7.2.2 pygments-2.21.0 pyyaml-6.0.3 requests-2.34.2 rich-15.0.0 tomlkit-0.15.2 typing-extensions-4.16.0 urllib3-2.8.0 yarl-1.25.1 zipp-4.1.2
+[bedperf] 26.60
+[bedperf] ~/bpx/tools/python/cpython-3.11.14-linux-x86_64-gnu/lib/libpython3.11.so.1.0
+[bedperf] 1
+[bedperf] aiohappyeyeballs==2.7.1
+[bedperf] aiohttp==3.14.5
+[bedperf] aiosignal==1.4.0
+[bedperf] asyncio==4.0.0
+[bedperf] attrs==26.1.0
+[bedperf] certifi==2026.10.23
+[bedperf] charset-normalizer==3.5.2
+[bedperf] click==8.5.1
+[bedperf] colorlog==6.12.0
+[bedperf] endstone @ file://~/.cache/bedperf/servers/endstone-d7225031babb/wheels/endstone-0.11.15-cp311-cp311-manylinux_2_31_x86_64.whl#sha256=b6496e70a93304a80f0c8407b162ab386c5b0072c6171eff65d70238942fc28a
+[bedperf] frozenlist==1.8.0
+[bedperf] idna==3.20
+[bedperf] importlib_metadata==10.2.0
+[bedperf] importlib_resources==7.1.0
+[bedperf] lazy-importer==0.1.0
+[bedperf] lazy-loader==0.6
+[bedperf] markdown-it-py==4.3.0
+[bedperf] mdurl==0.1.2
+[bedperf] multidict==7.2.1
+[bedperf] numpy==2.4.6
+[bedperf] packaging==26.3
+[bedperf] pip==24.0
+[bedperf] pkginfo==2.0
+[bedperf] propcache==0.5.4
+[bedperf] psutil==7.2.2
+[bedperf] Pygments==2.21.0
+[bedperf] PyYAML==6.0.3
+[bedperf] requests==2.34.2
+[bedperf] rich==15.0.0
+[bedperf] setuptools==79.0.1
+[bedperf] tomlkit==0.15.2
+[bedperf] typing_extensions==4.16.0
+[bedperf] urllib3==2.8.0
+[bedperf] yarl==1.25.1
+[bedperf] zipp==4.1.2
+endstone (BDS 1.26.60.6, linux build) ready at ~/.cache/bedperf/servers/endstone-d7225031babb/server
+  bds                    1.26.60.6 sha256:cbbd5414fa6a3103…
+  endstone               0.11.15 sha256:b6496e70a93304a8…
+  python                 3.11.14
+  python-deps             sha256:b8a289410126c9c5…

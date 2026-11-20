@@ -1,0 +1,63 @@
+{
+  "name": "n2d-sweep",
+  "bdsVersion": "1.26.60.6",
+  "serverProperties": {
+    "view-distance": 10,
+    "tick-distance": 4,
+    "max-players": 1000,
+    "default-player-permission-level": "operator",
+    "difficulty": "easy"
+  },
+  "world": {
+    "seed": "bedperf",
+    "levelType": "DEFAULT"
+  },
+  "scenario": {
+    "module": "@bedperf/scenarios/walk",
+    "params": {
+      "radius": 32
+    }
+  },
+  "loadgen": {
+    "botsPerWorker": 2,
+    "joinIntervalMs": 500,
+    "connectRetries": 3
+  },
+  "ramp": {
+    "start": 2,
+    "step": 2,
+    "max": 600,
+    "settleSec": 0,
+    "holdSec": 180,
+    "resolution": 0,
+    "settle": {
+      "mode": "fixed"
+    }
+  },
+  "criteria": {
+    "minAvgTps": 15,
+    "minWorstWindowTps": 0,
+    "maxTickIntervalP99Ms": 1000000,
+    "maxBotFailures": 1000000
+  },
+  "repeats": 1,
+  "warmupSec": 60,
+  "seed": 1,
+  "cooldownSec": 60,
+  "placement": {
+    "enabled": true,
+    "serverCpus": "auto",
+    "botCpus": "auto",
+    "harnessCpus": "bot",
+    "priority": "normal"
+  },
+  "sampling": {
+    "gametimeIntervalSec": 5
+  },
+  "server": {
+    "flavor": "levilamina",
+    "mods": [],
+    "runtime": "wine",
+    "versions": {}
+  }
+}

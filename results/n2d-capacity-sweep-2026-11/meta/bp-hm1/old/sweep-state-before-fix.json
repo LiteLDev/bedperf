@@ -1,0 +1,1350 @@
+{
+ "jobs": [
+  {
+   "id": "N32-bds-r1",
+   "n": 32,
+   "flavor": "bds",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N32-bds-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179,
+    180,
+    181,
+    182,
+    183
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20000",
+   "port": 30000,
+   "start": 1794966254.2046397,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794977590.2872896,
+   "maxPlayers": 116
+  },
+  {
+   "id": "N32-levilamina-wine-r1",
+   "n": 32,
+   "flavor": "levilamina-wine",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N32-levilamina-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    75,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    187,
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20005",
+   "port": 30014,
+   "start": 1794980285.165439,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N32-endstone-r1",
+   "n": 32,
+   "flavor": "endstone",
+   "rep": 1,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-bds-wine-r1",
+   "n": 32,
+   "flavor": "bds-wine",
+   "rep": 1,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-levilamina-levioptimize-wine-r1",
+   "n": 32,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 1,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-bds-r2",
+   "n": 32,
+   "flavor": "bds",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-levilamina-levioptimize-wine-r2",
+   "n": 32,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-levilamina-wine-r2",
+   "n": 32,
+   "flavor": "levilamina-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-endstone-r2",
+   "n": 32,
+   "flavor": "endstone",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-bds-wine-r2",
+   "n": 32,
+   "flavor": "bds-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-levilamina-wine-r3",
+   "n": 32,
+   "flavor": "levilamina-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-bds-r3",
+   "n": 32,
+   "flavor": "bds",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-bds-wine-r3",
+   "n": 32,
+   "flavor": "bds-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-endstone-r3",
+   "n": 32,
+   "flavor": "endstone",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N32-levilamina-levioptimize-wine-r3",
+   "n": 32,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-bds-r1",
+   "n": 16,
+   "flavor": "bds",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N16-bds-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    75,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    187,
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20006",
+   "port": 30014,
+   "start": 1794975267.097975,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794980284.4794874,
+   "maxPlayers": 46
+  },
+  {
+   "id": "N16-endstone-r1",
+   "n": 16,
+   "flavor": "endstone",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N16-endstone-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    76,
+    77,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    188,
+    189,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20002",
+   "port": 30006,
+   "start": 1794976942.2375915,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N16-bds-wine-r1",
+   "n": 16,
+   "flavor": "bds-wine",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N16-bds-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20001",
+   "port": 30002,
+   "start": 1794979879.6575851,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N16-levilamina-levioptimize-wine-r1",
+   "n": 16,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N16-levilamina-levioptimize-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    2,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    114,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20006",
+   "port": 30018,
+   "start": 1794980316.1265345,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N16-levilamina-wine-r1",
+   "n": 16,
+   "flavor": "levilamina-wine",
+   "rep": 1,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-levilamina-wine-r2",
+   "n": 16,
+   "flavor": "levilamina-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-bds-r2",
+   "n": 16,
+   "flavor": "bds",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-endstone-r2",
+   "n": 16,
+   "flavor": "endstone",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-levilamina-levioptimize-wine-r2",
+   "n": 16,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-bds-wine-r2",
+   "n": 16,
+   "flavor": "bds-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-levilamina-wine-r3",
+   "n": 16,
+   "flavor": "levilamina-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-endstone-r3",
+   "n": 16,
+   "flavor": "endstone",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-bds-wine-r3",
+   "n": 16,
+   "flavor": "bds-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-bds-r3",
+   "n": 16,
+   "flavor": "bds",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N16-levilamina-levioptimize-wine-r3",
+   "n": 16,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-bds-wine-r1",
+   "n": 8,
+   "flavor": "bds-wine",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N8-bds-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    72,
+    73,
+    74,
+    75,
+    184,
+    185,
+    186,
+    187
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20001",
+   "port": 30002,
+   "start": 1794966285.0902944,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794975189.4513352,
+   "maxPlayers": 90
+  },
+  {
+   "id": "N8-levilamina-levioptimize-wine-r1",
+   "n": 8,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N8-levilamina-levioptimize-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    56,
+    57,
+    58,
+    59,
+    168,
+    169,
+    170,
+    171
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20000",
+   "port": 30000,
+   "start": 1794977591.3642728,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N8-levilamina-wine-r1",
+   "n": 8,
+   "flavor": "levilamina-wine",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N8-levilamina-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    68,
+    69,
+    70,
+    71,
+    180,
+    181,
+    182,
+    183
+   ],
+   "botMachine": "hm2",
+   "agent": "10.0.0.12:20000",
+   "port": 30008,
+   "start": 1794979973.0580704,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N8-endstone-r1",
+   "n": 8,
+   "flavor": "endstone",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N8-endstone-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    85,
+    101,
+    102,
+    103,
+    197,
+    213,
+    214,
+    215
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20007",
+   "port": 30016,
+   "start": 1794980564.6032875,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N8-bds-r1",
+   "n": 8,
+   "flavor": "bds",
+   "rep": 1,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-bds-r2",
+   "n": 8,
+   "flavor": "bds",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-levilamina-wine-r2",
+   "n": 8,
+   "flavor": "levilamina-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-bds-wine-r2",
+   "n": 8,
+   "flavor": "bds-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-endstone-r2",
+   "n": 8,
+   "flavor": "endstone",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-levilamina-levioptimize-wine-r2",
+   "n": 8,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-levilamina-levioptimize-wine-r3",
+   "n": 8,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-bds-wine-r3",
+   "n": 8,
+   "flavor": "bds-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-levilamina-wine-r3",
+   "n": 8,
+   "flavor": "levilamina-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-endstone-r3",
+   "n": 8,
+   "flavor": "endstone",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N8-bds-r3",
+   "n": 8,
+   "flavor": "bds",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-levilamina-levioptimize-wine-r1",
+   "n": 4,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N4-levilamina-levioptimize-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    72,
+    73,
+    184,
+    185
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20001",
+   "port": 30002,
+   "start": 1794975190.1628885,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794979878.90519,
+   "maxPlayers": 42
+  },
+  {
+   "id": "N4-bds-wine-r1",
+   "n": 4,
+   "flavor": "bds-wine",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N4-bds-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    72,
+    73,
+    184,
+    185
+   ],
+   "botMachine": "hm2",
+   "agent": "10.0.0.12:20001",
+   "port": 30012,
+   "start": 1794980004.7534595,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N4-endstone-r1",
+   "n": 4,
+   "flavor": "endstone",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N4-endstone-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    74,
+    86,
+    186,
+    198
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20003",
+   "port": 30010,
+   "start": 1794980253.5179293,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N4-bds-r1",
+   "n": 4,
+   "flavor": "bds",
+   "rep": 1,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-levilamina-wine-r1",
+   "n": 4,
+   "flavor": "levilamina-wine",
+   "rep": 1,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-levilamina-levioptimize-wine-r2",
+   "n": 4,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-endstone-r2",
+   "n": 4,
+   "flavor": "endstone",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-bds-wine-r2",
+   "n": 4,
+   "flavor": "bds-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-bds-r2",
+   "n": 4,
+   "flavor": "bds",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-levilamina-wine-r2",
+   "n": 4,
+   "flavor": "levilamina-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-levilamina-levioptimize-wine-r3",
+   "n": 4,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-levilamina-wine-r3",
+   "n": 4,
+   "flavor": "levilamina-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-bds-r3",
+   "n": 4,
+   "flavor": "bds",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-bds-wine-r3",
+   "n": 4,
+   "flavor": "bds-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N4-endstone-r3",
+   "n": 4,
+   "flavor": "endstone",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-levilamina-wine-r1",
+   "n": 2,
+   "flavor": "levilamina-wine",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N2-levilamina-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    76,
+    188
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20002",
+   "port": 30006,
+   "start": 1794967953.5721958,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794975759.1709979,
+   "maxPlayers": 78
+  },
+  {
+   "id": "N2-levilamina-levioptimize-wine-r1",
+   "n": 2,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N2-levilamina-levioptimize-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    77,
+    189
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20003",
+   "port": 30008,
+   "start": 1794967984.942971,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794976378.912554,
+   "maxPlayers": 84
+  },
+  {
+   "id": "N2-endstone-r1",
+   "n": 2,
+   "flavor": "endstone",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N2-endstone-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    74,
+    186
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20005",
+   "port": 30010,
+   "start": 1794975221.1338987,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794980252.7984767,
+   "maxPlayers": 48
+  },
+  {
+   "id": "N2-bds-wine-r1",
+   "n": 2,
+   "flavor": "bds-wine",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N2-bds-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    85,
+    197
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20007",
+   "port": 30016,
+   "start": 1794975298.0944455,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794980563.9014733,
+   "maxPlayers": 48
+  },
+  {
+   "id": "N2-bds-r1",
+   "n": 2,
+   "flavor": "bds",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N2-bds-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    86,
+    198
+   ],
+   "botMachine": "hm2",
+   "agent": "10.0.0.12:20000",
+   "port": 30018,
+   "start": 1794975329.0842419,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794979972.3531353,
+   "maxPlayers": 44
+  },
+  {
+   "id": "N2-bds-wine-r2",
+   "n": 2,
+   "flavor": "bds-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-bds-r2",
+   "n": 2,
+   "flavor": "bds",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-endstone-r2",
+   "n": 2,
+   "flavor": "endstone",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-levilamina-levioptimize-wine-r2",
+   "n": 2,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-levilamina-wine-r2",
+   "n": 2,
+   "flavor": "levilamina-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-bds-wine-r3",
+   "n": 2,
+   "flavor": "bds-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-levilamina-wine-r3",
+   "n": 2,
+   "flavor": "levilamina-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-endstone-r3",
+   "n": 2,
+   "flavor": "endstone",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-levilamina-levioptimize-wine-r3",
+   "n": 2,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N2-bds-r3",
+   "n": 2,
+   "flavor": "bds",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-bds-r1",
+   "n": 1,
+   "flavor": "bds",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N1-bds-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    2
+   ],
+   "botMachine": "hm2",
+   "agent": "10.0.0.12:20000",
+   "port": 30004,
+   "start": 1794966316.3626823,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794972895.8372607,
+   "maxPlayers": 64
+  },
+  {
+   "id": "N1-levilamina-wine-r1",
+   "n": 1,
+   "flavor": "levilamina-wine",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N1-levilamina-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    114
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20004",
+   "port": 30010,
+   "start": 1794968015.953985,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794972958.656314,
+   "maxPlayers": 48
+  },
+  {
+   "id": "N1-bds-wine-r1",
+   "n": 1,
+   "flavor": "bds-wine",
+   "rep": 1,
+   "status": "done",
+   "attempts": 1,
+   "unit": "N1-bds-wine-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    3
+   ],
+   "botMachine": "hm2",
+   "agent": "10.0.0.12:20001",
+   "port": 30012,
+   "start": 1794970885.9396696,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ],
+   "rc": 0,
+   "end": 1794976379.3670778,
+   "maxPlayers": 54
+  },
+  {
+   "id": "N1-endstone-r1",
+   "n": 1,
+   "flavor": "endstone",
+   "rep": 1,
+   "status": "running",
+   "attempts": 1,
+   "unit": "N1-endstone-r1-a1",
+   "machine": "hm1",
+   "cpus": [
+    115
+   ],
+   "botMachine": "hm1",
+   "agent": "10.0.0.11:20004",
+   "port": 30004,
+   "start": 1794973114.2504592,
+   "harnessCpus": [
+    108,
+    109,
+    110,
+    111,
+    220,
+    221,
+    222,
+    223
+   ]
+  },
+  {
+   "id": "N1-levilamina-levioptimize-wine-r1",
+   "n": 1,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 1,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-levilamina-levioptimize-wine-r2",
+   "n": 1,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-levilamina-wine-r2",
+   "n": 1,
+   "flavor": "levilamina-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-bds-r2",
+   "n": 1,
+   "flavor": "bds",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-bds-wine-r2",
+   "n": 1,
+   "flavor": "bds-wine",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-endstone-r2",
+   "n": 1,
+   "flavor": "endstone",
+   "rep": 2,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-levilamina-levioptimize-wine-r3",
+   "n": 1,
+   "flavor": "levilamina-levioptimize-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-bds-r3",
+   "n": 1,
+   "flavor": "bds",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-bds-wine-r3",
+   "n": 1,
+   "flavor": "bds-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-endstone-r3",
+   "n": 1,
+   "flavor": "endstone",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  },
+  {
+   "id": "N1-levilamina-wine-r3",
+   "n": 1,
+   "flavor": "levilamina-wine",
+   "rep": 3,
+   "status": "pending",
+   "attempts": 0
+  }
+ ],
+ "peaks": {
+  "1": 74,
+  "8": 103,
+  "2": 96,
+  "32": 131,
+  "4": 50,
+  "16": 54
+ }
+}

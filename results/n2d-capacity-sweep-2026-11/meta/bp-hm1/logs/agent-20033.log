@@ -1,0 +1,13 @@
+[bedperf] hm1-host-20033 listening on 10.0.0.11:20033
+bedperf agent hm1-host-20033 listening on 10.0.0.11:20033 (224 CPUs for bots)
+[bedperf] stopping
+[bedperf] hm1-host-20033 listening on 10.0.0.11:20033
+bedperf agent hm1-host-20033 listening on 10.0.0.11:20033 (120 CPUs for bots)
+[bedperf] stopping
+[bedperf] hm1-host-20033 listening on 10.0.0.11:20033
+bedperf agent hm1-host-20033 listening on 10.0.0.11:20033 (122 CPUs for bots)
+[bedperf] stopping
+[bedperf] hm1-host-20033 listening on 10.0.0.11:20033
+bedperf agent hm1-host-20033 listening on 10.0.0.11:20033 (130 CPUs for bots)
+[bedperf] controller 10.0.0.11:52912 connected
+[bedperf] controller 10.0.0.11:52912 gone (controller said bye)

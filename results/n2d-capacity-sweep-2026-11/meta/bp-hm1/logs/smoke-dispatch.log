@@ -1,0 +1,17 @@
+2026-11-18T01:24:07Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T01:24:08Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T01:24:09Z start N4-levilamina-wine-r1-a1 server hm1 cpus=56,57,168,169 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20000 port=30000 (bot pool hm1: 212 cpus)
+2026-11-18T01:24:20Z start N2-levilamina-wine-r1-a1 server hm1 cpus=58,170 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20001 port=30002 (bot pool hm1: 210 cpus)
+2026-11-18T01:24:31Z start N1-bds-r1-a1 server hm1 cpus=2 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20002 port=30004 (bot pool hm1: 209 cpus)
+2026-11-18T01:24:42Z start N1-levilamina-wine-r1-a1 server hm1 cpus=114 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20003 port=30006 (bot pool hm1: 208 cpus)
+2026-11-18T01:24:52Z start N1-bds-wine-r1-a1 server hm1 cpus=3 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20004 port=30008 (bot pool hm1: 207 cpus)
+2026-11-18T01:25:03Z start N1-endstone-r1-a1 server hm1 cpus=115 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20005 port=30010 (bot pool hm1: 206 cpus)
+2026-11-18T01:25:14Z start N1-levilamina-levioptimize-wine-r1-a1 server hm1 cpus=4 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20006 port=30012 (bot pool hm1: 205 cpus)
+2026-11-18T01:26:07Z N4-levilamina-wine-r1-a1 finished rc=0 after 0.03 h -> done max=4
+2026-11-18T01:26:18Z N1-bds-r1-a1 finished rc=0 after 0.03 h -> done max=4
+2026-11-18T01:26:29Z N2-levilamina-wine-r1-a1 finished rc=0 after 0.04 h -> done max=4
+2026-11-18T01:26:51Z N1-levilamina-wine-r1-a1 finished rc=0 after 0.04 h -> done max=4
+2026-11-18T01:26:51Z N1-bds-wine-r1-a1 finished rc=0 after 0.03 h -> done max=4
+2026-11-18T01:26:52Z N1-endstone-r1-a1 finished rc=0 after 0.03 h -> done max=4
+2026-11-18T01:27:24Z N1-levilamina-levioptimize-wine-r1-a1 finished rc=0 after 0.04 h -> done max=4
+2026-11-18T01:27:24Z ALL DONE

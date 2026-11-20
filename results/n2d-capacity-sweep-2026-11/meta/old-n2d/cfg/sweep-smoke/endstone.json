@@ -1,0 +1,63 @@
+{
+  "name": "n2d-sweep-smoke",
+  "bdsVersion": "1.26.60.6",
+  "serverProperties": {
+    "view-distance": 10,
+    "tick-distance": 4,
+    "max-players": 1000,
+    "default-player-permission-level": "operator",
+    "difficulty": "easy"
+  },
+  "world": {
+    "seed": "bedperf",
+    "levelType": "DEFAULT"
+  },
+  "scenario": {
+    "module": "@bedperf/scenarios/walk",
+    "params": {
+      "radius": 32
+    }
+  },
+  "loadgen": {
+    "botsPerWorker": 2,
+    "joinIntervalMs": 500,
+    "connectRetries": 3
+  },
+  "ramp": {
+    "start": 2,
+    "step": 2,
+    "max": 4,
+    "settleSec": 0,
+    "holdSec": 30,
+    "resolution": 0,
+    "settle": {
+      "mode": "fixed"
+    }
+  },
+  "criteria": {
+    "minAvgTps": 15,
+    "minWorstWindowTps": 0,
+    "maxTickIntervalP99Ms": 1000000,
+    "maxBotFailures": 1000000
+  },
+  "repeats": 1,
+  "warmupSec": 20,
+  "seed": 1,
+  "cooldownSec": 10,
+  "placement": {
+    "enabled": true,
+    "serverCpus": "auto",
+    "botCpus": "auto",
+    "harnessCpus": "bot",
+    "priority": "normal"
+  },
+  "sampling": {
+    "gametimeIntervalSec": 5
+  },
+  "server": {
+    "flavor": "endstone",
+    "mods": [],
+    "runtime": "native",
+    "versions": {}
+  }
+}

@@ -1,0 +1,27 @@
+=== install bds
+[bedperf] extracting BDS 1.26.65.1
+[bedperf] installed BDS 1.26.65.1 → ~/.cache/bedperf/bds/1.26.65.1
+bds (BDS 1.26.65.1, linux build) ready at ~/.cache/bedperf/bds/1.26.65.1
+  bds                    1.26.65.1 sha256:4443e58064f5fa96…
+=== install endstone
+[bedperf] zipp==4.1.2
+endstone (BDS 1.26.60.6, linux build) ready at ~/.cache/bedperf/servers/endstone-d7225031babb/server
+  bds                    1.26.60.6 sha256:cbbd5414fa6a3103…
+  endstone               0.11.15 sha256:b6496e70a93304a8…
+  python                 3.11.14
+  python-deps             sha256:b8a289410126c9c5…
+=== install levilamina-wine
+/ephemeral/cache/bedperf/servers/levilamina-wine-b3e1352eff40/server/.lip/wine: 
+lip installs it there now.
+Installing the Microsoft Visual C++ Redistributable: 0%
+error: The installer of the Microsoft Visual C++ Redistributable failed with exit code 53 in the Wine prefix /ephemeral/cache/bedperf/servers/levilamina-wine-b3e1352eff40/server/.lip/wine. Delete that directory to let Wine make it again, then run lip again.
+
+Full report: .lip/logs/20261117T122429Z-155439.log
+=== install levilamina-levioptimize-wine
+[bedperf] Resolving LeviLamina@26.60.7...
+[bedperf] Setting up the game 1.26.60 (windows) with LeviLamina 26.60.7.
+[bedperf] lip: the daemon ended before the command did.
+[bedperf] lip setup failed (attempt 1/3), retrying: '~/.cache/bedperf/tools/lip-0.41.0/lip setup --game 1.26.60 --loader levilamina@26.60.7 --accept-eula' exited with code 1 (cwd ~/.cache/bedperf/servers/levilamina-levioptimize-wine-bf9838089713/server):
+[bedperf] Resolving bds@1.26.60...
+~/bpx/env.sh: line 8: 155750 Killed                  node $EXP/src/packages/cli/src/main.ts "$@"
+INSTALL-DONE

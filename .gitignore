@@ -4,3 +4,4 @@ runs/
 *.log
 *.tsbuildinfo
 .DS_Store
+!results/**/*.log

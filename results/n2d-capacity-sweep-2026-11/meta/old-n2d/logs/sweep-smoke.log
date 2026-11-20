@@ -1,0 +1,45 @@
+[bedperf] using cached bds (wine) at ~/.cache/bedperf/servers/bds-wine-3bcb555a21e9/server
+[bedperf] n2d-sweep-smoke: bds (wine) on BDS 1.26.60.6, bots 1.26.60, scenario walk
+[bedperf] n2d-sweep-smoke: bds on BDS 1.26.60.6, bots 1.26.60, scenario walk
+[bedperf] placement: the bots run on agent machines; no bot CPUs are reserved on the server machine
+[bedperf] placement: virtualized host (gce): CPUs are vCPUs and core/SMT layout is not guaranteed
+[bedperf] placement (vcpu, remote-bots): server CPUs 0,16, bots remote, harness 15,31, priority normal
+[bedperf] placement: the bots run on agent machines; no bot CPUs are reserved on the server machine
+[bedperf] placement: virtualized host (gce): CPUs are vCPUs and core/SMT layout is not guaranteed
+[bedperf] placement (vcpu, remote-bots): server CPUs 0,16, bots remote, harness 15,31, priority normal
+[bedperf] connecting to 1 bot agent(s): 10.0.0.2:19260
+[bedperf] agent bots-n2d96: AMD EPYC 7B13, 96 CPUs, weight 1
+[bedperf] run 20261117-234613-n2d-sweep-smoke-bds-wine → ~/bpx/runs/sweep-smoke/20261117-234613-session/20261117-234613-n2d-sweep-smoke-bds-wine
+[bedperf] run 20261117-234613-n2d-sweep-smoke → ~/bpx/runs/sweep-smoke/20261117-234613-session/20261117-234613-n2d-sweep-smoke
+[bedperf] session 20261117-234613-session: block 0, n2d-sweep-smoke repeat slot 0
+[bedperf] repeat 0: instance /tmp/bedperf-tmp/bedperf-bds-gKtN8d
+[bedperf] repeat 0: warmup 20s
+[bedperf] repeat 0 step 0 [ramp] 2 players: pass tps=20.00 counter=20.03 settle=0s
+[bedperf] repeat 0 step 1 [ramp] 4 players: pass tps=20.00 counter=20.03 settle=0s
+[loadgen w1] bot 2: walk: 3 re-targets
+[loadgen w1] bot 3: walk: 3 re-targets
+[loadgen w0] bot 0: walk: 4 re-targets
+[loadgen w0] bot 1: walk: 9 re-targets
+[bedperf] repeat 0: ok maxPlayers=4 (capped)
+[bedperf] session 20261117-234613-session: block 0, n2d-sweep-smoke repeat slot 0
+[bedperf] cooldown 10s
+[bedperf] repeat 0: instance /tmp/bedperf-tmp/bedperf-bds-iAr9Fh
+[bedperf] repeat 0: warmup 20s
+[bedperf] repeat 0 step 0 [ramp] 2 players: pass tps=20.01 counter=20.00 settle=0s
+[bedperf] repeat 0 step 1 [ramp] 4 players: pass tps=20.00 counter=20.00 settle=0s
+[loadgen w1] bot 2: walk: 3 re-targets
+[loadgen w1] bot 3: walk: 3 re-targets
+[loadgen w0] bot 0: walk: 4 re-targets
+[loadgen w0] bot 1: walk: 6 re-targets
+[bedperf] repeat 0: ok maxPlayers=4 (capped)
+[bedperf] run 20261117-234613-n2d-sweep-smoke-bds-wine: maxPlayers median 4 over 1/1 ok repeats [4]
+[bedperf] run 20261117-234613-n2d-sweep-smoke: maxPlayers median 4 over 1/1 ok repeats [4]
+[bedperf] report → ~/bpx/runs/sweep-smoke/20261117-234613-session/20261117-234613-n2d-sweep-smoke-bds-wine/report.html
+[bedperf] report → ~/bpx/runs/sweep-smoke/20261117-234613-session/20261117-234613-n2d-sweep-smoke/report.html
+
+n2d-sweep-smoke: max players at 20 TPS: 4 over 1/1 ok repeats (repeats: 4) — capped by ramp.max
+run dir: ~/bpx/runs/sweep-smoke/20261117-234613-session/20261117-234613-n2d-sweep-smoke-bds-wine
+
+n2d-sweep-smoke: max players at 20 TPS: 4 over 1/1 ok repeats (repeats: 4) — capped by ramp.max
+run dir: ~/bpx/runs/sweep-smoke/20261117-234613-session/20261117-234613-n2d-sweep-smoke
+session: ~/bpx/runs/sweep-smoke/20261117-234613-session

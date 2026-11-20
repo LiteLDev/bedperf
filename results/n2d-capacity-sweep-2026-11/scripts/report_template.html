@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BDS 容量扫描数据</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --raised: #ffffff;
+  --ink: #0b0b0b; --ink2: #52514e; --muted: #6f6d68; --axis-ink: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --wash: rgba(11,11,11,0.04);
+  --accent: #2a78d6; --void: #b9b7ae;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --q100:#cde2fb; --q200:#9ec5f4; --q300:#6da7ec; --q400:#3987e5; --q500:#256abf; --q600:#184f95; --q700:#0d366b;
+  --critical: #d03b3b; --good: #006300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --raised: #222221;
+    --ink: #f0efec; --ink2: #c3c2b7; --muted: #a3a199; --axis-ink: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --wash: rgba(255,255,255,0.05);
+    --accent: #3987e5; --void: #5a5955;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+    --critical: #e66767; --good: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --raised: #222221;
+  --ink: #f0efec; --ink2: #c3c2b7; --muted: #a3a199; --axis-ink: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --wash: rgba(255,255,255,0.05);
+  --accent: #3987e5; --void: #5a5955;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  --critical: #e66767; --good: #0ca30c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--page); color: var(--ink); }
+body { font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+header.top { position: sticky; top: 0; z-index: 20; background: var(--page); border-bottom: 1px solid var(--grid); }
+.bar { max-width: 1280px; margin: 0 auto; padding: 10px 16px 0; display: flex; align-items: center; gap: 12px; }
+.bar h1 { font-size: 16px; margin: 0; font-weight: 600; white-space: nowrap; }
+.bar .sub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+button, select, input { font: inherit; color: var(--ink); background: var(--raised); border: 1px solid var(--ring); border-radius: 6px; padding: 4px 8px; }
+button { cursor: pointer; }
+button:hover { background: var(--wash); }
+nav.tabs { max-width: 1280px; margin: 0 auto; padding: 0 16px; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+nav.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 12px; color: var(--ink2); white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+main { max-width: 1280px; margin: 0 auto; padding: 16px; }
+section[hidden] { display: none; }
+h2 { font-size: 18px; margin: 4px 0 4px; font-weight: 600; }
+h3 { font-size: 14px; margin: 0; font-weight: 600; }
+p.lead { color: var(--ink2); margin: 0 0 16px; max-width: 900px; }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; min-width: 0; }
+.card .note { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+.grid2 > .card { margin-bottom: 0; }
+.gridsm { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 12px 14px; }
+.tile .l { color: var(--ink2); font-size: 12px; }
+.tile .v { font-size: 24px; font-weight: 600; margin-top: 2px; }
+.tile .d { color: var(--muted); font-size: 12px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 12px; }
+.filters label { color: var(--ink2); font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+.chk { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; color: var(--ink2); cursor: pointer; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink2); margin: 4px 0 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+.legend i.dot { width: 8px; height: 8px; border-radius: 50%; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { fill: var(--axis-ink); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart text.lbl { fill: var(--ink2); }
+.chart .ttl { fill: var(--ink2); font-size: 11px; }
+.tip { position: absolute; pointer-events: none; z-index: 5; background: var(--raised); border: 1px solid var(--ring); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12); padding: 8px 10px; font-size: 12px; min-width: 140px; max-width: 320px; display: none; }
+.tip .h { color: var(--ink2); margin-bottom: 4px; }
+.tip .r { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.tip .r b { font-variant-numeric: tabular-nums; min-width: 44px; }
+.tip .r em { font-style: normal; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; }
+.chart .tip .r svg { flex: none; width: 14px; display: inline-block; }
+.tbl-wrap { overflow: auto; max-height: 560px; border: 1px solid var(--ring); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+th, td { padding: 4px 8px; border-bottom: 1px solid var(--grid); text-align: left; white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--raised); color: var(--ink2); font-weight: 600; cursor: pointer; user-select: none; z-index: 1; }
+th[data-sort="asc"]::after { content: " ▲"; font-size: 9px; } th[data-sort="desc"]::after { content: " ▼"; font-size: 9px; }
+td.n { text-align: right; }
+tbody tr:hover { background: var(--wash); }
+tbody tr.click { cursor: pointer; }
+.pager { display: flex; gap: 8px; align-items: center; margin-top: 8px; color: var(--ink2); font-size: 12px; flex-wrap: wrap; }
+.heat td, .heat th { text-align: center; padding: 6px 8px; }
+.heat td.c { font-weight: 600; min-width: 70px; }
+.heat td.c small { display: block; font-weight: 400; font-size: 10px; opacity: .85; }
+.kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2px 16px; font-size: 12px; }
+.kv div { display: flex; gap: 8px; border-bottom: 1px solid var(--grid); padding: 3px 0; min-width: 0; }
+.kv span:first-child { color: var(--muted); flex: none; width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.kv span:last-child { overflow-wrap: anywhere; }
+.badge { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 9px; border: 1px solid var(--ring); color: var(--ink2); }
+.badge.ok::before { content: "✓ "; color: var(--good); } .badge.bad::before { content: "✕ "; color: var(--critical); }
+.files { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 12px; }
+.files ul { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow: auto; border: 1px solid var(--ring); border-radius: 8px; font-size: 12px; }
+.files li { padding: 3px 8px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.files li:hover { background: var(--wash); } .files li.sel { background: var(--wash); font-weight: 600; }
+.files li.dir { color: var(--muted); cursor: default; font-weight: 600; padding-top: 8px; }
+pre.code { margin: 0; max-height: 640px; overflow: auto; border: 1px solid var(--ring); border-radius: 8px; padding: 10px; font-size: 12px; background: var(--raised); white-space: pre; }
+.md { max-width: 960px; } .md table { margin: 8px 0 16px; } .md td, .md th { white-space: normal; }
+.md code { background: var(--wash); padding: 0 4px; border-radius: 4px; font-size: 12px; }
+.md pre { background: var(--raised); border: 1px solid var(--ring); padding: 10px; border-radius: 8px; overflow: auto; }
+.loading { color: var(--muted); padding: 20px 0; }
+.findings { margin: 0; padding-left: 18px; } .findings li { margin: 4px 0; }
+.muted { color: var(--muted); }
+@media (max-width: 720px) {
+  .grid2, .gridsm { grid-template-columns: 1fr; }
+  .files { grid-template-columns: 1fr; }
+  .bar .sub { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <h1>BDS 服务端容量扫描</h1>
+    <div class="sub">n2d-standard-224 · 1–32 vCPU · 5 种服务端 · 每组 3 次 · 160 次运行（含作废与早期运行）</div>
+    <button id="theme" title="切换配色">配色：自动</button>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+</header>
+<main>
+  <section id="t-overview"></section>
+  <section id="t-capacity" hidden></section>
+  <section id="t-curves" hidden></section>
+  <section id="t-run" hidden></section>
+  <section id="t-dispatch" hidden></section>
+  <section id="t-data" hidden></section>
+  <section id="t-files" hidden></section>
+  <section id="t-notes" hidden></section>
+</main>
+<!--__BLOBS__-->
+<script>
+'use strict';
+// ---------------------------------------------------------------- data loading
+const DATA = {}; const LOADING = {};
+function b64bytes(s) { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+async function rawText(name) {
+  const el = document.getElementById('blob:' + name);
+  const stream = new Blob([b64bytes(el.textContent.trim())]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return await new Response(stream).text();
+}
+function conv(s) {
+  if (s === '') return null; if (s === 'True') return true; if (s === 'False') return false;
+  const c = s.charCodeAt(0);
+  if ((c >= 48 && c <= 57) || c === 45) { const v = +s; if (!isNaN(v)) return v; }
+  return s;
+}
+function splitQuoted(line) {
+  const out = []; let f = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"') q = true; else if (ch === ',') { out.push(f); f = ''; } else f += ch;
+  }
+  out.push(f); return out;
+}
+function parseCSV(text) {
+  const lines = text.split('\n'); const recs = []; let pend = null;
+  for (let line of lines) {
+    if (line.endsWith('\r')) line = line.slice(0, -1);
+    if (pend !== null) { pend += '\n' + line; if ((pend.split('"').length - 1) % 2 === 0) { recs.push(splitQuoted(pend)); pend = null; } continue; }
+    if (line === '') continue;
+    if (line.indexOf('"') < 0) { recs.push(line.split(',')); continue; }
+    if ((line.split('"').length - 1) % 2) { pend = line; continue; }
+    recs.push(splitQuoted(line));
+  }
+  const cols = recs.shift(); const rows = new Array(recs.length);
+  for (let i = 0; i < recs.length; i++) { const r = recs[i], o = {}; for (let j = 0; j < cols.length; j++) o[cols[j]] = conv(r[j] ?? ''); rows[i] = o; }
+  return { cols, rows };
+}
+function load(name) {
+  if (DATA[name]) return Promise.resolve(DATA[name]);
+  if (!LOADING[name]) LOADING[name] = rawText(name).then(t => {
+    const d = name.endsWith('.json') ? { json: JSON.parse(t), text: t } : Object.assign(parseCSV(t), { text: t });
+    DATA[name] = d; return d;
+  });
+  return LOADING[name];
+}
+
+// ---------------------------------------------------------------- helpers
+const $ = (s, r = document) => r.querySelector(s);
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in attrs || {}) { const v = attrs[k]; if (v == null || v === false) continue;
+    if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (k === 'text') e.textContent = v; else e.setAttribute(k, v === true ? '' : v); }
+  for (const k of kids.flat()) if (k != null) e.append(k instanceof Node ? k : document.createTextNode(String(k)));
+  return e;
+}
+const SVGNS = 'http://www.w3.org/2000/svg';
+function s(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) if (attrs[k] != null) e.setAttribute(k, attrs[k]); return e; }
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function fmt(v, d) {
+  if (v == null || v === '' || (typeof v === 'number' && !isFinite(v))) return '–';
+  if (typeof v !== 'number') return String(v);
+  if (d == null) d = Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : Math.abs(v) >= 1 ? 2 : 3;
+  return v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: d });
+}
+function compact(v) {
+  const a = Math.abs(v);
+  if (a >= 1e9) return fmt(v / 1e9, 1) + 'G'; if (a >= 1e6) return fmt(v / 1e6, 1) + 'M'; if (a >= 1e4) return fmt(v / 1e3, 0) + 'K';
+  return fmt(v);
+}
+const median = a => { const b = a.filter(x => x != null).sort((x, y) => x - y); if (!b.length) return null; const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+const mean = a => { const b = a.filter(x => x != null); return b.length ? b.reduce((p, c) => p + c, 0) / b.length : null; };
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type: type || 'text/csv' }));
+  const a = h('a', { href: url, download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// servers in fixed categorical order: color follows the server, never its rank
+const SERVERS = ['BDS', 'Endstone', 'BDS (Wine)', 'LeviLamina (Wine)', 'LeviLamina+LeviOptimize (Wine)'];
+const SHORT = { 'BDS': 'BDS', 'Endstone': 'Endstone', 'BDS (Wine)': 'BDS·Wine', 'LeviLamina (Wine)': 'LL·Wine', 'LeviLamina+LeviOptimize (Wine)': 'LL+LO·Wine' };
+const sColor = name => css('--s' + (SERVERS.indexOf(name) + 1)) || css('--void');
+const VCPUS = [1, 2, 4, 8, 16, 32];
+const REPDASH = { 1: null, 2: '6 3', 3: '2 3' };
+const CATS = { 'sweep': '正式运行', 'old/invalid': '作废（invalid）', 'old/wine-affinity': '作废（Wine 亲和性）', 'old/stopped-old-config': '中途停止（旧配置）',
+  'old/sweep-try1-0144': '第一次启动（已停）', 'old-n2d/full': '11-17 core-scan', 'old-n2d/smoke': '11-17 smoke', 'old-n2d/sweep-smoke': '11-17 sweep-smoke' };
+function runLabel(r) {
+  return `N${r.vcpu} · ${SHORT[r.server] || r.server}` + (r.rep ? ` · r${r.rep}` : '') + (r.attempt ? ` · ${r.attempt}` : '') + ` · ${r.host} · ${String(r.runId).slice(0, 15)}`;
+}
+function legend(items) {
+  return h('div', { class: 'legend' }, items.map(it => h('span', {}, (() => {
+    if (it.kind === 'dot') { const i = h('i', { class: 'dot' }); i.style.background = it.color; return i; }
+    const sv = s('svg', { width: 18, height: 6 }); sv.append(s('line', { x1: 1, y1: 3, x2: 17, y2: 3, stroke: it.color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-dasharray': it.dash || null })); return sv;
+  })(), it.name)));
+}
+
+// ---------------------------------------------------------------- line chart
+function niceTicks(lo, hi, n) {
+  if (lo === hi) { hi = lo + 1; lo = lo - (lo === 0 ? 0 : 1); }
+  const span = hi - lo, step0 = span / Math.max(2, n), mag = Math.pow(10, Math.floor(Math.log10(step0))), r = step0 / mag;
+  const step = (r >= 5 ? 10 : r >= 2 ? 5 : r >= 1 ? 2 : 1) * mag;
+  const a = Math.floor(lo / step) * step, b = Math.ceil(hi / step) * step, t = [];
+  for (let v = a; v <= b + step / 2; v += step) t.push(+v.toFixed(10));
+  return t;
+}
+function nearestIdx(pts, x) {
+  let lo = 0, hi = pts.length - 1;
+  if (hi < 0) return -1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m][0] < x) lo = m; else hi = m; }
+  return Math.abs(pts[lo][0] - x) <= Math.abs(pts[hi][0] - x) ? lo : hi;
+}
+/* o: { series:[{name,color,pts:[[x,y,meta?]],dash,width,markers,r,opacity,line:false,legend:false,tip:false}], height, xLog2, xTicks,
+        xFmt, yFmt, xLabel, yLabel, yZero, yMin, yMax, refs:[{y,label}], tipTitle:x=>str, endLabels, maxTip } */
+function lineChart(host, o) {
+  host.textContent = ''; host.classList.add('chart');
+  const W = Math.max(280, host.clientWidth || 600), H = o.height || 240;
+  const all = o.series.flatMap(sr => sr.pts.filter(p => p[1] != null && isFinite(p[1])));
+  if (!all.length) { host.append(h('div', { class: 'muted', text: '无数据' })); return; }
+  const fx = o.xLog2 ? (v => Math.log2(v)) : (v => v);
+  let x0 = Math.min(...all.map(p => fx(p[0]))), x1 = Math.max(...all.map(p => fx(p[0])));
+  if (x0 === x1) { x0 -= 1; x1 += 1; }
+  let y0 = o.yMin ?? Math.min(...all.map(p => p[1])), y1 = o.yMax ?? Math.max(...all.map(p => p[1]));
+  for (const r of o.refs || []) { y0 = Math.min(y0, r.y); y1 = Math.max(y1, r.y); }
+  if (o.yZero && y0 > 0) y0 = 0;
+  const yt = niceTicks(y0, y1, Math.max(3, Math.round(H / 50)));
+  if (o.yMin == null) y0 = yt[0]; if (o.yMax == null) y1 = yt[yt.length - 1];
+  const yf = o.yFmt || compact, xf = o.xFmt || (v => fmt(v));
+  const ml = 8 + Math.max(...yt.map(t => yf(t).length)) * 6.6, wantEnd = o.endLabels && o.series.filter(x => x.legend !== false).length <= 5;
+  const mr = wantEnd ? 92 : 14, mt = 10, mb = o.xLabel ? 38 : 24;
+  const X = v => ml + (fx(v) - x0) / (x1 - x0) * (W - ml - mr), Y = v => mt + (1 - (v - y0) / (y1 - y0)) * (H - mt - mb);
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, height: H, role: 'img' });
+  if (o.aria) svg.setAttribute('aria-label', o.aria);
+  for (const t of yt) { if (t < y0 - 1e-9 || t > y1 + 1e-9) continue;
+    svg.append(s('line', { x1: ml, x2: W - mr, y1: Y(t), y2: Y(t), stroke: css('--grid'), 'stroke-width': 1 }));
+    const tx = s('text', { x: ml - 6, y: Y(t) + 3.5, 'text-anchor': 'end' }); tx.textContent = yf(t); svg.append(tx); }
+  let xt = o.xTicks; if (!xt) { xt = o.xLog2 ? [] : niceTicks(x0, x1, Math.max(3, Math.round((W - ml - mr) / 80))).filter(t => t >= x0 - 1e-9 && t <= x1 + 1e-9); }
+  svg.append(s('line', { x1: ml, x2: W - mr, y1: H - mb, y2: H - mb, stroke: css('--axis'), 'stroke-width': 1 }));
+  for (const t of xt) { const tx = s('text', { x: X(t), y: H - mb + 15, 'text-anchor': 'middle' }); tx.textContent = xf(t); svg.append(tx); }
+  if (o.xLabel) { const tx = s('text', { x: (ml + W - mr) / 2, y: H - 4, 'text-anchor': 'middle', class: 'ttl' }); tx.textContent = o.xLabel; svg.append(tx); }
+  if (o.yLabel) { const tx = s('text', { x: ml, y: mt - 1, 'text-anchor': 'start', class: 'ttl' }); }
+  for (const r of o.refs || []) {
+    svg.append(s('line', { x1: ml, x2: W - mr, y1: Y(r.y), y2: Y(r.y), stroke: css('--critical'), 'stroke-width': 1, opacity: .7 }));
+    if (r.label) { const tx = s('text', { x: W - mr - 4, y: Y(r.y) - 4, 'text-anchor': 'end', class: 'lbl' }); tx.textContent = r.label; svg.append(tx); }
+  }
+  const surf = css('--surface');
+  for (const sr of o.series) {
+    const col = sr.color, g = s('g', { opacity: sr.opacity ?? 1 });
+    if (sr.line !== false) {
+      let d = '', pen = false;
+      for (const p of sr.pts) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } d += (pen ? 'L' : 'M') + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1); pen = true; }
+      g.append(s('path', { d, fill: 'none', stroke: col, 'stroke-width': sr.width || 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'stroke-dasharray': sr.dash || null }));
+    }
+    if (sr.markers) for (const p of sr.pts) if (p[1] != null) g.append(s('circle', { cx: X(p[0]), cy: Y(p[1]), r: sr.r || 4, fill: col, stroke: surf, 'stroke-width': 2 }));
+    svg.append(g);
+  }
+  if (wantEnd) {
+    const labs = o.series.filter(x => x.legend !== false).map(sr => { const p = [...sr.pts].reverse().find(q => q[1] != null); return p && { y: Y(p[1]), x: X(p[0]), name: sr.endLabel || sr.name }; }).filter(Boolean).sort((a, b) => a.y - b.y);
+    const clash = labs.some((l, i) => i && l.y - labs[i - 1].y < 12);
+    if (!clash) for (const l of labs) { const tx = s('text', { x: l.x + 8, y: l.y + 4, class: 'lbl' }); tx.textContent = l.name; svg.append(tx); }
+  }
+  // hover layer: crosshair snaps to the nearest x; one readout lists every series at that x
+  const cross = s('line', { y1: mt, y2: H - mb, stroke: css('--axis-ink'), 'stroke-width': 1, visibility: 'hidden' }); svg.append(cross);
+  const hl = s('g', {}); svg.append(hl);
+  const hit = s('rect', { x: ml, y: mt, width: W - ml - mr, height: H - mt - mb, fill: 'transparent', tabindex: 0 }); svg.append(hit);
+  const tip = h('div', { class: 'tip' }); host.append(svg, tip);
+  const tipSeries = o.series.filter(x => x.tip !== false);
+  function show(px) {
+    const xv = x0 + (px - ml) / (W - ml - mr) * (x1 - x0);
+    let best = null;
+    const hits = [];
+    for (const sr of tipSeries) { const pts = sr.pts.filter(p => p[1] != null); const i = nearestIdx(pts.map(p => [fx(p[0]), p[1], p[2]]), xv); if (i < 0) continue;
+      const p = pts[i]; const dx = Math.abs(fx(p[0]) - xv); if (!best || dx < best) best = dx; hits.push({ sr, p, dx }); }
+    if (!hits.length) return;
+    const snapX = hits.reduce((a, b) => a.dx <= b.dx ? a : b).p[0];
+    const tol = o.xLog2 ? 1e-9 : (x1 - x0) / 60;
+    const rows = hits.filter(t => Math.abs(fx(t.p[0]) - fx(snapX)) <= tol).sort((a, b) => b.p[1] - a.p[1]);
+    cross.setAttribute('x1', X(snapX)); cross.setAttribute('x2', X(snapX)); cross.setAttribute('visibility', 'visible');
+    hl.textContent = '';
+    for (const t of rows.slice(0, 24)) hl.append(s('circle', { cx: X(t.p[0]), cy: Y(t.p[1]), r: 4, fill: t.sr.color, stroke: surf, 'stroke-width': 2 }));
+    tip.textContent = '';
+    tip.append(h('div', { class: 'h', text: o.tipTitle ? o.tipTitle(snapX) : xf(snapX) }));
+    const max = o.maxTip || 16;
+    for (const t of rows.slice(0, max)) {
+      const sv = s('svg', { width: 14, height: 6 }); sv.append(s('line', { x1: 1, y1: 3, x2: 13, y2: 3, stroke: t.sr.color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-dasharray': t.sr.dash || null }));
+      tip.append(h('div', { class: 'r' }, sv, h('b', { text: (o.tipFmt || yf)(t.p[1]) }), h('em', { text: t.sr.name + (t.p[2] ? ' · ' + t.p[2] : '') })));
+    }
+    if (rows.length > max) tip.append(h('div', { class: 'muted', text: `另有 ${rows.length - max} 条` }));
+    tip.style.display = 'block';
+    const sx = svg.getBoundingClientRect().width / W, left = X(snapX) * sx;
+    const tw = tip.offsetWidth; tip.style.left = (left + 14 + tw > host.clientWidth ? Math.max(0, left - 14 - tw) : left + 14) + 'px'; tip.style.top = '8px';
+  }
+  function hide() { tip.style.display = 'none'; cross.setAttribute('visibility', 'hidden'); hl.textContent = ''; }
+  hit.addEventListener('pointermove', e => { const r = svg.getBoundingClientRect(); show((e.clientX - r.left) * W / r.width); });
+  hit.addEventListener('pointerleave', hide);
+  hit.addEventListener('focus', () => show(ml)); hit.addEventListener('blur', hide);
+}
+
+// ---------------------------------------------------------------- table
+/* opts: { cols:[{k,label,fmt,num}], pageSize, onRow(row), filter: true, sortKey, sortDir } */
+function table(host, rows, opts) {
+  host.textContent = '';
+  const cols = opts.cols; let sortK = opts.sortKey || null, dir = opts.sortDir || 1, page = 0, q = '';
+  const ps = opts.pageSize || 200;
+  const ctrl = h('div', { class: 'filters' });
+  const inp = h('input', { type: 'search', placeholder: '筛选（任意列包含）', style: 'min-width:220px' });
+  const count = h('span', { class: 'muted' });
+  if (opts.filter !== false) ctrl.append(inp, count);
+  if (opts.extra) ctrl.append(...opts.extra);
+  const wrap = h('div', { class: 'tbl-wrap' }), pager = h('div', { class: 'pager' });
+  host.append(ctrl, wrap, pager);
+  let view = rows;
+  function apply() {
+    const ql = q.toLowerCase();
+    view = ql ? rows.filter(r => cols.some(c => String(r[c.k] ?? '').toLowerCase().includes(ql))) : rows.slice();
+    if (sortK) view.sort((a, b) => { const x = a[sortK], y = b[sortK]; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+    page = 0; draw();
+  }
+  function draw() {
+    count.textContent = `${view.length.toLocaleString()} / ${rows.length.toLocaleString()} 行`;
+    const t = h('table'), tr = h('tr');
+    for (const c of cols) { const th = h('th', { text: c.label || c.k, title: c.k }); if (c.k === sortK) th.dataset.sort = dir > 0 ? 'asc' : 'desc';
+      th.addEventListener('click', () => { if (sortK === c.k) dir = -dir; else { sortK = c.k; dir = 1; } apply(); }); tr.append(th); }
+    t.append(h('thead', {}, tr));
+    const tb = h('tbody');
+    for (const r of view.slice(page * ps, page * ps + ps)) {
+      const row = h('tr', { class: opts.onRow ? 'click' : null });
+      if (opts.onRow) row.addEventListener('click', () => opts.onRow(r));
+      for (const c of cols) { const v = r[c.k]; const td = h('td', { class: typeof v === 'number' ? 'n' : null });
+        if (c.render) td.append(c.render(v, r)); else td.textContent = c.fmt ? c.fmt(v, r) : (typeof v === 'number' ? fmt(v, 4) : v === true ? '是' : v === false ? '否' : v ?? '');
+        if (typeof v === 'string' && v.length > 60) { td.title = v; td.textContent = v.slice(0, 60) + '…'; }
+        row.append(td); }
+      tb.append(row);
+    }
+    t.append(tb); wrap.textContent = ''; wrap.append(t);
+    pager.textContent = '';
+    const pages = Math.ceil(view.length / ps);
+    if (pages > 1) {
+      pager.append(h('button', { text: '上一页', disabled: page === 0 || null, onclick: () => { page--; draw(); } }),
+        h('span', { text: `第 ${page + 1} / ${pages} 页` }),
+        h('button', { text: '下一页', disabled: page >= pages - 1 || null, onclick: () => { page++; draw(); } }));
+    }
+  }
+  let tmr; inp.addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(() => { q = inp.value.trim(); apply(); }, 200); });
+  apply();
+}
+const autoCols = cols => cols.map(k => ({ k }));
+
+// ---------------------------------------------------------------- tabs
+const TABS = [['overview', '概览'], ['capacity', '容量'], ['curves', '负载曲线'], ['run', '单次运行'], ['dispatch', '调度'], ['data', '数据表'], ['files', '配置与日志'], ['notes', '说明']];
+const RENDER = {}; let current = 'overview';
+function showTab(id) {
+  current = id;
+  for (const [k] of TABS) { $('#t-' + k).hidden = k !== id; $(`#tab-${k}`).setAttribute('aria-selected', k === id); }
+  try { history.replaceState(null, '', '#' + id); } catch (e) {}
+  RENDER[id] && RENDER[id]();
+}
+for (const [k, label] of TABS) $('#tabs').append(h('button', { id: 'tab-' + k, role: 'tab', text: label, onclick: () => showTab(k) }));
+const THEMES = ['auto', 'light', 'dark'], TNAME = { auto: '自动', light: '浅色', dark: '深色' };
+let theme = 'auto'; try { theme = localStorage.getItem('bp-theme') || 'auto'; } catch (e) {}
+function applyTheme() { if (theme === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = theme; $('#theme').textContent = '配色：' + TNAME[theme]; }
+$('#theme').addEventListener('click', () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; try { localStorage.setItem('bp-theme', theme); } catch (e) {} applyTheme(); RENDER[current] && RENDER[current](); });
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => RENDER[current] && RENDER[current]());
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => RENDER[current] && RENDER[current](), 200); });
+
+// ---------------------------------------------------------------- shared derived data
+let RUNS, CAP, BYKEY;
+function capCell(v, srv) { return CAP.find(c => c.vcpu === v && c.server === srv); }
+
+// ---------------------------------------------------------------- overview
+function capacityChart(host, metric, opts = {}) {
+  const series = [];
+  for (const srv of SERVERS) {
+    const cells = VCPUS.map(v => capCell(v, srv)).filter(Boolean);
+    series.push({ name: srv, endLabel: SHORT[srv], color: sColor(srv), markers: true,
+      pts: cells.map(c => [c.vcpu, metric(c), opts.meta ? opts.meta(c) : null]) });
+    if (opts.reps) {
+      const rs = RUNS.filter(r => r.category === 'sweep' && r.server === srv);
+      series.push({ name: srv + ' 单次', color: sColor(srv), line: false, markers: true, r: 2.5, opacity: .45, legend: false, tip: false,
+        pts: rs.map(r => [r.vcpu, opts.reps(r)]) });
+    }
+  }
+  lineChart(host, Object.assign({ series, xLog2: true, xTicks: VCPUS, xFmt: v => v + '', xLabel: 'vCPU（对数刻度）', endLabels: true,
+    tipTitle: v => `${v} vCPU`, height: 280 }, opts.chart || {}));
+}
+RENDER.overview = () => {
+  const el = $('#t-overview'); el.textContent = '';
+  const sweep = RUNS.filter(r => r.category === 'sweep');
+  const hours = RUNS.reduce((a, r) => a + (r.durationMin || 0), 0) / 60;
+  const best = sweep.reduce((a, r) => (r.maxPlayersMax || 0) > (a.maxPlayersMax || 0) ? r : a, sweep[0]);
+  const tiles = [
+    ['正式运行', '90', '5 种服务端 × 6 档 vCPU × 3 次'],
+    ['全部运行目录', String(RUNS.length), `另有 ${RUNS.length - 90} 次作废、停止或早期运行`],
+    ['负载台阶', (DATA['steps.csv'] ? DATA['steps.csv'].rows.length : 5769).toLocaleString(), '每 2 个 bot 一级，每级约 3 分钟'],
+    ['累计运行时长', fmt(hours, 0) + ' 小时', '所有运行目录合计'],
+    ['单次最高容量', String(best.maxPlayersMax), `${SHORT[best.server]} · ${best.vcpu} vCPU · r${best.rep}`],
+  ];
+  el.append(h('h2', { text: '概览' }), h('p', { class: 'lead', text: '容量 = 每分钟平均 TPS 跌破 15 之前能稳定承载的最多 bot 数。bot 跑在独立的 agent 进程里，服务端绑定到指定 vCPU，不限内存。下面的结论都由本页内嵌数据现场计算。' }));
+  el.append(h('div', { class: 'tiles' }, tiles.map(([l, v, d]) => h('div', { class: 'tile' }, h('div', { class: 'l', text: l }), h('div', { class: 'v', text: v }), h('div', { class: 'd', text: d })))));
+  // findings computed from the data
+  const med = (v, s) => capCell(v, s)?.median;
+  const bdsMed = VCPUS.map(v => med(v, 'BDS')).join(' / ');
+  const endBest = VCPUS.every(v => SERVERS.every(s => med(v, 'Endstone') >= med(v, s)));
+  const wine = mean(VCPUS.filter(v => v >= 2).map(v => 1 - med(v, 'BDS (Wine)') / med(v, 'BDS')));
+  const ll = mean(VCPUS.filter(v => v >= 2).map(v => med(v, 'LeviLamina (Wine)') / med(v, 'BDS (Wine)') - 1));
+  const lo = mean(VCPUS.filter(v => v >= 2).map(v => med(v, 'LeviLamina+LeviOptimize (Wine)') / med(v, 'BDS (Wine)') - 1));
+  const memMax = Math.max(...CAP.map(c => c.rssPeakMiBMax / 1024 / (8 * c.vcpu)));
+  const memRange = f => { const v = CAP.filter(f).map(c => c.rssPeakMiBMax / 1024); return `${fmt(Math.min(...v), 1)}–${fmt(Math.max(...v), 1)}`; };
+  const spread = v => mean(CAP.filter(c => c.vcpu === v).map(c => c.max - c.min));
+  const util = median(CAP.filter(c => c.vcpu >= 2).map(c => c.capMainUtilMedian));
+  const card = h('div', { class: 'card' }, h('h3', { text: '主要发现' }));
+  card.append(h('ul', { class: 'findings' },
+    h('li', { text: `原生 BDS 在 1/2/4/8/16/32 vCPU 下的容量中位数为 ${bdsMed} 个 bot；4 vCPU 以后基本不再增长。` }),
+    h('li', { text: `2 vCPU 起，容量点的主线程占用中位数为 ${fmt(util * 100, 1)}%：瓶颈是单个 tick 线程，而不是总核数。` }),
+    h('li', { text: endBest ? 'Endstone 在每一档 vCPU 都是容量最高的服务端（它在 Linux 上换用了 mimalloc 分配器，差距包含插件框架和分配器两个因素）。' : 'Endstone 并非每一档都最高，见容量页。' }),
+    h('li', { text: `同一个 BDS 放到 Wine 下，2–32 vCPU 平均少带 ${fmt(wine * 100, 1)}% 的 bot。和 BDS (Wine) 相比，LeviLamina (Wine) 平均 ${ll >= 0 ? '+' : ''}${fmt(ll * 100, 1)}%，加上 LeviOptimize 后 ${lo >= 0 ? '+' : ''}${fmt(lo * 100, 1)}%。` }),
+    h('li', { text: `内存不是限制：RSS 峰值最高只用到假定上限（8 GiB × vCPU）的 ${fmt(memMax * 100, 0)}%。Endstone 的峰值在 ${memRange(c => c.server === 'Endstone')} GiB，其余四种在 ${memRange(c => c.server !== 'Endstone')} GiB。` }),
+    h('li', { text: `1 vCPU 下重复之间波动最大：最高与最低平均相差 ${fmt(spread(1), 1)} 个 bot（原生 BDS 为 ${capCell(1, 'BDS').maxBotsByRep}）；2–32 vCPU 平均只差 ${fmt(mean(VCPUS.slice(1).map(spread)), 1)} 个。` })));
+  el.append(card);
+  const c1 = h('div', { class: 'card' }, h('h3', { text: '容量随 vCPU 变化（中位数，淡点为单次）' }), h('div', { class: 'note', text: '悬停查看每次重复的数值；完整数值见容量页的表格。' }),
+    legend(SERVERS.map(s => ({ name: s, color: sColor(s) }))));
+  const ch = h('div'); c1.append(ch); el.append(c1);
+  capacityChart(ch, c => c.median, { reps: r => r.maxPlayersMax, meta: c => '各次 ' + c.maxBotsByRep, chart: { tipFmt: v => fmt(v, 0) + ' 个' } });
+};
+
+// ---------------------------------------------------------------- capacity
+RENDER.capacity = () => {
+  const el = $('#t-capacity'); el.textContent = '';
+  el.append(h('h2', { text: '容量' }), h('p', { class: 'lead', text: '每个组合 3 次重复。折线是中位数，悬停可看每次的值。下方热力表给出全部数字。' }));
+  const lg = () => legend(SERVERS.map(s => ({ name: s, color: sColor(s) })));
+  const g = h('div', { class: 'grid2' }); el.append(g);
+  const queue = [];
+  const mk = (title, note, ...args) => { const c = h('div', { class: 'card' }, h('h3', { text: title }), h('div', { class: 'note', text: note }), lg()); const d = h('div'); c.append(d); g.append(c); queue.push(() => capacityChart(d, ...args)); };
+  mk('最大 bot 数', '中位数；淡点为单次重复', c => c.median, { reps: r => r.maxPlayersMax, meta: c => '各次 ' + c.maxBotsByRep, chart: { tipFmt: v => fmt(v, 0) + ' 个', height: 260 } });
+  mk('相对原生 BDS', '中位数之比 − 1；0% 线即原生 BDS', c => (c.median / capCell(c.vcpu, 'BDS').median - 1) * 100,
+    { meta: c => `${c.median} vs ${capCell(c.vcpu, 'BDS').median}`, chart: { yFmt: v => fmt(v, 0) + '%', tipFmt: v => (v >= 0 ? '+' : '') + fmt(v, 1) + '%', height: 260 } });
+  mk('RSS 峰值（GiB）', '3 次中的最大值；淡点为单次', c => c.rssPeakMiBMax / 1024, { reps: r => r.rssPeakMiB / 1024, chart: { yZero: true, yFmt: v => fmt(v, 1), tipFmt: v => fmt(v, 2) + ' GiB', height: 260 } });
+  mk('容量点主线程占用', 'tick 线程 CPU 占用（1 = 一个核跑满），中位数；淡点为单次', c => c.capMainUtilMedian, { reps: r => r.capMainUtil, chart: { yFmt: v => fmt(v * 100, 0) + '%', tipFmt: v => fmt(v * 100, 1) + '%', height: 260 } });
+  mk('容量点服务端 CPU（核）', '整个进程的平均占用；淡点为单次', c => c.capServerCoresMedian, { reps: r => r.capServerCores, chart: { yZero: true, tipFmt: v => fmt(v, 2) + ' 核', height: 260 } });
+  mk('容量点 tick CPU 时间（ms/tick）', '主线程每个 tick 消耗的 CPU 时间，单次重复取中位数', c => median(RUNS.filter(r => r.category === 'sweep' && r.vcpu === c.vcpu && r.server === c.server).map(r => r.capTickCpuMs)),
+    { reps: r => r.capTickCpuMs, chart: { tipFmt: v => fmt(v, 1) + ' ms', height: 260 } });
+  queue.forEach(f => f());
+  // heat table
+  const card = h('div', { class: 'card', style: 'margin-top:16px' }, h('h3', { text: '容量热力表' }), h('div', { class: 'note', text: '格内大字为中位数，小字为 r1/r2/r3；颜色越深容量越高。' }));
+  const vals = CAP.map(c => c.median), lo = Math.min(...vals), hi = Math.max(...vals);
+  const steps = ['--q100', '--q200', '--q300', '--q400', '--q500', '--q600', '--q700'];
+  const t = h('table', { class: 'heat' }); const hr = h('tr', {}, h('th', { text: '服务端 \\ vCPU' }), VCPUS.map(v => h('th', { text: v })));
+  t.append(h('thead', {}, hr)); const tb = h('tbody');
+  for (const srv of SERVERS) {
+    const tr = h('tr', {}, h('th', { style: 'text-align:left' }, (() => { const i = h('i', { class: 'dot', style: `display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:${sColor(srv)}` }); return i; })(), srv));
+    for (const v of VCPUS) { const c = capCell(v, srv); const k = Math.min(6, Math.floor((c.median - lo) / (hi - lo + 1e-9) * 7));
+      const td = h('td', { class: 'c', title: `${srv} · ${v} vCPU：中位数 ${c.median}，各次 ${c.maxBotsByRep}` }, String(c.median), h('small', { text: c.maxBotsByRep }));
+      td.style.background = css(steps[k]); td.style.color = k >= 4 ? '#ffffff' : '#0b0b0b'; tr.append(td); }
+    tb.append(tr);
+  }
+  t.append(tb); card.append(h('div', { style: 'overflow:auto' }, t)); el.append(card);
+  const c2 = h('div', { class: 'card' }, h('h3', { text: '容量汇总表' })); const d2 = h('div'); c2.append(d2); el.append(c2);
+  table(d2, DATA['capacity_summary.csv'].rows, { cols: autoCols(DATA['capacity_summary.csv'].cols), filter: false, pageSize: 50 });
+};
+
+// ---------------------------------------------------------------- load curves
+const STEP_METRICS = [
+  ['tpsMean', '平均 TPS', v => fmt(v, 2), [{ y: 15, label: 'TPS 15' }]], ['counterTps', 'tick 计数 TPS', v => fmt(v, 2), [{ y: 15, label: 'TPS 15' }]],
+  ['tpsMin', '最低 TPS', v => fmt(v, 2)], ['tickMsP99', 'tick 间隔 p99（ms）', v => fmt(v, 1)], ['tickMsMean', 'tick 间隔均值（ms）', v => fmt(v, 1)],
+  ['tickCpuMsPerTick', '每 tick CPU 时间（ms）', v => fmt(v, 1)], ['mainUtilMean', '主线程占用', v => fmt(v * 100, 1) + '%'],
+  ['serverCpuPctMean', '服务端 CPU（%，100 = 1 核）', v => fmt(v, 0)], ['rssMiBMax', 'RSS 峰值（MiB）', v => fmt(v, 0)],
+  ['rttMsP50', 'bot RTT p50（ms）', v => fmt(v, 1)], ['rttMsP99', 'bot RTT p99（ms）', v => fmt(v, 1)], ['gametimeLatMsP99', 'gametime 延迟 p99（ms）', v => fmt(v, 1)],
+  ['chunksPerSec', '区块下发（个/秒/bot）', v => fmt(v, 2)], ['uniqChunksPerBot', '每 bot 唯一区块', v => fmt(v, 0)], ['viewT90MsP50', '视野加载 T90 p50（ms）', v => fmt(v, 0)],
+  ['netTxBps', '服务端网络发送（B/s）', compact], ['netRxBps', '服务端网络接收（B/s）', compact], ['over100', '超过 100 ms 的 tick 数', v => fmt(v, 0)],
+  ['foreignMean', '服务端机器外来负载（核）', v => fmt(v, 1)], ['serverSetForeignMean', '服务端 CPU 集合外来负载（核）', v => fmt(v, 3)], ['botFailures', 'bot 失败数', v => fmt(v, 0)],
+];
+const curveState = { vcpu: 8, metric: 'tpsMean', cat: 'sweep', servers: new Set(SERVERS), invalid: false };
+RENDER.curves = () => {
+  const el = $('#t-curves'); el.textContent = '';
+  el.append(h('h2', { text: '负载曲线' }), h('p', { class: 'lead', text: '每条线是一次运行，横轴是该负载台阶的 bot 数，纵轴是台阶测量窗口内的指标。颜色区分服务端，线型区分第几次重复（实线 r1、长虚线 r2、点线 r3）。' }));
+  const st = curveState;
+  const selV = h('select', {}, h('option', { value: 'all', text: '全部' }), VCPUS.map(v => h('option', { value: v, text: v + ' vCPU' })));
+  selV.value = String(st.vcpu);
+  const selM = h('select', {}, STEP_METRICS.map(m => h('option', { value: m[0], text: m[1] }))); selM.value = st.metric;
+  const cats = [...new Set(RUNS.map(r => r.category))];
+  const selC = h('select', {}, cats.map(c => h('option', { value: c, text: CATS[c] || c }))); selC.value = st.cat;
+  const inv = h('input', { type: 'checkbox' }); inv.checked = st.invalid;
+  const boxes = SERVERS.map(srv => { const b = h('input', { type: 'checkbox' }); b.checked = st.servers.has(srv);
+    b.addEventListener('change', () => { b.checked ? st.servers.add(srv) : st.servers.delete(srv); draw(); });
+    const dot = h('i', { style: `display:inline-block;width:8px;height:8px;border-radius:50%;background:${sColor(srv)}` }); return h('label', { class: 'chk' }, b, dot, SHORT[srv]); });
+  el.append(h('div', { class: 'filters' }, h('label', {}, 'vCPU', selV), h('label', {}, '指标', selM), h('label', {}, '运行类别', selC), h('label', { class: 'chk' }, inv, '含作废台阶'), ...boxes));
+  const card = h('div', { class: 'card' }); el.append(card);
+  for (const [e, k] of [[selV, 'vcpu'], [selM, 'metric'], [selC, 'cat']]) e.addEventListener('change', () => { st[k] = k === 'vcpu' && e.value !== 'all' ? +e.value : e.value; draw(); });
+  inv.addEventListener('change', () => { st.invalid = inv.checked; draw(); });
+  const steps = DATA['steps.csv'].rows;
+  function draw() {
+    card.textContent = '';
+    const m = STEP_METRICS.find(x => x[0] === st.metric);
+    const runs = RUNS.filter(r => r.category === st.cat && (st.vcpu === 'all' || r.vcpu === st.vcpu) && st.servers.has(r.server));
+    const by = new Map(runs.map(r => [r.host + '|' + r.runId, []]));
+    for (const s of steps) { const a = by.get(s.host + '|' + s.runId); if (!a) continue; if (!st.invalid && s.invalidReasons) continue; if (s[st.metric] == null) continue; a.push(s); }
+    const series = [];
+    for (const r of runs) {
+      const ss = by.get(r.host + '|' + r.runId); if (!ss.length) continue;
+      const reps = [...new Set(ss.map(x => x.repeat))];
+      for (const rp of reps) {
+        const pts = ss.filter(x => x.repeat === rp).sort((a, b) => a.players - b.players).map(x => [x.players, x[st.metric], x.pass === false ? '未通过' : null]);
+        series.push({ name: `${st.vcpu === 'all' ? 'N' + r.vcpu + ' ' : ''}${SHORT[r.server]}${r.rep ? ' r' + r.rep : ''}${reps.length > 1 ? ' 重复' + rp : ''}${r.attempt ? ' ' + r.attempt : ''}`,
+          color: sColor(r.server), dash: REPDASH[r.rep] || (rp ? REPDASH[(rp % 3) + 1] : null), width: 1.5, pts });
+      }
+    }
+    card.append(h('h3', { text: `${m[1]} 随 bot 数变化` }), h('div', { class: 'note', text: `${series.length} 条曲线。悬停时列出该 bot 数下所有运行的值（按大小排序）。` }),
+      legend([...SERVERS.filter(x => st.servers.has(x)).map(x => ({ name: x, color: sColor(x) })), { name: 'r1', color: css('--axis-ink') }, { name: 'r2', color: css('--axis-ink'), dash: '6 3' }, { name: 'r3', color: css('--axis-ink'), dash: '2 3' }]));
+    const d = h('div'); card.append(d);
+    lineChart(d, { series, height: 420, xLabel: 'bot 数', yFmt: v => compact(v), tipFmt: m[2], refs: m[3], tipTitle: x => `${x} 个 bot`, maxTip: 20 });
+  }
+  draw();
+};
+
+// ---------------------------------------------------------------- single run
+const TS_METRICS = [
+  ['botsSpawned', '在线 bot 数', v => fmt(v, 0)], ['tpsMean', 'TPS（时间格内均值）', v => fmt(v, 2), [{ y: 15, label: '15' }]], ['tickMsP99Max', 'tick 间隔 p99（ms）', v => fmt(v, 0)],
+  ['serverCores', '服务端 CPU（核）', v => fmt(v, 2)], ['mainUtilMean', '主线程占用', v => fmt(v * 100, 1) + '%'], ['rssMiB', 'RSS（MiB）', v => fmt(v, 0)],
+  ['privateMiB', 'Private（MiB）', v => fmt(v, 0)], ['threads', '服务端线程数', v => fmt(v, 0)], ['gametimeLatMsMax', 'gametime 延迟（ms）', v => fmt(v, 0)],
+  ['botCores', 'bot 端 CPU（核）', v => fmt(v, 2)], ['botRssMiB', 'bot 端 RSS（MiB）', v => fmt(v, 0)], ['botEventLoopLagP99Ms', 'bot 事件循环延迟 p99（ms）', v => fmt(v, 1)],
+  ['loadgenSaturatedFrac', 'loadgen 饱和比例', v => fmt(v * 100, 0) + '%'], ['botRttMsP50', 'bot RTT p50（ms）', v => fmt(v, 1)], ['botRxBps', 'bot 接收（B/s）', compact],
+  ['srvNetTxBps', '服务端机器网络发送（B/s）', compact], ['srvHostForeignCores', '服务端机器外来负载（核）', v => fmt(v, 1)], ['srvSetForeignCores', '服务端 CPU 集合外来负载（核）', v => fmt(v, 3)],
+  ['agentForeignCores', 'agent 机器外来负载（核）', v => fmt(v, 1)], ['joinFailures', '累计加入失败', v => fmt(v, 0)],
+];
+const runState = { a: null, b: '', res: '60s' };
+let TSIDX = {};
+async function tsFor(res) {
+  const name = res === '10s' ? 'timeseries_10s.csv' : 'timeseries_60s.csv';
+  if (!TSIDX[res]) { const d = await load(name); const m = new Map(); for (const r of d.rows) { const k = r.host + '|' + r.runId; if (!m.has(k)) m.set(k, []); m.get(k).push(r); } TSIDX[res] = m; }
+  return TSIDX[res];
+}
+function openRun(r) { runState.a = r.host + '|' + r.runId; showTab('run'); }
+RENDER.run = async () => {
+  const el = $('#t-run'); el.textContent = '';
+  el.append(h('h2', { text: '单次运行' }), h('p', { class: 'lead', text: '任选一次运行查看完整时序；可再选一次做对比（蓝色为主运行，橙色为对比运行）。横轴是自该重复开始起的分钟数。在“数据表”页点击运行表的任意一行也会跳到这里。' }));
+  const st = runState; if (!st.a) { const d = RUNS.find(r => r.category === 'sweep' && r.vcpu === 4 && r.server === 'BDS' && r.rep === 2) || RUNS[0]; st.a = d.host + '|' + d.runId; }
+  const mkSel = (val, none) => { const sel = h('select', { style: 'max-width:520px' }); if (none) sel.append(h('option', { value: '', text: '（不对比）' }));
+    for (const c of Object.keys(CATS)) { const og = h('optgroup', { label: CATS[c] }); for (const r of RUNS.filter(x => x.category === c)) og.append(h('option', { value: r.host + '|' + r.runId, text: runLabel(r) + (r.maxPlayersMax != null ? ` · 容量 ${r.maxPlayers}` : '') })); sel.append(og); }
+    sel.value = val; return sel; };
+  const sa = mkSel(st.a), sb = mkSel(st.b, true);
+  const sr = h('select', {}, h('option', { value: '60s', text: '1 分钟' }), h('option', { value: '10s', text: '10 秒' })); sr.value = st.res;
+  sa.addEventListener('change', () => { st.a = sa.value; RENDER.run(); }); sb.addEventListener('change', () => { st.b = sb.value; RENDER.run(); }); sr.addEventListener('change', () => { st.res = sr.value; RENDER.run(); });
+  el.append(h('div', { class: 'filters' }, h('label', {}, '运行', sa), h('label', {}, '对比', sb), h('label', {}, '时间粒度', sr)));
+  const body = h('div', { class: 'loading', text: st.res === '10s' ? '正在解压 10 秒时序（约 40 MB）…' : '正在载入…' }); el.append(body);
+  const idx = await tsFor(st.res); if (current !== 'run') return;
+  body.className = ''; body.textContent = '';
+  const ra = BYKEY.get(st.a), rb = st.b ? BYKEY.get(st.b) : null;
+  // facts
+  const facts = h('div', { class: 'card' }, h('h3', { text: runLabel(ra) }));
+  const status = ra.hasResult ? h('span', { class: 'badge ' + (ra.invalidLimited || /invalid/.test(ra.repeatStatus || '') ? 'bad' : 'ok'), text: ra.invalidLimited ? '受作废台阶限制' : (ra.repeatStatus || '') }) : h('span', { class: 'badge bad', text: '无结果（中途停止）' });
+  facts.append(h('div', { class: 'note' }, `${CATS[ra.category]} · 容量 ${ra.maxPlayers || '–'} · 方法 ${ra.method} · `, status));
+  const kv = h('div', { class: 'kv' });
+  for (const k of DATA['runs.csv'].cols) kv.append(h('div', {}, h('span', { text: k, title: k }), h('span', { text: ra[k] == null ? '–' : typeof ra[k] === 'number' ? fmt(ra[k], 4) : String(ra[k]) })));
+  const det = h('details', {}, h('summary', { text: '全部运行字段', style: 'cursor:pointer;color:var(--ink2);font-size:12px' }), kv); facts.append(det);
+  body.append(facts);
+  // time-series small multiples
+  const runs = [[ra, css('--s1'), '主']].concat(rb ? [[rb, css('--s2'), '对比']] : []);
+  const g = h('div', { class: 'gridsm' }); body.append(g);
+  if (rb) body.insertBefore(legend([{ name: '主：' + runLabel(ra), color: css('--s1') }, { name: '对比：' + runLabel(rb), color: css('--s2') }]), g);
+  const charts = [];
+  for (const m of TS_METRICS) {
+    const series = [];
+    for (const [r, col, tag] of runs) {
+      const rows = idx.get(r.host + '|' + r.runId) || []; const reps = [...new Set(rows.map(x => x.repeat))];
+      reps.forEach((rp, i) => series.push({ name: tag + (reps.length > 1 ? ' 重复' + rp : ''), color: col, dash: i ? REPDASH[(i % 3) + 1] : null, width: 1.5,
+        pts: rows.filter(x => x.repeat === rp).map(x => [x.tSec / 60, x[m[0]], x.stepPlayers != null ? `台阶 ${x.stepPlayers} 个 bot · ${x.stepState}` : x.stepState]) }));
+    }
+    const c = h('div', { class: 'card', style: 'margin:0' }, h('h3', { text: m[1] })); const d = h('div'); c.append(d); g.append(c); charts.push([d, series, m]);
+  }
+  for (const [d, series, m] of charts) lineChart(d, { series, height: 170, xFmt: v => fmt(v, 0), tipTitle: x => `第 ${fmt(x, 1)} 分钟`, tipFmt: m[2], yFmt: compact, refs: m[3] });
+  // thread CPU vs players
+  const thr = (await load('thread_cpu_by_step.csv')).rows.filter(x => x.host === ra.host && x.runId === ra.runId);
+  if (thr.length) {
+    const tot = new Map(); for (const t of thr) tot.set(t.threadName, Math.max(tot.get(t.threadName) || 0, t.cpuPctMean));
+    const names = [...tot.entries()].sort((a, b) => b[1] - a[1]).map(x => x[0]); const top = names.slice(0, 7);
+    const series = top.map((n, i) => ({ name: n, color: css('--s' + (i + 1)), pts: thr.filter(t => t.threadName === n && (t.repeat === 0 || t.repeat == null)).sort((a, b) => a.players - b.players).map(t => [t.players, t.cpuPctMean]) }));
+    if (names.length > 7) { const other = new Map(); for (const t of thr) if (!top.includes(t.threadName) && (t.repeat === 0 || t.repeat == null)) other.set(t.players, (other.get(t.players) || 0) + t.cpuPctMean);
+      series.push({ name: '其他线程合计', color: css('--axis-ink'), dash: '2 3', pts: [...other.entries()].sort((a, b) => a[0] - b[0]) }); }
+    const c = h('div', { class: 'card', style: 'margin-top:16px' }, h('h3', { text: '各线程 CPU 随 bot 数变化（主运行，第一个重复）' }),
+      h('div', { class: 'note', text: '每秒只采集 CPU 最高的 5 个线程，未进前 5 的时刻按 0 计。100% = 一个核。' }), legend(series.map(x => ({ name: x.name, color: x.color, dash: x.dash }))));
+    const d = h('div'); c.append(d); body.append(c);
+    lineChart(d, { series, height: 300, xLabel: 'bot 数', yFmt: v => fmt(v, 0) + '%', tipFmt: v => fmt(v, 1) + '%', tipTitle: x => `${x} 个 bot` });
+  }
+  // steps
+  const sc = h('div', { class: 'card', style: 'margin-top:16px' }, h('h3', { text: '负载台阶明细（主运行）' })); const sd = h('div'); sc.append(sd); body.append(sc);
+  const srows = DATA['steps.csv'].rows.filter(x => x.host === ra.host && x.runId === ra.runId);
+  const keyCols = ['repeat', 'index', 'players', 'pass', 'tpsMean', 'counterTps', 'tickMsP99', 'tickCpuMsPerTick', 'mainUtilMean', 'serverCpuPctMean', 'rssMiBMax', 'rttMsP50', 'failReasons', 'invalidReasons'];
+  table(sd, srows, { cols: keyCols.concat(DATA['steps.csv'].cols.filter(k => !keyCols.includes(k))).map(k => ({ k })), pageSize: 100 });
+};
+
+// ---------------------------------------------------------------- dispatch gantt
+RENDER.dispatch = () => {
+  const el = $('#t-dispatch'); el.textContent = '';
+  el.append(h('h2', { text: '调度' }), h('p', { class: 'lead', text: '每个条形是一次尝试，按服务端所在机器分组、自动排成多条泳道。彩色为最终采用的尝试，灰色为作废、停止或被重跑替换的尝试。悬停查看详情。' }));
+  const att = DATA['attempts.csv'].rows, jobs = DATA['dispatch_jobs.csv'].rows;
+  const finals = new Set(jobs.map(j => j.finalUnit));
+  const open = new Map(), bars = [];
+  for (const a of att.slice().sort((x, y) => x.timeUtc < y.timeUtc ? -1 : 1)) {
+    const k = a.jobsLog + '|' + a.unit;
+    if (a.event === 'start') open.set(k, a);
+    else if (open.has(k)) { const s0 = open.get(k); open.delete(k); bars.push({ s: s0, e: a }); }
+  }
+  for (const [, s0] of open) bars.push({ s: s0, e: null });
+  const FL = { 'bds': 'BDS', 'endstone': 'Endstone', 'bds-wine': 'BDS (Wine)', 'levilamina-wine': 'LeviLamina (Wine)', 'levilamina-levioptimize-wine': 'LeviLamina+LeviOptimize (Wine)' };
+  for (const b of bars) { const m = /^N(\d+)-(.+?)-r(\d+)-(.+)$/.exec(b.s.unit) || []; b.vcpu = +m[1]; b.server = FL[m[2]] || m[2]; b.rep = +m[3];
+    b.t0 = Date.parse(b.s.timeUtc); b.t1 = b.e ? Date.parse(b.e.timeUtc) : b.t0 + 3600e3; b.final = finals.has(b.s.unit) && !/\/old\//.test(b.s.jobsLog); b.host = b.s.host; }
+  const T0 = Math.min(...bars.map(b => b.t0)), T1 = Math.max(...bars.map(b => b.t1));
+  const card = h('div', { class: 'card' }, legend([...SERVERS.map(x => ({ name: x, color: sColor(x), kind: 'dot' })), { name: '作废/替换', color: css('--void'), kind: 'dot' }])); el.append(card);
+  const host = h('div', { class: 'chart' }); card.append(host);
+  const W = Math.max(600, host.clientWidth || card.clientWidth - 32), ml = 64, mr = 12, lane = 13, gap = 2;
+  const groups = ['bp-hm1', 'bp-z1', 'bp-z2'].map(hn => { const bs = bars.filter(b => b.host === hn).sort((a, b) => a.t0 - b.t0); const ends = [];
+    for (const b of bs) { let i = ends.findIndex(e => e <= b.t0); if (i < 0) { i = ends.length; ends.push(0); } ends[i] = b.t1; b.lane = i; } return { hn, bs, n: ends.length }; });
+  const Hh = groups.reduce((a, g) => a + g.n * lane + 18, 0) + 28;
+  const svg = s('svg', { viewBox: `0 0 ${W} ${Hh}`, height: Hh });
+  const X = t => ml + (t - T0) / (T1 - T0) * (W - ml - mr);
+  const hrs = []; for (let t = Math.ceil(T0 / 36e5 / 3) * 3 * 36e5; t <= T1; t += 3 * 36e5) hrs.push(t);
+  for (const t of hrs) { svg.append(s('line', { x1: X(t), x2: X(t), y1: 0, y2: Hh - 22, stroke: css('--grid') }));
+    const tx = s('text', { x: X(t), y: Hh - 8, 'text-anchor': 'middle' }); const d = new Date(t); tx.textContent = `${d.getUTCMonth() + 1}-${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:00`; svg.append(tx); }
+  const tip = h('div', { class: 'tip' }); let y = 4; const surf = css('--surface');
+  for (const gr of groups) {
+    const tx = s('text', { x: 0, y: y + 10, class: 'lbl' }); tx.textContent = gr.hn; svg.append(tx);
+    for (const b of gr.bs) {
+      const r = s('rect', { x: X(b.t0), y: y + b.lane * lane, width: Math.max(2, X(b.t1) - X(b.t0) - gap), height: lane - gap, rx: 2, fill: b.final ? sColor(b.server) : css('--void'), stroke: 'none' });
+      r.addEventListener('pointermove', ev => { tip.textContent = ''; tip.append(h('div', { class: 'h', text: b.s.unit }),
+        h('div', { text: `${b.server} · ${b.vcpu} vCPU · r${b.rep}` }), h('div', { text: `${b.s.timeUtc} → ${b.e ? b.e.timeUtc : '（无结束记录）'}` }),
+        h('div', { text: `${fmt((b.t1 - b.t0) / 36e5, 2)} 小时 · ${b.final ? '最终采用' : '作废/替换'}${b.e ? ' · ' + b.e.detail : ''}` }), h('div', { class: 'muted', text: b.s.jobsLog }));
+        tip.style.display = 'block'; const hr0 = host.getBoundingClientRect(); let lx = ev.clientX - hr0.left + 14; if (lx + tip.offsetWidth > host.clientWidth) lx = ev.clientX - hr0.left - 14 - tip.offsetWidth; tip.style.left = Math.max(0, lx) + 'px'; tip.style.top = (ev.clientY - hr0.top + 12) + 'px';
+        r.setAttribute('stroke', css('--ink')); });
+      r.addEventListener('pointerleave', () => { tip.style.display = 'none'; r.setAttribute('stroke', 'none'); });
+      svg.append(r);
+    }
+    y += gr.n * lane + 18;
+  }
+  host.append(svg, tip);
+  const c2 = h('div', { class: 'card' }, h('h3', { text: '调度器最终状态（90 个任务）' })); const d2 = h('div'); c2.append(d2); el.append(c2);
+  table(d2, jobs, { cols: autoCols(DATA['dispatch_jobs.csv'].cols), pageSize: 100 });
+};
+
+// ---------------------------------------------------------------- data tables
+const TABLES = [['runs.csv', '运行（160）'], ['capacity_summary.csv', '容量汇总（30）'], ['steps.csv', '负载台阶（5,769）'], ['dispatch_jobs.csv', '调度任务（90）'],
+  ['attempts.csv', '尝试记录（262）'], ['thread_cpu_by_step.csv', '线程 CPU（25,860）'], ['timeseries_60s.csv', '1 分钟时序（18,622）'], ['timeseries_10s.csv', '10 秒时序（111,223）']];
+let dataSel = 'runs.csv';
+RENDER.data = async () => {
+  const el = $('#t-data'); el.textContent = '';
+  el.append(h('h2', { text: '数据表' }), h('p', { class: 'lead', text: '本页内嵌的全部表格，可筛选、按列排序、下载为 CSV。运行表中点击任意一行可打开该运行的时序。' }));
+  const sel = h('select', {}, TABLES.map(([k, l]) => h('option', { value: k, text: l }))); sel.value = dataSel;
+  const dl = h('button', { text: '下载当前表 CSV' }), all = h('button', { text: '下载全部表' });
+  el.append(h('div', { class: 'filters' }, h('label', {}, '表', sel), dl, all));
+  const body = h('div', { class: 'card' }, h('div', { class: 'loading', text: '正在解压…' })); el.append(body);
+  sel.addEventListener('change', () => { dataSel = sel.value; RENDER.data(); });
+  all.addEventListener('click', async () => { for (const [k] of TABLES) { const d = await load(k); download(k, d.text); await new Promise(r => setTimeout(r, 300)); } });
+  const d = await load(dataSel); if (current !== 'data') return;
+  dl.onclick = () => download(dataSel, d.text);
+  body.textContent = '';
+  table(body, d.rows, { cols: autoCols(d.cols), pageSize: 200, onRow: dataSel === 'runs.csv' ? openRun : null });
+};
+
+// ---------------------------------------------------------------- files
+let fileSel = 'README.md';
+RENDER.files = async () => {
+  const el = $('#t-files'); el.textContent = '';
+  el.append(h('h2', { text: '配置与日志' }), h('p', { class: 'lead', text: '各机器的服务端配置、vCPU profile、调度器配置与状态、agent/安装/调度日志、机器包列表与 sysctl，以及生成本数据集的脚本。' }));
+  const f = (await load('files.json')).json; const names = Object.keys(f).sort();
+  const ul = h('ul'), pre = h('pre', { class: 'code' }), dl = h('button', { text: '下载此文件' }), title = h('div', { class: 'muted', style: 'margin-bottom:6px' });
+  let lastDir = null;
+  for (const n of names) { const dir = n.includes('/') ? n.slice(0, n.lastIndexOf('/')) : '';
+    if (dir !== lastDir) { ul.append(h('li', { class: 'dir', text: dir || '（根目录）' })); lastDir = dir; }
+    const li = h('li', { text: n.slice(n.lastIndexOf('/') + 1), title: n, class: n === fileSel ? 'sel' : null }); li.addEventListener('click', () => { fileSel = n; RENDER.files(); }); ul.append(li); }
+  const txt = f[fileSel] ?? ''; pre.textContent = txt.length > 400000 ? txt.slice(0, 400000) + '\n…（已截断，下载可得完整内容）' : txt;
+  title.textContent = `${fileSel} · ${txt.length.toLocaleString()} 字符`;
+  dl.addEventListener('click', () => download(fileSel.split('/').pop(), txt, 'text/plain'));
+  el.append(h('div', { class: 'files' }, ul, h('div', { style: 'min-width:0' }, h('div', { class: 'filters' }, title, dl), pre)));
+};
+
+// ---------------------------------------------------------------- notes (README)
+function md(src) {
+  const out = h('div', { class: 'md' }); const lines = src.split('\n'); let i = 0;
+  const inline = t => { const span = h('span'); const parts = t.split(/(`[^`]+`|\*\*[^*]+\*\*)/);
+    for (const p of parts) { if (p.startsWith('`') && p.endsWith('`') && p.length > 1) span.append(h('code', { text: p.slice(1, -1) })); else if (p.startsWith('**') && p.endsWith('**')) span.append(h('b', { text: p.slice(2, -2) })); else span.append(p); } return span; };
+  while (i < lines.length) {
+    const l = lines[i];
+    if (l.startsWith('```')) { const buf = []; i++; while (i < lines.length && !lines[i].startsWith('```')) buf.push(lines[i++]); i++; out.append(h('pre', { text: buf.join('\n') })); continue; }
+    const m = /^(#{1,4}) (.*)/.exec(l); if (m) { out.append(h('h' + (m[1].length + 1), {}, inline(m[2]))); i++; continue; }
+    if (l.startsWith('|')) { const rows = []; while (i < lines.length && lines[i].startsWith('|')) rows.push(lines[i++]);
+      const cells = r => r.replace(/^\||\|$/g, '').split('|').map(x => x.trim());
+      const t = h('table'); t.append(h('thead', {}, h('tr', {}, cells(rows[0]).map(c => h('th', {}, inline(c))))));
+      const tb = h('tbody'); for (const r of rows.slice(2)) tb.append(h('tr', {}, cells(r).map(c => h('td', {}, inline(c))))); t.append(tb); out.append(h('div', { style: 'overflow:auto' }, t)); continue; }
+    if (/^- /.test(l)) { const ul = h('ul'); while (i < lines.length && /^- /.test(lines[i])) ul.append(h('li', {}, inline(lines[i++].slice(2)))); out.append(ul); continue; }
+    if (l.trim()) out.append(h('p', {}, inline(l)));
+    i++;
+  }
+  return out;
+}
+RENDER.notes = async () => {
+  const el = $('#t-notes'); el.textContent = '';
+  const f = (await load('files.json')).json;
+  el.append(md(f['README.md']), h('div', { class: 'card md' }, h('h3', { text: '关于本页' }),
+    h('p', { text: '本页是离线单文件，所有数据以 gzip 压缩嵌入，在浏览器中解压，不依赖网络。由 scripts/pack_report.py 从本目录的 CSV、meta、scripts 生成；数据更新后重新运行该脚本即可。' })));
+};
+
+// ---------------------------------------------------------------- boot
+(async () => {
+  const id = (location.hash || '#overview').slice(1);
+  $('#t-overview').append(h('div', { class: 'loading', text: '正在解压数据…' }));
+  try {
+    const [r, c] = await Promise.all([load('runs.csv'), load('capacity_summary.csv'), load('steps.csv'), load('dispatch_jobs.csv'), load('attempts.csv')]);
+    RUNS = r.rows; CAP = c.rows; BYKEY = new Map(RUNS.map(x => [x.host + '|' + x.runId, x]));
+    showTab(TABS.some(t => t[0] === id) ? id : 'overview');
+  } catch (e) {
+    $('#t-overview').textContent = '数据解压失败：' + e.message + '。需要支持 DecompressionStream 的浏览器（Chrome/Edge 80+、Firefox 113+、Safari 16.4+）。';
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+[bedperf] installing levilamina (wine) on BDS 1.26.60.6 (lip / pip downloads; this can take minutes)
+[bedperf] 0.41.0
+[bedperf] installing levilamina (wine) (BDS 1.26.60.6) with lip 0.41.0 into ~/.cache/bedperf/servers/levilamina-wine-b3e1352eff40/server
+[bedperf] Resolving bds@1.26.60...
+[bedperf] Resolving LeviLamina@26.60.7...
+[bedperf] Setting up the game 1.26.60 (windows) with LeviLamina 26.60.7.
+[bedperf] lip runs the server with Wine 11.21, which it installs once for every workspace,
+[bedperf] into ~/.local/share/lip/wine/wine-11.21-amd64-wow64.
+[bedperf] Extracting Wine 11.21: 7%
+[bedperf] Extracting Wine 11.21: 31%
+[bedperf] Extracting Wine 11.21: 56%
+[bedperf] Extracting Wine 11.21: 81%
+[bedperf] Extracting Wine 11.21: 97%
+rc=137

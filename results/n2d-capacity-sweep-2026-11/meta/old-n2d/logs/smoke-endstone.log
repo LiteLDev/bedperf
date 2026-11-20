@@ -1,0 +1,69 @@
+[bedperf] using cached endstone at ~/.cache/bedperf/servers/endstone-d7225031babb
+[bedperf] n2d-smoke: endstone on BDS 1.26.60.6, bots 1.26.60, scenario walk
+[bedperf] placement: the bots run on agent machines; no bot CPUs are reserved on the server machine
+[bedperf] placement: virtualized host (gce): CPUs are vCPUs and core/SMT layout is not guaranteed
+[bedperf] placement (vcpu, remote-bots): server CPUs 0,16, bots remote, harness 15,31, priority normal
+[bedperf] connecting to 1 bot agent(s): 10.0.0.2:19260
+[bedperf] agent bots-n2d96: AMD EPYC 7B13, 96 CPUs, weight 1
+[bedperf] run 20261117-123929-n2d-smoke-endstone → ~/bpx/runs/smoke/20261117-123929-n2d-smoke-endstone
+[bedperf] repeat 0: instance /tmp/bedperf-tmp/bedperf-bds-5frH2y
+[bedperf] repeat 0: game process 273147 (launcher 273146)
+[bedperf] repeat 0: warmup 60s
+[bedperf] repeat 0 step 0 [ramp] 10 players: invalid tps=20.00 counter=20.00 settle=160s (loadgen saturated; saturated agent(s): bots-n2d96)
+[bedperf] repeat 0 step 1 [ramp] 10 players: invalid tps=20.00 counter=20.01 settle=20s (interference: foreign load 0.51 cores > 0.25)
+[loadgen w1] bot 2: walk: 24 re-targets
+[loadgen w1] bot 3: walk: 24 re-targets
+[loadgen w0] bot 0: walk: 40 re-targets
+[loadgen w0] bot 1: walk: 34 re-targets
+[loadgen w2] bot 4: walk: 33 re-targets
+[loadgen w2] bot 5: walk: 29 re-targets
+[loadgen w4] bot 8: walk: 23 re-targets
+[loadgen w4] bot 9: walk: 32 re-targets
+[loadgen w3] bot 6: walk: 21 re-targets
+[loadgen w3] bot 7: walk: 22 re-targets
+[bedperf] repeat 0: invalid maxPlayers=0 [invalid twice in a row at 10 players: loadgen saturated; interference: foreign load 0.51 cores > 0.25]
+[bedperf] repeat 0 invalid: rerunning once
+[bedperf] cooldown 10s
+[bedperf] repeat 1: instance /tmp/bedperf-tmp/bedperf-bds-oYFV8F
+[bedperf] repeat 1: game process 278075 (launcher 278072)
+[bedperf] repeat 1: warmup 60s
+[bedperf] repeat 1 step 0 [ramp] 10 players: pass tps=20.00 counter=19.99 settle=115s
+[bedperf] repeat 1 step 1 [ramp] 30 players: pass tps=20.00 counter=19.99 settle=125s
+[loadgen w0] bot 0: walk: 35 re-targets
+[loadgen w0] bot 1: walk: 47 re-targets
+[loadgen w5] bot 10: walk: 15 re-targets
+[loadgen w5] bot 11: walk: 16 re-targets
+[loadgen w7] bot 14: walk: 19 re-targets
+[loadgen w4] bot 8: walk: 41 re-targets
+[loadgen w7] bot 15: walk: 18 re-targets
+[loadgen w2] bot 4: walk: 42 re-targets
+[loadgen w2] bot 5: walk: 35 re-targets
+[loadgen w4] bot 9: walk: 38 re-targets
+[loadgen w10] bot 20: walk: 23 re-targets
+[loadgen w10] bot 21: walk: 20 re-targets
+[loadgen w6] bot 12: walk: 18 re-targets
+[loadgen w6] bot 13: walk: 12 re-targets
+[loadgen w8] bot 16: walk: 14 re-targets
+[loadgen w8] bot 17: walk: 22 re-targets
+[loadgen w13] bot 26: walk: 21 re-targets
+[loadgen w3] bot 6: walk: 34 re-targets
+[loadgen w14] bot 28: walk: 19 re-targets
+[loadgen w13] bot 27: walk: 17 re-targets
+[loadgen w14] bot 29: walk: 17 re-targets
+[loadgen w3] bot 7: walk: 38 re-targets
+[loadgen w9] bot 18: walk: 14 re-targets
+[loadgen w9] bot 19: walk: 12 re-targets
+[loadgen w12] bot 24: walk: 13 re-targets
+[loadgen w12] bot 25: walk: 17 re-targets
+[loadgen w11] bot 22: walk: 17 re-targets
+[loadgen w11] bot 23: walk: 13 re-targets
+[loadgen w1] bot 2: walk: 40 re-targets
+[loadgen w1] bot 3: walk: 34 re-targets
+[bedperf] repeat 1: ok maxPlayers=30 (capped)
+[bedperf] run 20261117-123929-n2d-smoke-endstone: maxPlayers median 30 over 1/2 ok repeats [0, 30]
+[bedperf] report → ~/bpx/runs/smoke/20261117-123929-n2d-smoke-endstone/report.html
+
+n2d-smoke: max players at 20 TPS: 30 over 1/2 ok repeats (repeats: 0, 30) — capped by ramp.max — LOADGEN LIMITED
+  repeat 0: invalid (invalid twice in a row at 10 players: loadgen saturated; interference: foreign load 0.51 cores > 0.25)
+run dir: ~/bpx/runs/smoke/20261117-123929-n2d-smoke-endstone
+report:  ~/bpx/runs/smoke/20261117-123929-n2d-smoke-endstone/report.html

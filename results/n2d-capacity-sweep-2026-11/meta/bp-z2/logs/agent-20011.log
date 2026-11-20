@@ -1,0 +1,4 @@
+[bedperf] z2-host-20011 listening on 10.0.0.22:20011
+bedperf agent z2-host-20011 listening on 10.0.0.22:20011 (224 CPUs for bots)
+[bedperf] controller 10.0.0.22:48000 connected
+[bedperf] controller 10.0.0.22:48000 gone (socket error: read ECONNRESET); killed 70 worker(s)

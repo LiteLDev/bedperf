@@ -1,0 +1,70 @@
+{
+  "name": "n2d-core-scan",
+  "bdsVersion": "1.26.60.6",
+  "serverProperties": {
+    "view-distance": 10,
+    "tick-distance": 4,
+    "max-players": 1000,
+    "default-player-permission-level": "operator",
+    "difficulty": "easy"
+  },
+  "world": {
+    "seed": "bedperf",
+    "levelType": "DEFAULT"
+  },
+  "scenario": {
+    "module": "@bedperf/scenarios/walk",
+    "params": {
+      "radius": 32
+    }
+  },
+  "loadgen": {
+    "botsPerWorker": 2,
+    "joinIntervalMs": 500,
+    "connectRetries": 3
+  },
+  "ramp": {
+    "start": 10,
+    "step": 20,
+    "max": 400,
+    "settleSec": 20,
+    "holdSec": 60,
+    "resolution": 5,
+    "settle": {
+      "mode": "converge",
+      "minSec": 20,
+      "maxSec": 180,
+      "windowSec": 60,
+      "ratePerBot": 0.1,
+      "maxDataAgeSec": 5,
+      "evalSec": 5
+    }
+  },
+  "criteria": {
+    "minAvgTps": 19.8,
+    "minWorstWindowTps": 19.0,
+    "worstWindowDiscardPct": 1,
+    "maxTickIntervalP99Ms": 80,
+    "maxBotFailures": 0
+  },
+  "repeats": 3,
+  "warmupSec": 60,
+  "seed": 1,
+  "cooldownSec": 60,
+  "placement": {
+    "enabled": true,
+    "serverCpus": "auto",
+    "botCpus": "auto",
+    "harnessCpus": "bot",
+    "priority": "normal"
+  },
+  "sampling": {
+    "gametimeIntervalSec": 5
+  },
+  "server": {
+    "flavor": "bds",
+    "mods": [],
+    "runtime": "native",
+    "versions": {}
+  }
+}
