@@ -1,0 +1,42 @@
+{
+  "name": "quick-walk",
+  "bdsVersion": "1.26.63.1",
+  "serverProperties": {
+    "view-distance": 10,
+    "tick-distance": 4,
+    "max-players": 1000,
+    "default-player-permission-level": "operator",
+    "difficulty": "peaceful"
+  },
+  "world": {
+    "seed": "bedperf",
+    "levelType": "FLAT"
+  },
+  "scenario": {
+    "module": "walk",
+    "params": {}
+  },
+  "loadgen": {
+    "botsPerWorker": 15,
+    "joinIntervalMs": 100
+  },
+  "ramp": {
+    "start": 10,
+    "step": 20,
+    "max": 200,
+    "settleSec": 10,
+    "holdSec": 20,
+    "resolution": 5
+  },
+  "criteria": {
+    "minAvgTps": 19.8,
+    "minWorstWindowTps": 19,
+    "worstWindowDiscardPct": 1,
+    "maxTickIntervalP99Ms": 80,
+    "maxBotFailures": 0
+  },
+  "repeats": 1,
+  "warmupSec": 10,
+  "seed": 1,
+  "botVersion": "1.26.60"
+}

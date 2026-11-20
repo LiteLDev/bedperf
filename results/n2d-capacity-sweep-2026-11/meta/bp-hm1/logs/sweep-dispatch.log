@@ -1,0 +1,182 @@
+2026-11-18T01:44:12Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T01:44:13Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T01:44:14Z start N32-bds-r1-a1 server hm1 cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20000 port=30000 (bot pool hm1: 184 cpus)
+2026-11-18T01:44:45Z start N8-bds-wine-r1-a1 server hm1 cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20001 port=30002 (bot pool hm1: 176 cpus)
+2026-11-18T01:45:16Z start N1-bds-r1-a1 server hm1 cpus=2 harness=108,109,110,111,220,221,222,223 bots hm2 agent=10.0.0.12:20000 port=30004 (bot pool hm2: 32 cpus)
+2026-11-18T02:12:32Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T02:12:32Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T02:12:34Z start N2-levilamina-wine-r1-a1 server hm1 cpus=76,188 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20002 port=30006 (bot pool hm1: 173 cpus)
+2026-11-18T02:13:05Z start N2-levilamina-levioptimize-wine-r1-a1 server hm1 cpus=77,189 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20003 port=30008 (bot pool hm1: 171 cpus)
+2026-11-18T02:13:36Z start N1-levilamina-wine-r1-a1 server hm1 cpus=114 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20004 port=30010 (bot pool hm1: 170 cpus)
+2026-11-18T03:01:26Z start N1-bds-wine-r1-a1 server hm1 cpus=3 harness=108,109,110,111,220,221,222,223 bots hm2 agent=10.0.0.12:20001 port=30012 (bot pool hm2: 32 cpus)
+2026-11-18T03:34:56Z N1-bds-r1-a1 finished rc=0 after 1.83 h -> done max=64
+2026-11-18T03:35:58Z N1-levilamina-wine-r1-a1 finished rc=0 after 1.37 h -> done max=48
+2026-11-18T03:38:34Z start N1-endstone-r1-a1 server hm1 cpus=115 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20004 port=30004 (bot pool hm1: 170 cpus)
+2026-11-18T04:13:09Z N8-bds-wine-r1-a1 finished rc=0 after 2.47 h -> done max=90
+2026-11-18T04:13:10Z start N4-levilamina-levioptimize-wine-r1-a1 server hm1 cpus=72,73,184,185 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20001 port=30002 (bot pool hm1: 174 cpus)
+2026-11-18T04:13:41Z start N2-endstone-r1-a1 server hm1 cpus=74,186 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20005 port=30010 (bot pool hm1: 172 cpus)
+2026-11-18T04:14:25Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T04:14:26Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T04:14:27Z start N16-bds-r1-a1 server hm1 cpus=75,78,79,80,81,82,83,84,187,190,191,192,193,194,195,196 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20006 port=30014 (bot pool hm1: 156 cpus)
+2026-11-18T04:14:58Z start N2-bds-wine-r1-a1 server hm1 cpus=85,197 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20007 port=30016 (bot pool hm1: 154 cpus)
+2026-11-18T04:15:29Z start N2-bds-r1-a1 server hm1 cpus=86,198 harness=108,109,110,111,220,221,222,223 bots hm2 agent=10.0.0.12:20000 port=30018 (bot pool hm2: 32 cpus)
+2026-11-18T04:22:39Z N2-levilamina-wine-r1-a1 finished rc=0 after 2.17 h -> done max=78
+2026-11-18T04:32:59Z N2-levilamina-levioptimize-wine-r1-a1 finished rc=0 after 2.33 h -> done max=84
+2026-11-18T04:32:59Z N1-bds-wine-r1-a1 finished rc=0 after 1.53 h -> done max=54
+2026-11-18T04:42:20Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T04:42:21Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T04:42:22Z start N16-endstone-r1-a1 server hm1 cpus=76,77,87,88,89,90,91,92,188,189,199,200,201,202,203,204 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20002 port=30006 (bot pool hm1: 141 cpus)
+2026-11-18T04:53:10Z N32-bds-r1-a1 finished rc=0 after 3.15 h -> done max=116
+2026-11-18T04:53:11Z start N8-levilamina-levioptimize-wine-r1-a1 server hm1 cpus=56,57,58,59,168,169,170,171 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20000 port=30000 (bot pool hm1: 165 cpus)
+2026-11-18T05:31:19Z N4-levilamina-levioptimize-wine-r1-a1 finished rc=0 after 1.30 h -> done max=42
+2026-11-18T05:31:20Z start N16-bds-wine-r1-a1 server hm1 cpus=60,61,62,63,64,65,66,67,172,173,174,175,176,177,178,179 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20001 port=30002 (bot pool hm1: 153 cpus)
+2026-11-18T05:32:52Z N2-bds-r1-a1 finished rc=0 after 1.29 h -> done max=44
+2026-11-18T05:32:53Z start N8-levilamina-wine-r1-a1 server hm1 cpus=68,69,70,71,180,181,182,183 harness=108,109,110,111,220,221,222,223 bots hm2 agent=10.0.0.12:20000 port=30008 (bot pool hm2: 32 cpus)
+2026-11-18T05:33:25Z start N4-bds-wine-r1-a1 server hm1 cpus=72,73,184,185 harness=108,109,110,111,220,221,222,223 bots hm2 agent=10.0.0.12:20001 port=30012 (bot pool hm2: 32 cpus)
+2026-11-18T05:37:33Z N2-endstone-r1-a1 finished rc=0 after 1.40 h -> done max=48
+2026-11-18T05:37:34Z start N4-endstone-r1-a1 server hm1 cpus=74,86,186,198 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20003 port=30010 (bot pool hm1: 141 cpus)
+2026-11-18T05:38:04Z N16-bds-r1-a1 finished rc=0 after 1.39 h -> done max=46
+2026-11-18T05:38:05Z start N32-levilamina-wine-r1-a1 server hm1 cpus=75,78,79,80,81,82,83,84,93,94,95,96,97,98,99,100,187,190,191,192,193,194,195,196,205,206,207,208,209,210,211,212 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20005 port=30014 (bot pool hm1: 125 cpus)
+2026-11-18T05:38:36Z start N16-levilamina-levioptimize-wine-r1-a1 server hm1 cpus=2,4,5,6,7,8,9,10,114,116,117,118,119,120,121,122 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20006 port=30018 (bot pool hm1: 109 cpus)
+2026-11-18T05:42:44Z N2-bds-wine-r1-a1 finished rc=0 after 1.46 h -> done max=48
+2026-11-18T05:42:45Z start N8-endstone-r1-a1 server hm1 cpus=85,101,102,103,197,213,214,215 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20007 port=30016 (bot pool hm1: 103 cpus)
+2026-11-18T05:43:10Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T05:43:10Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T06:00:05Z N1-endstone-r1-a1 finished rc=0 after 2.36 h -> done max=84
+2026-11-18T06:02:41Z N16-endstone-r1-a1 finished rc=0 after 1.34 h -> pending max=42
+2026-11-18T06:12:06Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T06:12:06Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T06:24:29Z N32-levilamina-wine-r1-a1 finished rc=0 after 0.77 h -> pending max=24
+2026-11-18T06:24:36Z start N1-levilamina-levioptimize-wine-r1-a1 server hm1 cpus=3 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20002 port=30004 (bot pool hm1: 151 cpus)
+2026-11-18T06:28:50Z N4-bds-wine-r1-a1 finished rc=0 after 0.92 h -> pending max=28
+2026-11-18T06:43:03Z N16-bds-wine-r1-a1 finished rc=None after 1.20 h -> pending max=None
+2026-11-18T06:43:03Z N16-levilamina-levioptimize-wine-r1-a1 finished rc=None after 1.07 h -> pending max=None
+2026-11-18T06:43:03Z N8-levilamina-levioptimize-wine-r1-a1 finished rc=None after 1.83 h -> pending max=None
+2026-11-18T06:43:03Z N8-levilamina-wine-r1-a1 finished rc=None after 1.17 h -> pending max=None
+2026-11-18T06:43:03Z N8-endstone-r1-a1 finished rc=None after 1.01 h -> pending max=None
+2026-11-18T06:43:03Z N4-endstone-r1-a1 finished rc=None after 1.09 h -> pending max=None
+2026-11-18T06:43:11Z start N32-levilamina-wine-r1-a2 server hm1 cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20000 port=30000 (bot pool hm1: 183 cpus)
+2026-11-18T06:43:48Z start N32-endstone-r1-a1 server hm1 cpus=72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20001 port=30002 (bot pool hm1: 151 cpus)
+2026-11-18T06:44:25Z start N32-bds-wine-r1-a1 server hm1 cpus=88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20003 port=30006 (bot pool hm1: 119 cpus)
+2026-11-18T06:45:03Z start N8-levilamina-levioptimize-wine-r1-a2 server hm1 cpus=104,105,106,107,216,217,218,219 harness=108,109,110,111,220,221,222,223 bots hm2 agent=10.0.0.12:20000 port=30008 (bot pool hm2: 32 cpus)
+2026-11-18T07:12:33Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T07:12:33Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T07:56:23Z N1-levilamina-levioptimize-wine-r1-a1 finished rc=0 after 1.53 h -> done max=54
+2026-11-18T08:06:17Z N8-levilamina-levioptimize-wine-r1-a2 finished rc=0 after 1.35 h -> pending max=44
+2026-11-18T08:16:09Z N32-bds-wine-r1-a1 finished rc=5 after 1.53 h -> pending max=None
+2026-11-18T08:16:17Z start N32-bds-wine-r1-a2 server hm1 cpus=88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20002 port=30004 (bot pool hm1: 120 cpus)
+2026-11-18T08:18:01Z N32-levilamina-wine-r1-a2 finished rc=5 after 1.58 h -> pending max=24
+2026-11-18T08:18:01Z N32-endstone-r1-a1 finished rc=5 after 1.57 h -> pending max=None
+2026-11-18T08:18:08Z start N32-levilamina-wine-r1-a3 server hm1 cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20000 port=30000 (bot pool hm1: 152 cpus)
+2026-11-18T08:18:35Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T08:18:35Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T08:18:43Z start N8-levilamina-levioptimize-wine-r1-a3 server hm1 cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20001 port=30002 (bot pool hm1: 144 cpus)
+2026-11-18T08:19:21Z start N2-endstone-r1-a1 server hm1 cpus=76,188 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20003 port=30006 (bot pool hm1: 142 cpus)
+2026-11-18T08:41:56Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T08:41:56Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T08:42:04Z start N8-levilamina-wine-r1-a2 server hm1 cpus=77,78,79,80,189,190,191,192 harness=108,109,110,111,220,221,222,223 bots hm2 agent=10.0.0.12:20000 port=30008 (bot pool hm2: 32 cpus)
+2026-11-18T08:57:29Z start N2-bds-wine-r1-a1 server hm1 cpus=81,193 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20004 port=30010 (bot pool hm1: 132 cpus)
+2026-11-18T09:33:47Z N32-bds-wine-r1-a2 finished rc=0 after 1.29 h -> pending max=42
+2026-11-18T09:33:55Z start N32-endstone-r1-a2 server hm1 cpus=82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20002 port=30004 (bot pool hm1: 132 cpus)
+2026-11-18T09:36:16Z N32-levilamina-wine-r1-a3 finished rc=0 after 1.30 h -> done max=46
+2026-11-18T09:36:23Z start N32-bds-wine-r1-a3 server hm1 cpus=56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20000 port=30000 (bot pool hm1: 132 cpus)
+2026-11-18T09:37:01Z start N8-endstone-r1-a2 server hm1 cpus=98,99,100,101,210,211,212,213 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20005 port=30012 (bot pool hm1: 124 cpus)
+2026-11-18T09:42:35Z start N2-bds-r1-a1 server hm1 cpus=102,214 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20006 port=30014 (bot pool hm1: 122 cpus)
+2026-11-18T09:46:33Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T09:46:33Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T09:47:06Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T09:47:06Z hm2: 32 cpus, 10 server/bot cores, harness cpus {'all': [12, 13, 14, 15, 28, 29, 30, 31]}
+2026-11-18T10:02:34Z N8-levilamina-levioptimize-wine-r1-a3 finished rc=0 after 1.73 h -> pending max=60
+2026-11-18T10:17:36Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T10:24:19Z N2-endstone-r1-a1 finished rc=0 after 2.08 h -> pending max=72
+2026-11-18T10:45:37Z start N1-levilamina-levioptimize-wine-r2-a1 server hm1 cpus=2 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20001 port=30002 (bot pool hm1: 131 cpus)
+2026-11-18T10:48:23Z N8-levilamina-wine-r1-a2 finished rc=0 after 2.11 h -> pending max=74
+2026-11-18T11:04:36Z N2-bds-wine-r1-a1 finished rc=0 after 2.12 h -> done max=74
+2026-11-18T11:15:50Z start N1-levilamina-wine-r2-a1 server hm1 cpus=114 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20003 port=30006 (bot pool hm1: 140 cpus)
+2026-11-18T11:18:35Z N2-bds-r1-a1 finished rc=0 after 1.60 h -> pending max=52
+2026-11-18T11:18:39Z start N8-levilamina-levioptimize-wine-r1-a4 server hm1 cpus=72,73,74,75,184,185,186,187 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20004 port=30008 (bot pool hm1: 134 cpus)
+2026-11-18T11:19:10Z N8-endstone-r1-a2 finished rc=0 after 1.70 h -> pending max=54
+2026-11-18T11:19:44Z N32-endstone-r1-a2 finished rc=0 after 1.76 h -> pending max=60
+2026-11-18T11:19:48Z start N32-levilamina-wine-r1-a1 server hm1 cpus=76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20002 port=30004 (bot pool hm1: 142 cpus)
+2026-11-18T11:20:19Z N32-levilamina-wine-r1-a1 finished rc=3 after 0.01 h -> pending max=46
+2026-11-18T11:20:23Z start N32-levilamina-wine-r1-a2 server hm1 cpus=76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20002 port=30004 (bot pool hm1: 142 cpus)
+2026-11-18T11:20:57Z start N8-levilamina-wine-r1-a3 server hm1 cpus=92,93,94,95,204,205,206,207 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20005 port=30010 (bot pool hm1: 134 cpus)
+2026-11-18T11:42:42Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T12:11:13Z N1-levilamina-levioptimize-wine-r2-a1 finished rc=0 after 1.43 h -> done max=48
+2026-11-18T12:11:17Z start N8-endstone-r1-a3 server hm1 cpus=96,97,98,99,208,209,210,211 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20001 port=30002 (bot pool hm1: 127 cpus)
+2026-11-18T12:24:39Z N32-bds-wine-r1-a3 finished rc=0 after 2.80 h -> done max=96
+2026-11-18T12:24:43Z start N16-bds-r1-a1 server hm1 cpus=56,57,58,59,60,61,62,63,168,169,170,171,172,173,174,175 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20006 port=30000 (bot pool hm1: 143 cpus)
+2026-11-18T12:48:08Z N1-levilamina-wine-r2-a1 finished rc=0 after 1.54 h -> done max=54
+2026-11-18T12:48:12Z start N4-levilamina-levioptimize-wine-r1-a1 server hm1 cpus=64,65,176,177 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20007 port=30006 (bot pool hm1: 140 cpus)
+2026-11-18T13:07:42Z N32-levilamina-wine-r1-a2 finished rc=0 after 1.79 h -> pending max=62
+2026-11-18T13:07:46Z start N32-levilamina-wine-r1-a3 server hm1 cpus=66,67,68,69,70,71,76,77,78,79,80,81,82,83,84,85,178,179,180,181,182,183,188,189,190,191,192,193,194,195,196,197 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20008 port=30004 (bot pool hm1: 140 cpus)
+2026-11-18T13:08:17Z N8-levilamina-wine-r1-a3 finished rc=0 after 1.79 h -> pending max=62
+2026-11-18T13:08:21Z start N8-levilamina-wine-r1-a4 server hm1 cpus=86,87,88,89,198,199,200,201 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20009 port=30010 (bot pool hm1: 140 cpus)
+2026-11-18T13:08:52Z N8-levilamina-levioptimize-wine-r1-a4 finished rc=0 after 1.84 h -> pending max=64
+2026-11-18T13:12:52Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T13:13:40Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T13:28:02Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T14:10:30Z N16-bds-r1-a1 finished rc=0 after 1.76 h -> pending max=60
+2026-11-18T14:12:59Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T15:24:01Z N4-levilamina-levioptimize-wine-r1-a1 finished rc=0 after 2.60 h -> done max=92
+2026-11-18T15:24:36Z N8-levilamina-wine-r1-a4 finished rc=0 after 2.27 h -> done max=82
+2026-11-18T15:24:40Z start N8-bds-r1-a1 server hm1 cpus=56,57,58,59,168,169,170,171 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20010 port=30000 (bot pool hm1: 168 cpus)
+2026-11-18T15:35:48Z N8-endstone-r1-a3 finished rc=0 after 3.41 h -> done max=122
+2026-11-18T15:52:33Z N32-levilamina-wine-r1-a3 finished rc=0 after 2.75 h -> done max=98
+2026-11-18T15:52:37Z start N2-endstone-r1-a2 server hm1 cpus=60,172 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20011 port=30002 (bot pool hm1: 206 cpus)
+2026-11-18T16:13:09Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T16:41:08Z start N2-endstone-r2-a1 server hm1 cpus=61,173 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20012 port=30004 (bot pool hm1: 204 cpus)
+2026-11-18T18:16:10Z start N16-bds-r1-a2 server hm1 cpus=62,63,64,65,66,67,68,69,174,175,176,177,178,179,180,181 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20013 port=30006 (bot pool hm1: 188 cpus)
+2026-11-18T18:17:14Z N8-bds-r1-a1 finished rc=0 after 2.88 h -> done max=106
+2026-11-18T18:17:18Z start N4-bds-r1-a1 server hm1 cpus=56,57,168,169 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20014 port=30000 (bot pool hm1: 192 cpus)
+2026-11-18T18:52:28Z N2-endstone-r1-a2 finished rc=0 after 3.00 h -> done max=110
+2026-11-18T19:32:45Z start N2-levilamina-levioptimize-wine-r3-a1 server hm1 cpus=58,170 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20015 port=30002 (bot pool hm1: 192 cpus)
+2026-11-18T19:40:32Z N2-endstone-r2-a1 finished rc=0 after 2.99 h -> done max=110
+2026-11-18T20:37:37Z start N1-bds-wine-r2-a1 server hm1 cpus=2 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20016 port=30004 (bot pool hm1: 193 cpus)
+2026-11-18T21:05:01Z start N2-bds-r3-a1 server hm1 cpus=59,171 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20017 port=30008 (bot pool hm1: 191 cpus)
+2026-11-18T21:13:22Z N4-bds-r1-a1 finished rc=0 after 2.93 h -> done max=108
+2026-11-18T21:20:38Z N2-levilamina-levioptimize-wine-r3-a1 finished rc=0 after 1.80 h -> done max=64
+2026-11-18T21:20:42Z start N4-levilamina-wine-r1-a1 server hm1 cpus=56,57,168,169 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20018 port=30000 (bot pool hm1: 193 cpus)
+2026-11-18T21:21:12Z N16-bds-r1-a2 finished rc=0 after 3.08 h -> done max=114
+2026-11-18T22:13:46Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-18T22:13:51Z start N1-bds-wine-r3-a1 server hm1 cpus=114 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20019 port=30002 (bot pool hm1: 208 cpus)
+2026-11-18T22:18:49Z N1-bds-wine-r2-a1 finished rc=0 after 1.69 h -> done max=60
+2026-11-18T23:42:05Z N2-bds-r3-a1 finished rc=0 after 2.62 h -> done max=96
+2026-11-18T23:42:09Z start N32-bds-r2-a1 server hm1 cpus=58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20020 port=30004 (bot pool hm1: 179 cpus)
+2026-11-18T23:42:43Z start N8-levilamina-wine-r2-a1 server hm1 cpus=74,75,76,77,186,187,188,189 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20021 port=30006 (bot pool hm1: 171 cpus)
+2026-11-18T23:43:17Z start N1-levilamina-wine-r3-a1 server hm1 cpus=2 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20022 port=30008 (bot pool hm1: 170 cpus)
+2026-11-18T23:49:57Z N4-levilamina-wine-r1-a1 finished rc=0 after 2.49 h -> done max=90
+2026-11-18T23:54:59Z N1-bds-wine-r3-a1 finished rc=0 after 1.69 h -> done max=60
+2026-11-19T00:06:04Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-19T00:38:32Z start N2-levilamina-levioptimize-wine-r3-a1 server hm1 cpus=78,190 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20023 port=30000 (bot pool hm1: 173 cpus)
+2026-11-19T01:13:31Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-19T01:21:22Z N1-levilamina-wine-r3-a1 finished rc=0 after 1.63 h -> done max=58
+2026-11-19T02:02:48Z start N8-bds-wine-r2-a1 server hm1 cpus=79,80,81,82,191,192,193,194 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20024 port=30002 (bot pool hm1: 166 cpus)
+2026-11-19T02:14:29Z N8-levilamina-wine-r2-a1 finished rc=0 after 2.53 h -> done max=92
+2026-11-19T02:28:32Z start N4-levilamina-wine-r1-a1 server hm1 cpus=74,75,186,187 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20025 port=30006 (bot pool hm1: 170 cpus)
+2026-11-19T02:44:41Z N32-bds-r2-a1 finished rc=0 after 3.04 h -> done max=112
+2026-11-19T02:44:45Z start N8-endstone-r3-a1 server hm1 cpus=56,57,58,59,168,169,170,171 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20026 port=30004 (bot pool hm1: 194 cpus)
+2026-11-19T02:51:59Z N2-levilamina-levioptimize-wine-r3-a1 finished rc=0 after 2.22 h -> done max=80
+2026-11-19T04:25:19Z N8-bds-wine-r2-a1 finished rc=0 after 2.38 h -> done max=86
+2026-11-19T04:25:23Z start N32-bds-wine-r1-a1 server hm1 cpus=64,65,66,67,68,69,70,71,72,73,76,77,78,79,80,81,176,177,178,179,180,181,182,183,184,185,188,189,190,191,192,193 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20027 port=30000 (bot pool hm1: 172 cpus)
+2026-11-19T04:34:53Z start N4-endstone-r2-a1 server hm1 cpus=60,61,172,173 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20028 port=30002 (bot pool hm1: 168 cpus)
+2026-11-19T04:51:03Z N4-levilamina-wine-r1-a1 finished rc=0 after 2.38 h -> done max=86
+2026-11-19T06:02:33Z N8-endstone-r3-a1 finished rc=0 after 3.30 h -> done max=122
+2026-11-19T06:02:37Z start N16-levilamina-levioptimize-wine-r1-a2 server hm1 cpus=74,75,82,83,84,85,86,87,186,187,194,195,196,197,198,199 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20029 port=30004 (bot pool hm1: 164 cpus)
+2026-11-19T07:00:40Z N32-bds-wine-r1-a1 finished rc=0 after 2.59 h -> done max=94
+2026-11-19T07:00:44Z start N32-levilamina-levioptimize-wine-r2-a1 server hm1 cpus=64,65,66,67,68,69,70,71,72,73,76,77,78,79,80,81,176,177,178,179,180,181,182,183,184,185,188,189,190,191,192,193 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20030 port=30000 (bot pool hm1: 164 cpus)
+2026-11-19T07:40:20Z N4-endstone-r2-a1 finished rc=0 after 3.09 h -> done max=114
+2026-11-19T08:06:05Z start N4-levilamina-levioptimize-wine-r3-a1 server hm1 cpus=88,89,200,201 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20031 port=30002 (bot pool hm1: 164 cpus)
+2026-11-19T08:43:01Z hm1: 224 cpus, 106 server/bot cores, harness cpus {'all': [108, 109, 110, 111, 220, 221, 222, 223]}
+2026-11-19T08:50:51Z N16-levilamina-levioptimize-wine-r1-a2 finished rc=0 after 2.80 h -> done max=102
+2026-11-19T08:54:50Z start N16-levilamina-wine-r2-a1 server hm1 cpus=74,75,82,83,84,85,86,87,186,187,194,195,196,197,198,199 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20032 port=30004 (bot pool hm1: 164 cpus)
+2026-11-19T09:48:58Z N32-levilamina-levioptimize-wine-r2-a1 finished rc=0 after 2.80 h -> done max=102
+2026-11-19T09:49:01Z start N32-levilamina-wine-r3-a1 server hm1 cpus=64,65,66,67,68,69,70,71,72,73,76,77,78,79,80,81,176,177,178,179,180,181,182,183,184,185,188,189,190,191,192,193 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20033 port=30000 (bot pool hm1: 164 cpus)
+2026-11-19T10:34:47Z N4-levilamina-levioptimize-wine-r3-a1 finished rc=0 after 2.48 h -> done max=90
+2026-11-19T11:22:53Z start N16-bds-wine-r2-a1 server hm1 cpus=88,89,90,91,92,93,94,95,200,201,202,203,204,205,206,207 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20034 port=30002 (bot pool hm1: 152 cpus)
+2026-11-19T11:36:15Z N16-levilamina-wine-r2-a1 finished rc=0 after 2.69 h -> done max=98
+2026-11-19T11:36:19Z start N16-endstone-r3-a1 server hm1 cpus=56,57,58,59,60,61,62,63,168,169,170,171,172,173,174,175 harness=108,109,110,111,220,221,222,223 bots hm1 agent=10.0.0.11:20035 port=30004 (bot pool hm1: 152 cpus)
+2026-11-19T12:30:17Z N32-levilamina-wine-r3-a1 finished rc=0 after 2.69 h -> done max=98
+2026-11-19T13:54:53Z N16-bds-wine-r2-a1 finished rc=0 after 2.53 h -> done max=92
+2026-11-19T15:04:04Z N16-endstone-r3-a1 finished rc=0 after 3.46 h -> done max=128
+2026-11-19T15:04:04Z ALL DONE

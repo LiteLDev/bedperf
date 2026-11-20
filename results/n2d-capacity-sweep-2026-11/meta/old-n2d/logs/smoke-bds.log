@@ -1,0 +1,48 @@
+[bedperf] n2d-smoke: bds on BDS 1.26.60.6, bots 1.26.60, scenario walk
+[bedperf] placement: the bots run on agent machines; no bot CPUs are reserved on the server machine
+[bedperf] placement: virtualized host (gce): CPUs are vCPUs and core/SMT layout is not guaranteed
+[bedperf] placement (vcpu, remote-bots): server CPUs 0,16, bots remote, harness 15,31, priority normal
+[bedperf] connecting to 1 bot agent(s): 10.0.0.2:19260
+[bedperf] agent bots-n2d96: AMD EPYC 7B13, 96 CPUs, weight 1
+[bedperf] run 20261117-125421-n2d-smoke → ~/bpx/runs/smoke/20261117-125421-n2d-smoke
+[bedperf] repeat 0: instance /tmp/bedperf-tmp/bedperf-bds-uwEh4O
+[bedperf] repeat 0: warmup 60s
+[bedperf] repeat 0 step 0 [ramp] 10 players: pass tps=20.00 counter=20.01 settle=135s
+[bedperf] repeat 0 step 1 [ramp] 30 players: pass tps=20.00 counter=20.00 settle=110s
+[loadgen w5] bot 10: walk: 11 re-targets
+[loadgen w5] bot 11: walk: 13 re-targets
+[loadgen w6] bot 12: walk: 19 re-targets
+[loadgen w12] bot 24: walk: 12 re-targets
+[loadgen w12] bot 25: walk: 19 re-targets
+[loadgen w13] bot 26: walk: 19 re-targets
+[loadgen w13] bot 27: walk: 15 re-targets
+[loadgen w6] bot 13: walk: 13 re-targets
+[loadgen w14] bot 28: walk: 20 re-targets
+[loadgen w14] bot 29: walk: 16 re-targets
+[loadgen w3] bot 6: walk: 46 re-targets
+[loadgen w3] bot 7: walk: 34 re-targets
+[loadgen w2] bot 4: walk: 46 re-targets
+[loadgen w2] bot 5: walk: 34 re-targets
+[loadgen w0] bot 0: walk: 47 re-targets
+[loadgen w0] bot 1: walk: 37 re-targets
+[loadgen w11] bot 22: walk: 17 re-targets
+[loadgen w11] bot 23: walk: 19 re-targets
+[loadgen w7] bot 14: walk: 11 re-targets
+[loadgen w7] bot 15: walk: 15 re-targets
+[loadgen w9] bot 18: walk: 13 re-targets
+[loadgen w9] bot 19: walk: 24 re-targets
+[loadgen w8] bot 16: walk: 22 re-targets
+[loadgen w8] bot 17: walk: 15 re-targets
+[loadgen w10] bot 20: walk: 17 re-targets
+[loadgen w10] bot 21: walk: 15 re-targets
+[loadgen w1] bot 2: walk: 30 re-targets
+[loadgen w1] bot 3: walk: 35 re-targets
+[loadgen w4] bot 8: walk: 36 re-targets
+[loadgen w4] bot 9: walk: 39 re-targets
+[bedperf] repeat 0: ok maxPlayers=30 (capped)
+[bedperf] run 20261117-125421-n2d-smoke: maxPlayers median 30 over 1/1 ok repeats [30]
+[bedperf] report → ~/bpx/runs/smoke/20261117-125421-n2d-smoke/report.html
+
+n2d-smoke: max players at 20 TPS: 30 over 1/1 ok repeats (repeats: 30) — capped by ramp.max
+run dir: ~/bpx/runs/smoke/20261117-125421-n2d-smoke
+report:  ~/bpx/runs/smoke/20261117-125421-n2d-smoke/report.html

@@ -1,0 +1,9 @@
+{
+  "label": "n2d-standard-32 server 2 vCPU",
+  "placement": {
+    "serverCpus": "0,16",
+    "botCpus": "auto",
+    "harnessCpus": "15,31",
+    "priority": "normal"
+  }
+}

@@ -1,0 +1,56 @@
+[bedperf] using cached levilamina+levioptimize (wine) at ~/.cache/bedperf/servers/levilamina-levioptimize-wine-bf9838089713/server
+[bedperf] n2d-smoke: levilamina+levioptimize (wine) on BDS 1.26.60.6, bots 1.26.60, scenario walk
+[bedperf] placement: the bots run on agent machines; no bot CPUs are reserved on the server machine
+[bedperf] placement: virtualized host (gce): CPUs are vCPUs and core/SMT layout is not guaranteed
+[bedperf] placement (vcpu, remote-bots): server CPUs 0,16, bots remote, harness 15,31, priority normal
+[bedperf] connecting to 1 bot agent(s): 10.0.0.2:19260
+[bedperf] agent bots-n2d96: AMD EPYC 7B13, 96 CPUs, weight 1
+[bedperf] run 20261117-131437-n2d-smoke-levilamina-levioptimize-wine → ~/bpx/runs/smoke/20261117-131437-n2d-smoke-levilamina-levioptimize-wine
+[bedperf] repeat 0: instance /tmp/bedperf-tmp/bedperf-bds-dRQpmV
+[bedperf] repeat 0: warmup 60s
+[bedperf] repeat 0 step 0 [ramp] 10 players: pass tps=20.00 counter=20.01 settle=115s
+[bedperf] repeat 0 step 1 [ramp] 30 players: fail tps=19.99 counter=19.99 settle=120s (worst-window TPS 18.15 < 19 (after discarding 0 of 57 windows))
+[loadgen w14] bot 29: walk: 17 re-targets
+[loadgen w14] bot 28: walk: 24 re-targets
+[loadgen w10] bot 21: walk: 15 re-targets
+[loadgen w10] bot 20: walk: 17 re-targets
+[loadgen w11] bot 23: walk: 20 re-targets
+[loadgen w13] bot 27: walk: 16 re-targets
+[loadgen w13] bot 26: walk: 21 re-targets
+[loadgen w12] bot 25: walk: 20 re-targets
+[loadgen w12] bot 24: walk: 13 re-targets
+[loadgen w11] bot 22: walk: 18 re-targets
+[bedperf] repeat 0 step 2 [bisect] 20 players: pass tps=20.00 counter=19.99 settle=20s
+[bedperf] repeat 0 step 3 [bisect] 25 players: pass tps=20.00 counter=20.00 settle=80s
+[loadgen w0] bot 0: walk: 82 re-targets
+[loadgen w0] bot 1: walk: 55 re-targets
+[loadgen w12] bot 24: walk: 9 re-targets
+[loadgen w3] bot 6: walk: 69 re-targets
+[loadgen w3] bot 7: walk: 68 re-targets
+[loadgen w4] bot 8: walk: 62 re-targets
+[loadgen w1] bot 2: walk: 60 re-targets
+[loadgen w4] bot 9: walk: 57 re-targets
+[loadgen w1] bot 3: walk: 60 re-targets
+[loadgen w10] bot 20: walk: 9 re-targets
+[loadgen w10] bot 21: walk: 22 re-targets
+[loadgen w9] bot 18: walk: 36 re-targets
+[loadgen w9] bot 19: walk: 56 re-targets
+[loadgen w7] bot 14: walk: 41 re-targets
+[loadgen w7] bot 15: walk: 40 re-targets
+[loadgen w5] bot 10: walk: 37 re-targets
+[loadgen w2] bot 4: walk: 71 re-targets
+[loadgen w5] bot 11: walk: 35 re-targets
+[loadgen w2] bot 5: walk: 56 re-targets
+[loadgen w8] bot 16: walk: 45 re-targets
+[loadgen w8] bot 17: walk: 33 re-targets
+[loadgen w6] bot 12: walk: 49 re-targets
+[loadgen w6] bot 13: walk: 49 re-targets
+[loadgen w11] bot 22: walk: 10 re-targets
+[loadgen w11] bot 23: walk: 12 re-targets
+[bedperf] repeat 0: ok maxPlayers=25
+[bedperf] run 20261117-131437-n2d-smoke-levilamina-levioptimize-wine: maxPlayers median 25 over 1/1 ok repeats [25]
+[bedperf] report → ~/bpx/runs/smoke/20261117-131437-n2d-smoke-levilamina-levioptimize-wine/report.html
+
+n2d-smoke: max players at 20 TPS: 25 over 1/1 ok repeats (repeats: 25)
+run dir: ~/bpx/runs/smoke/20261117-131437-n2d-smoke-levilamina-levioptimize-wine
+report:  ~/bpx/runs/smoke/20261117-131437-n2d-smoke-levilamina-levioptimize-wine/report.html

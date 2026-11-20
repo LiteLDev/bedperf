@@ -1,0 +1,65 @@
+=== N=1 attempt 1 start 2026-11-17T16:01:13Z
+[bedperf] repeat 0: ok maxPlayers=20
+[bedperf] session 20261117-160114-session: block 1, n2d-core-scan repeat slot 1
+[bedperf] repeat 1: ok maxPlayers=25
+[bedperf] session 20261117-160114-session: block 1, n2d-core-scan repeat slot 1
+[bedperf] repeat 1: ok maxPlayers=15
+[bedperf] session 20261117-160114-session: block 1, n2d-core-scan repeat slot 1
+[bedperf] repeat 1: ok maxPlayers=20
+[bedperf] session 20261117-160114-session: block 1, n2d-core-scan repeat slot 1
+[bedperf] repeat 1: ok maxPlayers=15
+[bedperf] session 20261117-160114-session: block 2, n2d-core-scan repeat slot 2
+[bedperf] repeat 2: ok maxPlayers=15
+[bedperf] session 20261117-160114-session: block 2, n2d-core-scan repeat slot 2
+[bedperf] repeat 2: ok maxPlayers=15
+[bedperf] session 20261117-160114-session: block 2, n2d-core-scan repeat slot 2
+[bedperf] repeat 2: ok maxPlayers=15
+[bedperf] session 20261117-160114-session: block 2, n2d-core-scan repeat slot 2
+[bedperf] repeat 2: ok maxPlayers=50
+[bedperf] report → ~/bpx/runs/full/N1/20261117-160114-session/20261117-160114-n2d-core-scan/report.html
+[bedperf] report → ~/bpx/runs/full/N1/20261117-160114-session/20261117-160114-n2d-core-scan-endstone/report.html
+[bedperf] report → ~/bpx/runs/full/N1/20261117-160114-session/20261117-160114-n2d-core-scan-levilamina-wine/report.html
+[bedperf] report → ~/bpx/runs/full/N1/20261117-160114-session/20261117-160114-n2d-core-scan-levilamina-levioptimize-wine/report.html
+n2d-core-scan: max players at 20 TPS: 15 over 3/3 ok repeats (repeats: 40, 15, 15)
+run dir: ~/bpx/runs/full/N1/20261117-160114-session/20261117-160114-n2d-core-scan
+n2d-core-scan: max players at 20 TPS: 50 over 3/3 ok repeats (repeats: 50, 25, 50)
+run dir: ~/bpx/runs/full/N1/20261117-160114-session/20261117-160114-n2d-core-scan-endstone
+n2d-core-scan: max players at 20 TPS: 15 over 3/3 ok repeats (repeats: 25, 15, 15)
+run dir: ~/bpx/runs/full/N1/20261117-160114-session/20261117-160114-n2d-core-scan-levilamina-wine
+n2d-core-scan: max players at 20 TPS: 20 over 3/3 ok repeats (repeats: 20, 20, 15)
+run dir: ~/bpx/runs/full/N1/20261117-160114-session/20261117-160114-n2d-core-scan-levilamina-levioptimize-wine
+session: ~/bpx/runs/full/N1/20261117-160114-session
+=== N=1 attempt 1 exit=0 2026-11-17T18:46:04Z
+=== N=2 attempt 1 start 2026-11-17T18:46:04Z
+[bedperf] repeat 0: ok maxPlayers=25
+[bedperf] session 20261117-184604-session: block 1, n2d-core-scan repeat slot 1
+[bedperf] repeat 1: ok maxPlayers=20
+[bedperf] session 20261117-184604-session: block 1, n2d-core-scan repeat slot 1
+[bedperf] repeat 1: ok maxPlayers=30
+[bedperf] session 20261117-184604-session: block 1, n2d-core-scan repeat slot 1
+[bedperf] repeat 1: ok maxPlayers=25
+[bedperf] session 20261117-184604-session: block 1, n2d-core-scan repeat slot 1
+[bedperf] repeat 1: ok maxPlayers=30
+[bedperf] session 20261117-184604-session: block 2, n2d-core-scan repeat slot 2
+[bedperf] repeat 2: ok maxPlayers=15
+[bedperf] session 20261117-184604-session: block 2, n2d-core-scan repeat slot 2
+[bedperf] repeat 2: ok maxPlayers=15
+[bedperf] session 20261117-184604-session: block 2, n2d-core-scan repeat slot 2
+[bedperf] repeat 2: ok maxPlayers=35
+[bedperf] session 20261117-184604-session: block 2, n2d-core-scan repeat slot 2
+[bedperf] repeat 2: ok maxPlayers=55
+[bedperf] report → ~/bpx/runs/full/N2/20261117-184604-session/20261117-184604-n2d-core-scan/report.html
+[bedperf] report → ~/bpx/runs/full/N2/20261117-184604-session/20261117-184604-n2d-core-scan-endstone/report.html
+[bedperf] report → ~/bpx/runs/full/N2/20261117-184604-session/20261117-184604-n2d-core-scan-levilamina-wine/report.html
+[bedperf] report → ~/bpx/runs/full/N2/20261117-184604-session/20261117-184604-n2d-core-scan-levilamina-levioptimize-wine/report.html
+n2d-core-scan: max players at 20 TPS: 35 over 3/3 ok repeats (repeats: 40, 30, 35)
+run dir: ~/bpx/runs/full/N2/20261117-184604-session/20261117-184604-n2d-core-scan
+n2d-core-scan: max players at 20 TPS: 35 over 3/3 ok repeats (repeats: 35, 20, 55)
+run dir: ~/bpx/runs/full/N2/20261117-184604-session/20261117-184604-n2d-core-scan-endstone
+n2d-core-scan: max players at 20 TPS: 30 over 3/3 ok repeats (repeats: 30, 30, 15)
+run dir: ~/bpx/runs/full/N2/20261117-184604-session/20261117-184604-n2d-core-scan-levilamina-wine
+n2d-core-scan: max players at 20 TPS: 25 over 3/3 ok repeats (repeats: 25, 25, 15)
+run dir: ~/bpx/runs/full/N2/20261117-184604-session/20261117-184604-n2d-core-scan-levilamina-levioptimize-wine
+session: ~/bpx/runs/full/N2/20261117-184604-session
+=== N=2 attempt 1 exit=0 2026-11-17T21:39:02Z
+=== N=4 attempt 1 start 2026-11-17T21:39:02Z

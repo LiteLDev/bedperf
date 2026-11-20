@@ -1,0 +1,19 @@
+[bedperf] hm1-host-20007 listening on 10.0.0.11:20007
+bedperf agent hm1-host-20007 listening on 10.0.0.11:20007 (224 CPUs for bots)
+[bedperf] controller 10.0.0.11:36966 connected
+[bedperf] controller 10.0.0.11:36966 gone (controller said bye)
+[bedperf] controller 10.0.0.11:42364 connected
+[bedperf] controller 10.0.0.11:42364 gone (controller said bye)
+[bedperf] controller 10.0.0.11:53832 connected
+[bedperf] controller 10.0.0.11:53832 gone (socket error: read ECONNRESET); killed 34 worker(s)
+[bedperf] stopping
+[bedperf] hm1-host-20007 listening on 10.0.0.11:20007
+bedperf agent hm1-host-20007 listening on 10.0.0.11:20007 (120 CPUs for bots)
+[bedperf] stopping
+[bedperf] hm1-host-20007 listening on 10.0.0.11:20007
+bedperf agent hm1-host-20007 listening on 10.0.0.11:20007 (122 CPUs for bots)
+[bedperf] stopping
+[bedperf] hm1-host-20007 listening on 10.0.0.11:20007
+bedperf agent hm1-host-20007 listening on 10.0.0.11:20007 (130 CPUs for bots)
+[bedperf] controller 10.0.0.11:51042 connected
+[bedperf] controller 10.0.0.11:51042 gone (controller said bye)

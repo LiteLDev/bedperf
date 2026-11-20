@@ -1,0 +1,29 @@
+[bedperf] hm1-host-20002 listening on 10.0.0.11:20002
+bedperf agent hm1-host-20002 listening on 10.0.0.11:20002 (224 CPUs for bots)
+[bedperf] controller 10.0.0.11:46282 connected
+[bedperf] controller 10.0.0.11:46282 gone (controller said bye)
+[bedperf] controller 10.0.0.11:50302 connected
+[bedperf] controller 10.0.0.11:50302 gone (controller said bye)
+[bedperf] controller 10.0.0.11:38996 connected
+[bedperf] controller 10.0.0.11:38996 gone (controller said bye)
+[bedperf] controller 10.0.0.11:53184 connected
+[bedperf] controller 10.0.0.11:53184 gone (connection closed); killed 5 worker(s)
+[bedperf] controller 10.0.0.11:42014 connected
+[bedperf] controller 10.0.0.11:42014 gone (controller said bye)
+[bedperf] controller 10.0.0.11:35628 connected
+[bedperf] controller 10.0.0.11:35628 gone (controller said bye)
+[bedperf] controller 10.0.0.11:55838 connected
+[bedperf] controller 10.0.0.11:55838 gone (controller said bye)
+[bedperf] stopping
+[bedperf] hm1-host-20002 listening on 10.0.0.11:20002
+bedperf agent hm1-host-20002 listening on 10.0.0.11:20002 (120 CPUs for bots)
+[bedperf] controller 10.0.0.11:54234 connected
+[bedperf] controller 10.0.0.11:54234 gone (controller said bye)
+[bedperf] controller 10.0.0.11:37690 connected
+[bedperf] controller 10.0.0.11:37690 gone (controller said bye)
+[bedperf] denied 10.0.0.11:44594: harness mismatch: agent runs bedperf 5030b9c46619, controller a3ee0ae17e4d (use the same commit or allowHarnessMismatch)
+[bedperf] stopping
+[bedperf] hm1-host-20002 listening on 10.0.0.11:20002
+bedperf agent hm1-host-20002 listening on 10.0.0.11:20002 (142 CPUs for bots)
+[bedperf] controller 10.0.0.11:33134 connected
+[bedperf] controller 10.0.0.11:33134 gone (controller said bye)

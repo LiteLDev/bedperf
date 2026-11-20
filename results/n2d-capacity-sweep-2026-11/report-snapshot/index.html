@@ -1,0 +1,450 @@
+<meta name="dash-one-writer">
+<style>
+  .bp { display: flex; flex-direction: column; gap: var(--cds-gap-xl); max-width: 1100px; }
+  .bp h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .bp h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; text-wrap: balance; }
+  .bp h3 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .bp p, .bp li { line-height: 1.65; max-width: 72ch; margin: 0; }
+  .bp .bp-lede { font-size: var(--cds-font-size-heading); line-height: 1.5; max-width: 60ch; }
+  .bp .bp-muted { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .bp .bp-num { font-variant-numeric: tabular-nums; }
+  .bp section { display: flex; flex-direction: column; gap: var(--cds-gap-md); min-width: 0; }
+  .bp .bp-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+  .bp .bp-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm) var(--cds-gap-lg); font-size: var(--cds-font-size-caption); color: var(--cds-text-secondary); }
+  .bp .bp-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .bp .bp-sw { width: 14px; height: 3px; border-radius: 2px; display: inline-block; background: var(--color-fg-muted); }
+  .bp .bp-controls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm) var(--cds-gap-md); align-items: center; font-size: var(--cds-font-size-caption); color: var(--cds-text-secondary); }
+  .bp .bp-controls label { display: inline-flex; align-items: center; gap: 6px; }
+  .bp .bp-chart { position: relative; min-height: 340px; width: 100%; }
+  .bp .bp-chart svg { display: block; overflow: visible; }
+  .bp .bp-chart text { fill: var(--cds-text-secondary); font-size: var(--cds-font-size-caption); }
+  .bp .bp-chart .domain, .bp .bp-chart .tick line { stroke: var(--cds-chart-axis); }
+  .bp .bp-chart .bp-grid line { stroke: var(--cds-chart-grid); }
+  .bp .bp-chart .bp-grid .domain { display: none; }
+  .bp .bp-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); border-radius: var(--cds-radius); padding: 6px 10px; font-size: var(--cds-font-size-caption); color: var(--color-fg); white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }
+  .bp .bp-tip b { font-weight: var(--cds-font-weight-medium); }
+  .bp .bp-res { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--cds-gap-md); min-height: 300px; }
+  .bp .bp-panel { position: relative; min-width: 0; }
+  .bp .bp-panel h4 { margin: 0 0 4px; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); color: var(--cds-text-secondary); }
+  .bp .bp-tablewrap { overflow-x: auto; }
+  .bp table { border-collapse: collapse; width: 100%; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .bp th, .bp td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+  .bp th { color: var(--cds-text-secondary); font-weight: var(--cds-font-weight-medium); }
+  .bp th:nth-child(2), .bp td:nth-child(2) { text-align: left; }
+  .bp tr.bp-first td { border-top: 1px solid var(--cds-chart-axis); }
+  .bp .bp-runs th:nth-child(n+8), .bp .bp-runs td:nth-child(n+8) { text-align: left; }
+  .bp .bp-flag { color: var(--color-warn); }
+  .bp details { border-top: 1px solid var(--color-border-line); padding-top: var(--cds-pad-md); }
+  .bp details summary { cursor: pointer; font-weight: var(--cds-font-weight-medium); }
+  .bp details[open] summary { margin-bottom: var(--cds-gap-md); }
+  .bp ul, .bp ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; }
+  .bp .bp-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--cds-gap-lg); }
+  .bp .bp-kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px var(--cds-gap-md); font-size: var(--cds-font-size-caption); }
+  .bp .bp-kv dt { color: var(--cds-text-secondary); }
+  .bp .bp-kv dd { margin: 0; line-height: 1.5; }
+  .bp code { font-size: 0.92em; }
+  @media print { .bp .bp-controls { display: none; } .bp details { display: block; } }
+</style>
+
+<div class="bp">
+  <header class="bp-head" id="top">
+    <h1 id="title">BDS 服务端容量扫描</h1>
+    <p class="bp-lede" id="takeaway">4 vCPU 以后容量基本不再随核数增长：32 vCPU 时 Endstone 中位数 <b class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=32|Endstone">—</b> 个 bot、原生 BDS <b class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=32|BDS">—</b> 个；同一个 BDS 放到 Wine 下平均少带 <b class="bp-num" data-draw="v" data-source="wineCost" data-fmt="pct">—</b> 的 bot。</p>
+    <p class="bp-muted">容量 = 每 3 分钟加 2 个 bot，在 165 秒测量窗口的平均 TPS 仍 ≥ 15 时的最大 bot 数。5 种服务端 × 6 档 vCPU × 3 次重复，共 <span class="bp-num" data-draw="v" data-source="runCount">—</span> 次有效运行。</p>
+  </header>
+
+  <section id="capacity">
+    <h2>容量随 vCPU 变化</h2>
+    <p class="bp-muted">点为 3 次重复的中位数，竖线为最低到最高。横轴按 2 的倍数排列。</p>
+    <div class="bp-legend" id="legend-cap">
+      <span><i class="bp-sw" data-series="0"></i>BDS</span>
+      <span><i class="bp-sw" data-series="1"></i>Endstone</span>
+      <span><i class="bp-sw" data-series="2"></i>BDS (Wine)</span>
+      <span><i class="bp-sw" data-series="3"></i>LeviLamina (Wine)</span>
+      <span><i class="bp-sw" data-series="4"></i>LeviLamina+LeviOptimize (Wine)</span>
+    </div>
+    <div class="bp-chart" id="chart-capacity" data-draw="capChart" data-source="summary"></div>
+  </section>
+
+  <section id="tps">
+    <h2>每分钟平均 TPS 随 bot 数变化</h2>
+    <p class="bp-muted">每条线是一次运行，按分钟取探针 TPS 的平均值。每次加人后的第一分钟包含新 bot 加入与加载视野的冲击。红线为 15 TPS 停止线。</p>
+    <div class="bp-controls">
+      <label for="tps-n">vCPU
+        <select class="dash-select" id="tps-n" aria-label="TPS 曲线的 vCPU 档位">
+          <option value="1">1</option><option value="2">2</option><option value="4">4</option>
+          <option value="8" selected>8</option><option value="16">16</option><option value="32">32</option>
+        </select>
+      </label>
+    </div>
+    <div class="bp-legend" id="legend-tps">
+      <span><i class="bp-sw" data-series="0"></i>BDS</span>
+      <span><i class="bp-sw" data-series="1"></i>Endstone</span>
+      <span><i class="bp-sw" data-series="2"></i>BDS (Wine)</span>
+      <span><i class="bp-sw" data-series="3"></i>LeviLamina (Wine)</span>
+      <span><i class="bp-sw" data-series="4"></i>LeviLamina+LeviOptimize (Wine)</span>
+    </div>
+    <div class="bp-chart" id="chart-tps" data-draw="tpsChart" data-source="curves"></div>
+  </section>
+
+  <section id="resources">
+    <h2>单次运行的资源曲线</h2>
+    <p class="bp-muted">横轴是从这次运行开始计的分钟数，每格一分钟的平均值（内存取最大值）。服务端 CPU 与内存只算游戏进程本身，bot CPU 是这次运行全部 bot 进程之和。</p>
+    <div class="bp-controls">
+      <label for="res-n">vCPU
+        <select class="dash-select" id="res-n" aria-label="资源曲线的 vCPU 档位">
+          <option value="1">1</option><option value="2">2</option><option value="4">4</option>
+          <option value="8" selected>8</option><option value="16">16</option><option value="32">32</option>
+        </select>
+      </label>
+      <label for="res-s">服务端
+        <select class="dash-select" id="res-s" aria-label="资源曲线的服务端">
+          <option>BDS</option><option>Endstone</option><option>BDS (Wine)</option><option>LeviLamina (Wine)</option><option>LeviLamina+LeviOptimize (Wine)</option>
+        </select>
+      </label>
+      <label for="res-r">第几次
+        <select class="dash-select" id="res-r" aria-label="资源曲线的重复次数">
+          <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
+        </select>
+      </label>
+    </div>
+    <div class="bp-res" id="chart-resources" data-draw="resChart" data-source="curves"></div>
+  </section>
+
+  <section id="table">
+    <h2>全部结果与内存峰值</h2>
+    <p class="bp-muted">内存上限按 8 GiB/vCPU 设在每次运行的 cgroup 上；峰值是游戏进程 RSS 在整次运行中的最大值。</p>
+    <div class="bp-tablewrap">
+      <table id="results" data-source="summary" data-row-key="key">
+        <thead><tr>
+          <th data-field="vcpu">vCPU</th><th data-field="server">服务端</th><th data-field="perRep">各次容量</th><th data-field="median">中位数</th>
+          <th data-field="range">范围</th><th data-field="rssPeakGiB">内存峰值 GiB</th><th data-field="memLimitGiB">上限 GiB</th><th data-field="memPct">峰值/上限</th>
+        </tr></thead>
+        <tbody data-draw="tbl"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="findings">
+    <h2>结论</h2>
+    <ol>
+      <li>从 1 到 2 vCPU 提升最大：原生 BDS 中位数从 <b class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=1|BDS">—</b> 到 <b class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=2|BDS">—</b>。1 vCPU 时 tick 线程要和其余线程挤同一个核；从 2 vCPU 起，容量点的主线程占用都接近 100%，瓶颈变成单个 tick 线程，所以 4 vCPU 以后几乎不再增长（BDS 在 4、8、16、32 vCPU 为 <span class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=4|BDS">—</span>、<span class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=8|BDS">—</span>、<span class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=16|BDS">—</span>、<span class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=32|BDS">—</span>）。</li>
+      <li>Endstone 在每一档都最高（8 vCPU 中位数 <b class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=8|Endstone">—</b>，BDS 为 <b class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=8|BDS">—</b>）。Endstone 在 Linux 上预加载 mimalloc 替换了内存分配器，这个差距同时包含插件框架和分配器两个因素。</li>
+      <li>Wine 本身的开销：BDS (Wine) 比原生 BDS 平均少 <b class="bp-num" data-draw="v" data-source="wineCost" data-fmt="pct">—</b>（2 vCPU 起各档的平均）。LeviLamina 只有 Windows 版，这里的两个 LeviLamina 方案都跑在同一个 Wine 下，应和 BDS (Wine) 比较：8 vCPU 时 BDS (Wine) <span class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=8|BDS (Wine)">—</span>、LeviLamina (Wine) <span class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=8|LeviLamina (Wine)">—</span>、LeviLamina+LeviOptimize (Wine) <span class="bp-num" data-draw="v" data-source="summary" data-field="median" data-where="key=8|LeviLamina+LeviOptimize (Wine)">—</span>。</li>
+      <li>内存不是限制：所有运行的内存峰值最多只到上限的 <b class="bp-num" data-draw="v" data-source="memMaxPct" data-fmt="pct">—</b>（1 vCPU 的 Endstone）。Endstone 的游戏进程在 32 vCPU 时峰值 <span class="bp-num" data-draw="v" data-source="summary" data-field="rssPeakGiB" data-where="key=32|Endstone" data-fmt="gib">—</span> GiB，约为原生 BDS（<span class="bp-num" data-draw="v" data-source="summary" data-field="rssPeakGiB" data-where="key=32|BDS" data-fmt="gib">—</span> GiB）的两倍，Wine 下的三个方案与原生 BDS 接近。内存随 bot 数增长很少（见资源曲线）。</li>
+      <li>重复之间的波动：1 vCPU 下最大，例如原生 BDS 三次为 <span class="bp-num" data-draw="v" data-source="summary" data-field="perRep" data-where="key=1|BDS">—</span>；2 vCPU 起同一组合多数只差几个 bot。差距小于范围重叠的两个方案不应看作有差异。</li>
+    </ol>
+  </section>
+
+  <section id="method">
+    <h2>方法</h2>
+    <div class="bp-two">
+      <dl class="bp-kv">
+        <dt>机器</dt><dd>3 台 GCE n2d-standard-224（AMD EPYC 7B13，2 个 NUMA 节点，224 vCPU，896 GB），Ubuntu 22.04。</dd>
+        <dt>服务端 CPU</dt><dd>每次运行独占 N 个 vCPU：N ≥ 2 时为同一 NUMA 节点内的整个物理核（两个 SMT 线程），N = 1 为一个线程。用 systemd cgroup 的 AllowedCPUs 限定，并由 bedperf 绑核校验。</dd>
+        <dt>服务端内存</dt><dd>同一 cgroup 的 MemoryMax = 8N GiB，禁用 swap。</dd>
+        <dt>测量进程</dt><dd>每台机器预留 4 个物理核（8 个 vCPU，编号均 ≥ 64）给所有运行的编排和采样进程，服务端和 bot 都不使用。</dd>
+        <dt>Bot</dt><dd>与服务端在同一台机器，用剩余的 CPU（一个公共 cgroup，随服务端分配自动收缩），每个 worker 进程 1 个 bot。调度器按 bot CPU 预算决定同时运行的任务数，避免 bot 端饱和。</dd>
+      </dl>
+      <dl class="bp-kv">
+        <dt>负载</dt><dd>bedperf <code>standard</code> 预设的 walk 场景：bot 在出生点半径 32 格内行走，视距 10、模拟距离 4，种子固定，关闭昼夜与天气。</dd>
+        <dt>爬坡</dt><dd>从 2 个 bot 开始，每步加 2 个；每步先等 15 秒让新 bot 加入，再测 165 秒，合计 3 分钟一步。测量窗口平均 TPS 低于 15 即停止。</dd>
+        <dt>有效性</dt><dd>bot 端饱和（worker 事件循环 p99 &gt; 250 ms 或 worker CPU &gt; 85%）超过测量窗口的 5%、绑核不符、TPS 两种来源不一致等，都判该步无效并在同一人数重测一次；连续两次无效则整次运行作废重跑。</dd>
+        <dt>版本</dt><dd>BDS 1.26.60.6；LeviLamina 26.60.7、LeviOptimize 0.18.0，由 lip 0.41.0 安装，跑在 lip 自带的 Wine 11.21 下；BDS (Wine) 同样由 lip 装原版 Windows 服务端；Endstone 0.11.15（Python 3.11）。bedperf 提交 a3ee0ae（PR #34、#35）。</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section id="validity">
+    <h2>有效性与限制</h2>
+    <ul>
+      <li>实验中途修正过几处方法，详见下方运行列表的“方法”一栏：前期的 <b class="bp-num" data-draw="v" data-source="earlyRuns">—</b> 次运行（都是第 1 次重复）没有 15 秒等待、或每个 worker 放 2 个 bot、或用更严的 bot 饱和规则。它们给服务端的负载节奏完全相同（每 3 分钟加 2 个 bot），只是 bot 端判定更严，所以保留。</li>
+      <li>Wine 会把部分线程的亲和性设成 Windows 处理器组 0（宿主 CPU 0–63）。分到编号低于 64 的核的 Wine 服务端会被悄悄限制在一半的 vCPU 上，而 bedperf 的绑核校验发现不了。受影响的运行已作废并重跑，不在本页数据中，之后 Wine 服务端（N ≥ 2）只分配两个线程编号都 ≥ 64 的核。</li>
+      <li>vCPU 是 GCE 虚拟机的超线程。N = 1 只是半个物理核，和物理机上的“1 核”不同。</li>
+      <li>多个服务端与 bot 同时跑在同一台机器上，按要求没有隔离缓存、内存带宽等共享资源；服务端之间只隔离了 CPU 和内存上限。</li>
+      <li>LeviLamina 只有 Windows 版。两个 LeviLamina 方案的结果包含 Wine 的开销，不代表 Windows 上原生 LeviLamina 的表现。</li>
+      <li>只测了一种负载（walk、视距 10）和一张种子地图；其他负载下排名可能不同。bot 与服务端走本机网络，没有真实玩家的延迟和丢包。</li>
+      <li>内存峰值只计游戏进程（Wine 下不含 wineserver 等辅助进程，Endstone 不含 Python 启动器）。</li>
+    </ul>
+    <details id="runs-list">
+      <summary>全部 90 次运行（含方法版本、机器和服务端 CPU）</summary>
+      <div class="bp-tablewrap">
+        <table class="bp-runs" data-source="runs" data-row-key="run">
+          <thead><tr>
+            <th data-field="vcpu">vCPU</th><th data-field="server">服务端</th><th data-field="rep">次</th><th data-field="maxBots">容量</th>
+            <th data-field="rssPeakGiB">内存峰值 GiB</th><th data-field="steps">步数</th><th data-field="invalidSteps">无效步</th>
+            <th data-field="machine">机器</th><th data-field="serverCpus">服务端 CPU</th><th data-field="method">方法</th>
+          </tr></thead>
+          <tbody data-draw="runsTbl"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+</div>
+
+<script>
+  window.BP = { servers: ['BDS', 'Endstone', 'BDS (Wine)', 'LeviLamina (Wine)', 'LeviLamina+LeviOptimize (Wine)'], vcpus: [1, 2, 4, 8, 16, 32] };
+  window.BP.color = (server) => dash.colors[Math.max(0, window.BP.servers.indexOf(server)) % dash.colors.length];
+  window.BP.sel = { tpsN: 8, resN: 8, resS: 'BDS', resR: 2 };
+
+  dash.calc('summary', {
+    inputs: ['runs'],
+    title: '每档每种服务端的汇总',
+    description: '按 vCPU 和服务端分组：3 次重复的容量、中位数、范围和最大内存峰值。',
+    fn: (runs) => {
+      const groups = new Map();
+      for (const r of runs) {
+        const key = r.vcpu + '|' + r.server;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(r);
+      }
+      const order = ['BDS', 'Endstone', 'BDS (Wine)', 'LeviLamina (Wine)', 'LeviLamina+LeviOptimize (Wine)'];
+      const out = [];
+      for (const [key, rs] of groups) {
+        rs.sort((a, b) => +a.rep - +b.rep);
+        const caps = rs.map((r) => +r.maxBots);
+        const s = [...caps].sort((a, b) => a - b);
+        const median = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+        const peak = Math.max(...rs.map((r) => +r.rssPeakGiB));
+        const limit = +rs[0].memLimitGiB;
+        out.push({ key, vcpu: +rs[0].vcpu, server: rs[0].server, reps: rs.length, perRep: caps.join(' / '), median,
+          min: s[0], max: s[s.length - 1], range: s[0] + '–' + s[s.length - 1], rssPeakGiB: peak, memLimitGiB: limit,
+          memPct: Math.round((peak / limit) * 1000) / 10 });
+      }
+      return out.sort((a, b) => a.vcpu - b.vcpu || order.indexOf(a.server) - order.indexOf(b.server));
+    }
+  });
+
+  dash.calc('wineCost', {
+    inputs: ['summary'],
+    title: 'Wine 的开销',
+    description: '2 到 32 vCPU 各档 (BDS − BDS (Wine)) / BDS 中位数的平均，百分比。',
+    fn: (summary) => {
+      const by = new Map(summary.map((r) => [r.key, r.median]));
+      const d = [2, 4, 8, 16, 32].map((n) => (by.get(n + '|BDS') - by.get(n + '|BDS (Wine)')) / by.get(n + '|BDS'));
+      return Math.round((d.reduce((a, b) => a + b, 0) / d.length) * 1000) / 10;
+    }
+  });
+
+  dash.calc('memMaxPct', {
+    inputs: ['summary'],
+    title: '内存峰值占上限的最大比例',
+    description: '所有组合中内存峰值 / 内存上限的最大值，百分比。',
+    fn: (summary) => Math.max(...summary.map((r) => r.memPct))
+  });
+
+  dash.calc('runCount', { inputs: ['runs'], title: '有效运行数', description: '数据中的运行行数。', fn: (runs) => runs.length });
+
+  dash.calc('earlyRuns', {
+    inputs: ['runs'],
+    title: '早期方法的运行数',
+    description: '方法一栏不是 final 的运行数。',
+    fn: (runs) => runs.filter((r) => r.method !== 'final').length
+  });
+
+  // legend swatches: color by series index
+  for (const sw of document.querySelectorAll('.bp [data-series]')) {
+    sw.style.background = dash.colors[+sw.dataset.series % dash.colors.length];
+  }
+
+  // controls: listen, keep the choice, redraw
+  const onSel = (id, key, num, draw) => {
+    for (const el of document.querySelectorAll('#' + id)) {
+      el.addEventListener('change', () => { window.BP.sel[key] = num ? +el.value : el.value; dash.draw(draw); });
+    }
+  };
+  onSel('tps-n', 'tpsN', true, 'tpsChart');
+  onSel('res-n', 'resN', true, 'resChart');
+  onSel('res-s', 'resS', false, 'resChart');
+  onSel('res-r', 'resR', true, 'resChart');
+</script>
+
+<script>
+  // generic value drawing: data-source + optional data-field/data-where (key=...), data-fmt pct|gib
+  dash.draw('v', (el) => {
+    const src = dash.data(el.dataset.source);
+    if (src.status !== 'ok' || src.data == null) { el.textContent = '—'; return; }
+    let v = src.data;
+    if (el.dataset.field) {
+      const w = (el.dataset.where || '').split('=');
+      const key = decodeURIComponent(w.slice(1).join('='));
+      const row = Array.isArray(src.data) ? src.data.find((r) => String(r[w[0]]) === key) : null;
+      v = row ? row[el.dataset.field] : null;
+    }
+    if (v == null || v === '') { el.textContent = '—'; return; }
+    const f = el.dataset.fmt;
+    el.textContent = f === 'pct' ? v + '%' : f === 'gib' ? (+v).toFixed(2) : String(v);
+  });
+
+  const tipAt = (box, html, x, y) => {
+    let tip = box.querySelector('.bp-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'bp-tip'; box.appendChild(tip); }
+    tip.innerHTML = html;
+    tip.hidden = false;
+    const bw = box.clientWidth, tw = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(bw - tw, x + 12)) + 'px';
+    tip.style.top = Math.max(0, y - tip.offsetHeight - 10) + 'px';
+  };
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const failed = (el, st) => { el.replaceChildren(); el.textContent = st === 'error' ? '加载失败' : '—'; };
+
+  // capacity vs vCPU
+  dash.draw('capChart', (el) => {
+    const s = dash.data('summary');
+    if (s.status !== 'ok' || !Array.isArray(s.data) || !s.data.length) { failed(el, s.status); return; }
+    const rows = s.data, servers = window.BP.servers, vcpus = window.BP.vcpus;
+    const W = el.clientWidth || 600, H = 340, m = { t: 12, r: 16, b: 34, l: 44 };
+    const x = d3.scalePoint().domain(vcpus).range([m.l, W - m.r]).padding(0.4);
+    const ymax = d3.max(rows, (r) => r.max) || 100;
+    const y = d3.scaleLinear().domain([0, Math.ceil(ymax / 20) * 20 + 10]).range([H - m.b, m.t]);
+    const dodge = Math.min(10, x.step() / 9);
+    const dx = (sv) => (servers.indexOf(sv) - 2) * dodge;
+    el.replaceChildren();
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('role', 'img').attr('aria-label', '5 种服务端在 1 到 32 vCPU 下的容量中位数与范围');
+    svg.append('g').attr('class', 'bp-grid').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(6).tickSize(-(W - m.l - m.r)).tickFormat(''));
+    svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickFormat((d) => d + ' vCPU'));
+    svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(6));
+    svg.append('text').attr('x', m.l).attr('y', m.t - 2).text('bot 数');
+    for (const sv of servers) {
+      const rs = rows.filter((r) => r.server === sv).sort((a, b) => a.vcpu - b.vcpu);
+      const c = window.BP.color(sv);
+      svg.append('path').datum(rs).attr('fill', 'none').style('stroke', c).attr('stroke-width', 2)
+        .attr('d', d3.line().x((r) => x(r.vcpu) + dx(sv)).y((r) => y(r.median)));
+      const g = svg.append('g');
+      g.selectAll('line').data(rs).join('line').style('stroke', c).attr('stroke-width', 2).attr('stroke-linecap', 'round')
+        .attr('x1', (r) => x(r.vcpu) + dx(sv)).attr('x2', (r) => x(r.vcpu) + dx(sv)).attr('y1', (r) => y(r.min)).attr('y2', (r) => y(r.max));
+      g.selectAll('circle').data(rs).join('circle').attr('r', 4.5).style('fill', c).style('stroke', 'var(--color-bg)').attr('stroke-width', 2)
+        .attr('cx', (r) => x(r.vcpu) + dx(sv)).attr('cy', (r) => y(r.median));
+    }
+    const hit = svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent');
+    hit.on('pointermove', (ev) => {
+      const [px] = d3.pointer(ev);
+      const n = vcpus.reduce((a, b) => (Math.abs(x(b) - px) < Math.abs(x(a) - px) ? b : a));
+      const lines = servers.map((sv) => rows.find((r) => r.vcpu === n && r.server === sv)).filter(Boolean)
+        .map((r) => `<span style="color:${window.BP.color(r.server)}">●</span> ${esc(r.server)}：<b>${r.median}</b>（${esc(r.perRep)}）`);
+      tipAt(el, `<b>${n} vCPU</b><br>${lines.join('<br>')}`, x(n), m.t + 90);
+    }).on('pointerleave', () => { const t = el.querySelector('.bp-tip'); if (t) t.hidden = true; });
+  });
+
+  // TPS vs bots for one vCPU tier
+  dash.draw('tpsChart', (el) => {
+    const c = dash.data('curves');
+    if (c.status !== 'ok' || !Array.isArray(c.data) || !c.data.length) { failed(el, c.status); return; }
+    const n = window.BP.sel.tpsN;
+    const pts = c.data.filter((r) => +r.vcpu === n && +r.bots > 0);
+    const byRun = d3.groups(pts, (r) => r.run);
+    const W = el.clientWidth || 600, H = 360, m = { t: 14, r: 16, b: 36, l: 44 };
+    const x = d3.scaleLinear().domain([0, (d3.max(pts, (r) => +r.bots) || 100) + 4]).nice().range([m.l, W - m.r]);
+    const ylo = Math.min(12, Math.floor(d3.min(pts, (r) => +r.tps) || 12));
+    const y = d3.scaleLinear().domain([ylo, 20.5]).range([H - m.b, m.t]);
+    el.replaceChildren();
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('role', 'img').attr('aria-label', `${n} vCPU 下每次运行的每分钟平均 TPS 随 bot 数变化`);
+    svg.append('g').attr('class', 'bp-grid').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(6).tickSize(-(W - m.l - m.r)).tickFormat(''));
+    svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(Math.max(3, Math.floor(W / 80))));
+    svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(6));
+    svg.append('text').attr('x', W - m.r).attr('y', H - 4).attr('text-anchor', 'end').text('在线 bot 数');
+    svg.append('text').attr('x', m.l).attr('y', m.t - 4).text('TPS');
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(15)).attr('y2', y(15)).style('stroke', 'var(--cds-chart-status-critical)').attr('stroke-dasharray', '4 3');
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(20)).attr('y2', y(20)).style('stroke', 'var(--cds-chart-reference)');
+    const line = d3.line().x((r) => x(+r.bots)).y((r) => y(+r.tps));
+    for (const [, rs] of byRun) {
+      rs.sort((a, b) => +a.minute - +b.minute);
+      svg.append('path').datum(rs).attr('fill', 'none').style('stroke', window.BP.color(rs[0].server)).attr('stroke-width', 1.4).attr('stroke-opacity', 0.75).attr('d', line);
+    }
+    const dot = svg.append('circle').attr('r', 4).style('fill', 'var(--color-fg)').attr('visibility', 'hidden');
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const [px, py] = d3.pointer(ev);
+        let best = null, bd = Infinity;
+        for (const r of pts) { const d = (x(+r.bots) - px) ** 2 + (y(+r.tps) - py) ** 2; if (d < bd) { bd = d; best = r; } }
+        if (!best) return;
+        dot.attr('cx', x(+best.bots)).attr('cy', y(+best.tps)).attr('visibility', 'visible');
+        tipAt(el, `<span style="color:${window.BP.color(best.server)}">●</span> <b>${esc(best.server)}</b> 第 ${best.rep} 次<br>${best.bots} 个 bot · 第 ${best.minute} 分钟<br>TPS <b>${(+best.tps).toFixed(2)}</b> · tick p99 ${best.tickP99Ms} ms`, x(+best.bots), y(+best.tps));
+      })
+      .on('pointerleave', () => { dot.attr('visibility', 'hidden'); const t = el.querySelector('.bp-tip'); if (t) t.hidden = true; });
+  });
+
+  // resources over time for one run: small multiples, one axis each
+  dash.draw('resChart', (el) => {
+    const c = dash.data('curves');
+    if (c.status !== 'ok' || !Array.isArray(c.data) || !c.data.length) { failed(el, c.status); return; }
+    const { resN, resS, resR } = window.BP.sel;
+    const rs = c.data.filter((r) => +r.vcpu === resN && r.server === resS && +r.rep === resR).sort((a, b) => +a.minute - +b.minute);
+    el.replaceChildren();
+    if (!rs.length) { el.textContent = '这组选择没有数据。'; return; }
+    const col = window.BP.color(resS);
+    const panels = [
+      ['在线 bot 数', 'bots', (v) => v, 0],
+      ['每分钟平均 TPS', 'tps', (v) => (+v).toFixed(2), null],
+      ['tick 间隔 p99 (ms)', 'tickP99Ms', (v) => v, 0],
+      ['服务端 CPU (核)', 'serverCores', (v) => (+v).toFixed(2), 0],
+      ['主线程占用 (%)', 'mainThreadUtil', (v) => (v * 100).toFixed(0) + '%', 0, 100],
+      ['服务端内存 RSS (GiB)', 'rssMiB', (v) => (v / 1024).toFixed(2), 0],
+      ['bot CPU (核)', 'botCores', (v) => (+v).toFixed(1), 0]
+    ];
+    for (const [label, field, fmt, y0] of panels) {
+      const box = document.createElement('div'); box.className = 'bp-panel';
+      const h = document.createElement('h4'); h.textContent = label; box.appendChild(h);
+      el.appendChild(box);
+      const W = box.clientWidth || 300, H = 150, m = { t: 6, r: 10, b: 24, l: 46 };
+      const val = (r) => (field === 'mainThreadUtil' ? +r[field] * 100 : field === 'rssMiB' ? +r[field] / 1024 : +r[field]);
+      const ok = rs.filter((r) => r[field] != null);
+      const x = d3.scaleLinear().domain(d3.extent(rs, (r) => +r.minute)).range([m.l, W - m.r]);
+      const ext = d3.extent(ok, val);
+      const y = d3.scaleLinear().domain([y0 == null ? Math.min(15, ext[0]) : y0, Math.max(ext[1], field === 'tps' ? 20.2 : 0) || 1]).nice().range([H - m.b, m.t]);
+      const svg = d3.select(box).append('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`)
+        .attr('role', 'img').attr('aria-label', `${resN} vCPU ${resS} 第 ${resR} 次：${label}随时间变化`);
+      svg.append('g').attr('class', 'bp-grid').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(3).tickSize(-(W - m.l - m.r)).tickFormat(''));
+      svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(Math.max(3, Math.floor(W / 70))).tickFormat((d) => d + ' 分'));
+      svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(3));
+      if (field === 'tps') svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(15)).attr('y2', y(15)).style('stroke', 'var(--cds-chart-status-critical)').attr('stroke-dasharray', '4 3');
+      svg.append('path').datum(ok).attr('fill', 'none').style('stroke', col).attr('stroke-width', 1.6).attr('d', d3.line().x((r) => x(+r.minute)).y((r) => y(val(r))));
+      const dot = svg.append('circle').attr('r', 3.5).style('fill', col).attr('visibility', 'hidden');
+      svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+        .on('pointermove', (ev) => {
+          const [px] = d3.pointer(ev);
+          const mi = Math.round(x.invert(px));
+          const r = ok.find((q) => +q.minute === mi) || ok[d3.bisector((q) => +q.minute).center(ok, mi)];
+          if (!r) return;
+          dot.attr('cx', x(+r.minute)).attr('cy', y(val(r))).attr('visibility', 'visible');
+          tipAt(box, `第 ${r.minute} 分钟 · ${r.bots} 个 bot<br>${esc(label)}：<b>${fmt(r[field])}</b>`, x(+r.minute), y(val(r)) + 20);
+        })
+        .on('pointerleave', () => { dot.attr('visibility', 'hidden'); const t = box.querySelector('.bp-tip'); if (t) t.hidden = true; });
+    }
+  });
+
+  // summary table
+  dash.draw('tbl', (el) => {
+    const s = dash.data('summary');
+    el.replaceChildren();
+    if (s.status !== 'ok' || !Array.isArray(s.data)) return;
+    let last = null;
+    for (const r of s.data) {
+      const tr = document.createElement('tr'); tr.dataset.key = r.key;
+      if (last !== null && r.vcpu !== last) tr.className = 'bp-first';
+      last = r.vcpu;
+      for (const v of [r.vcpu, r.server, r.perRep, r.median, r.range, r.rssPeakGiB.toFixed(2), r.memLimitGiB, r.memPct + '%']) {
+        const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+      }
+      el.appendChild(tr);
+    }
+  });
+
+  // per-run table
+  dash.draw('runsTbl', (el) => {
+    const s = dash.data('runs');
+    el.replaceChildren();
+    if (s.status !== 'ok' || !Array.isArray(s.data)) return;
+    for (const r of s.data) {
+      const tr = document.createElement('tr'); tr.dataset.key = r.run;
+      for (const [i, v] of [r.vcpu, r.server, r.rep, r.maxBots, (+r.rssPeakGiB).toFixed(2), r.steps, r.invalidSteps, r.machine, r.serverCpus, r.method].entries()) {
+        const td = document.createElement('td'); td.textContent = v;
+        if (i === 9 && v !== 'final') td.className = 'bp-flag';
+        tr.appendChild(td);
+      }
+      el.appendChild(tr);
+    }
+  });
+</script>

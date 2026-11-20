@@ -1,0 +1,10 @@
+{
+  "runId": "20261116-201726-quick-walk",
+  "config": "quick-walk",
+  "maxPlayers": [
+    70
+  ],
+  "maxPlayersMedian": 70,
+  "capped": false,
+  "loadgenLimited": true
+}

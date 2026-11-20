@@ -1,0 +1,24 @@
+[bedperf] hm1-host-20004 listening on 10.0.0.11:20004
+bedperf agent hm1-host-20004 listening on 10.0.0.11:20004 (224 CPUs for bots)
+[bedperf] controller 10.0.0.11:44094 connected
+[bedperf] controller 10.0.0.11:44094 gone (controller said bye)
+[bedperf] controller 10.0.0.11:59386 connected
+[bedperf] controller 10.0.0.11:59386 gone (controller said bye)
+[bedperf] controller 10.0.0.11:46984 connected
+[bedperf] controller 10.0.0.11:46984 gone (controller said bye)
+[bedperf] controller 10.0.0.11:49096 connected
+[bedperf] controller 10.0.0.11:49096 gone (connection closed); killed 4 worker(s)
+[bedperf] controller 10.0.0.11:33646 connected
+[bedperf] controller 10.0.0.11:33646 gone (controller said bye)
+[bedperf] controller 10.0.0.11:53552 connected
+[bedperf] controller 10.0.0.11:53552 gone (controller said bye)
+[bedperf] stopping
+[bedperf] hm1-host-20004 listening on 10.0.0.11:20004
+bedperf agent hm1-host-20004 listening on 10.0.0.11:20004 (120 CPUs for bots)
+[bedperf] controller 10.0.0.11:54792 connected
+[bedperf] controller 10.0.0.11:54792 gone (controller said bye)
+[bedperf] stopping
+[bedperf] hm1-host-20004 listening on 10.0.0.11:20004
+bedperf agent hm1-host-20004 listening on 10.0.0.11:20004 (139 CPUs for bots)
+[bedperf] controller 10.0.0.11:57212 connected
+[bedperf] controller 10.0.0.11:57212 gone (controller said bye)

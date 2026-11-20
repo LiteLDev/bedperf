@@ -1,0 +1,29 @@
+[bedperf] hm1-host-20003 listening on 10.0.0.11:20003
+bedperf agent hm1-host-20003 listening on 10.0.0.11:20003 (224 CPUs for bots)
+[bedperf] controller 10.0.0.11:51868 connected
+[bedperf] controller 10.0.0.11:51868 gone (controller said bye)
+[bedperf] controller 10.0.0.11:42052 connected
+[bedperf] controller 10.0.0.11:42052 gone (controller said bye)
+[bedperf] controller 10.0.0.11:50664 connected
+[bedperf] controller 10.0.0.11:50664 gone (controller said bye)
+[bedperf] controller 10.0.0.11:49108 connected
+[bedperf] controller 10.0.0.11:49108 gone (controller said bye)
+[bedperf] controller 10.0.0.11:43670 connected
+[bedperf] controller 10.0.0.11:43670 gone (connection closed); killed 4 worker(s)
+[bedperf] controller 10.0.0.11:48330 connected
+[bedperf] controller 10.0.0.11:48330 gone (controller said bye)
+[bedperf] controller 10.0.0.11:54132 connected
+[bedperf] controller 10.0.0.11:54132 gone (socket error: read ECONNRESET); killed 42 worker(s)
+[bedperf] controller 10.0.0.11:49484 connected
+[bedperf] stopping
+[bedperf] controller 10.0.0.11:49484 gone (agent closing); killed 54 worker(s)
+[bedperf] hm1-host-20003 listening on 10.0.0.11:20003
+bedperf agent hm1-host-20003 listening on 10.0.0.11:20003 (120 CPUs for bots)
+[bedperf] denied 10.0.0.11:54014: harness mismatch: agent runs bedperf 5030b9c46619, controller 4aee7d0f2f34 (use the same commit or allowHarnessMismatch)
+[bedperf] controller 10.0.0.11:36286 connected
+[bedperf] controller 10.0.0.11:36286 gone (controller said bye)
+[bedperf] stopping
+[bedperf] hm1-host-20003 listening on 10.0.0.11:20003
+bedperf agent hm1-host-20003 listening on 10.0.0.11:20003 (130 CPUs for bots)
+[bedperf] controller 10.0.0.11:39222 connected
+[bedperf] controller 10.0.0.11:39222 gone (controller said bye)

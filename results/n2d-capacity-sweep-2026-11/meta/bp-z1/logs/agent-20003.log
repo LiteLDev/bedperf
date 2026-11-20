@@ -1,0 +1,4 @@
+[bedperf] z1-host-20003 listening on 10.0.0.21:20003
+bedperf agent z1-host-20003 listening on 10.0.0.21:20003 (224 CPUs for bots)
+[bedperf] controller 10.0.0.21:50912 connected
+[bedperf] controller 10.0.0.21:50912 gone (controller said bye)

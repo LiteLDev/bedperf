@@ -1,0 +1,29 @@
+[bedperf] installing bds (wine) on BDS 1.26.60.6 (lip downloads; this can take minutes)
+[bedperf] downloading https://github.com/LiteLDev/lip/releases/download/v0.41.0/lip-0.41.0-linux-x64.tar.xz
+[bedperf] 0.41.0
+[bedperf] installing bds (wine) (BDS 1.26.60.6) with lip 0.41.0 into ~/.cache/bedperf/servers/bds-wine-3bcb555a21e9/server
+[bedperf] Resolving bds@1.26.60...
+[bedperf] Setting up the game 1.26.60 (windows) without a loader.
+[bedperf] Caching file for key 
+[bedperf] 'http-829445c3fe91ff127d32f71921440f5b306423c3746bca3df84fb12c67ea107f'...
+[bedperf] Downloading 
+[bedperf] https://www.minecraft.net/bedrockdedicatedserver/bin-win/bedrock-server-1.26.60.
+[bedperf] 6.zip: 80%
+[bedperf] lip runs the server with Wine 11.21, which it installs once for every workspace,
+[bedperf] into ~/.local/share/lip/wine/wine-11.21-amd64-wow64.
+[bedperf] Downloading 
+[bedperf] https://github.com/Kron4ek/Wine-Builds/releases/download/11.21/wine-11.21-amd64-
+[bedperf] wow64.tar.xz: 99%
+[bedperf] Extracting Wine 11.21: 0%
+[bedperf] Extracting Wine 11.21: 31%
+[bedperf] Extracting Wine 11.21: 51%
+[bedperf] Extracting Wine 11.21: 77%
+[bedperf] Extracting Wine 11.21: 95%
+[bedperf] Installing bds 1.26.60
+[bedperf] ✓ The server is set up. Run it with 'lip run', or install mods with 'lip 
+[bedperf] install'.
+[bedperf] wine-11.21
+bds (wine) (BDS 1.26.60.6, win build) ready at ~/.cache/bedperf/servers/bds-wine-3bcb555a21e9/server
+  bds                    1.26.60.6 sha256:21620db4f80d0fe2…
+  lip                    0.41.0 sha256:95a33672e034e73c…
+  wine                   11.21 sha256:813c60328ab01f2a…
