@@ -201,7 +201,7 @@ function serverSpec (v: Validator, raw: Obj, P: string): ServerSpec | undefined 
 
 const WORLD_KEYS = ['snapshot', 'seed', 'levelType'] as const
 const SCENARIO_KEYS = ['module', 'params'] as const
-const LOADGEN_KEYS = ['botsPerWorker', 'joinIntervalMs', 'connectRetries'] as const
+const LOADGEN_KEYS = ['botsPerWorker', 'joinIntervalMs', 'connectRetries', 'saturation'] as const
 
 /**
  * Validate a raw config object and fill defaults. Pure (no I/O). Throws `ConfigError`
@@ -274,6 +274,15 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
   // optional and not filled in, so configs without it keep their hash
   const connectRetries = v.num(lg, 'connectRetries', `${P}.loadgen`, { int: true, min: 0, max: 10 })
   if (connectRetries !== undefined) loadgen.connectRetries = connectRetries
+  // optional and not filled in either
+  const sat = v.obj(lg, 'saturation', `${P}.loadgen`)
+  if (sat !== undefined) {
+    const SP = `${P}.loadgen.saturation`
+    v.unknownKeys(sat, SP, ['eventLoopP99Ms', 'cpuPct'] as const)
+    const lag = v.num(sat, 'eventLoopP99Ms', SP, { min: 0, minExclusive: true })
+    const cpu = v.num(sat, 'cpuPct', SP, { min: 0, minExclusive: true, max: 100 })
+    loadgen.saturation = { ...(lag !== undefined ? { eventLoopP99Ms: lag } : {}), ...(cpu !== undefined ? { cpuPct: cpu } : {}) }
+  }
 
   // ramp
   const r = v.obj(raw, 'ramp', P) ?? {}
@@ -351,9 +360,12 @@ export function parseConfig (raw: unknown, source?: string): BenchmarkConfig {
   // gates
   const g = v.obj(raw, 'gates', P) ?? {}
   const GP = `${P}.gates`
-  v.unknownKeys(g, GP, GATES_KEYS)
-  const gates = { ...DEFAULT_GATES }
-  for (const k of GATES_KEYS) gates[k] = v.num(g, k, GP, { def: DEFAULT_GATES[k], min: 0 })!
+  v.unknownKeys(g, GP, [...GATES_KEYS, 'loadgenSaturatedMaxFraction'])
+  const gates: GatesConfig = { ...DEFAULT_GATES }
+  for (const k of GATES_KEYS) (gates as unknown as Record<string, number>)[k] = v.num(g, k, GP, { def: DEFAULT_GATES[k] as number, min: 0 })!
+  // optional and not filled in, so configs without it keep their hash
+  const satFrac = v.num(g, 'loadgenSaturatedMaxFraction', GP, { min: 0, max: 1 })
+  if (satFrac !== undefined) gates.loadgenSaturatedMaxFraction = satFrac
 
   // sampling
   const sm = v.obj(raw, 'sampling', P) ?? {}

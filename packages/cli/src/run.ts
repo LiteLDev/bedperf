@@ -440,7 +440,8 @@ function makeDeps (
       version: config.botVersion ?? config.bdsVersion,
       scenarioModule: p.scenario.module,
       // the engine points the bots at agents.botTargetHost
-      ...(p.scenario.name !== undefined ? { scenarioName: p.scenario.name } : {})
+      ...(p.scenario.name !== undefined ? { scenarioName: p.scenario.name } : {}),
+      ...(config.loadgen.saturation !== undefined ? { saturation: config.loadgen.saturation } : {})
     },
     serverBuild: p.server.build,
     logger: log,

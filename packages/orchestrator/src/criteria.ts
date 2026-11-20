@@ -190,7 +190,12 @@ export function evaluateStep (window: MeasuredWindow, criteria: PassCriteria, op
   const gates: GatesConfig = { ...DEFAULT_GATES, ...opts.gates }
   const probe = window.probe.filter(s => s.type === 'sample' && s.ticks >= 0 && s.windowMs > 0)
 
-  const loadgenSaturated = window.bots.some(b => b.loadgen.saturated)
+  // Saturated load generator reports in the hold: any (default), or more than gates.loadgenSaturatedMaxFraction.
+  const satCount = window.bots.filter(b => b.loadgen.saturated).length
+  const satMax = gates.loadgenSaturatedMaxFraction
+  const loadgenSaturated = satMax === undefined || window.bots.length === 0
+    ? satCount > 0
+    : satCount / window.bots.length > satMax
   if (loadgenSaturated) {
     reasons.push(LOADGEN_SATURATED_REASON)
     invalid.push(LOADGEN_SATURATED_REASON)
@@ -250,7 +255,8 @@ export function evaluateStep (window: MeasuredWindow, criteria: PassCriteria, op
     const base = window.botBaseline ?? window.bots[0]!
     botFailures = Math.max(0, failureCount(last) - failureCount(base))
     if (botFailures > criteria.maxBotFailures) reasons.push(`bot failures ${botFailures} > ${criteria.maxBotFailures}`)
-    if (window.players !== undefined && last.spawned < window.players) reasons.push(`only ${last.spawned}/${window.players} bots spawned`)
+    // Bots that never joined count against maxBotFailures as well (default 0: any shortfall fails the step).
+    if (window.players !== undefined && window.players - last.spawned > criteria.maxBotFailures) reasons.push(`only ${last.spawned}/${window.players} bots spawned`)
   }
   const rttMs = poolSummaries(window.bots.flatMap(b => b.rttMs === undefined ? [] : [b.rttMs]))
 
